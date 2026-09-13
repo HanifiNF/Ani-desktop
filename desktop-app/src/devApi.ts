@@ -100,6 +100,14 @@ export function installDevApi(): void {
         ? { provider: source.provider, episodes: [], error: "AniDB episode lookup failed (503)" }
         : { provider: source.provider, episodes: Array.from({ length: source.provider === "aniwave" ? 28 : 24 }, (_, index): Episode => ({ id: `${source.id}:${index + 1}`, number: String(index + 1), provider: source.provider })) }) };
     },
+    async seriesMetadata(anime) {
+      await wait(180);
+      const sources = animeSources(anime).filter((source) => enabledProviders(state.settings).includes(source.provider)).map((source) => ({
+        sourceId: source.id, provider: source.provider, genres: source.provider === "anidb" ? ["Adventure", "Fantasy"] : ["Adventure", "Drama", "Fantasy"],
+        availableEpisodes: source.provider === "aniwave" ? 28 : 24, announcedEpisodes: source.provider === "aniwave" ? 28 : undefined, checkedAt: Date.now()
+      }));
+      return { sources, genres: [...new Set(sources.flatMap((source) => source.genres))].sort() };
+    },
     async episodeMetadata() { return undefined; },
     async clearEpisodeMetadata() {},
     async fetchBookmarkMetadata() { throw new Error("Bookmark metadata fetching is available in the desktop app"); },

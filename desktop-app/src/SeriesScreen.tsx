@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { AnimeResult, Episode, EpisodeGroup, LibraryEntry, ProviderName, TranslationMode } from "../shared/contracts";
+import type { AnimeResult, Episode, EpisodeGroup, LibraryEntry, ProviderName, SeriesMetadataCatalog, TranslationMode } from "../shared/contracts";
 import { animeSources, providerFromId } from "../shared/catalog";
 import { PLAYBACK_QUALITIES as QUALITIES } from "../shared/settings";
 import { episodeRowsOf, type EpisodeRow, type EpisodeFilter, type EpisodeSort } from "./episodes";
@@ -17,6 +17,7 @@ interface Props {
   mode: TranslationMode; quality: string; lastQuery: string; busy?: string; resolving: boolean;
   pendingSources: ProviderName[]; sourceErrors: Partial<Record<ProviderName, string>>;
   episodeGroups: EpisodeGroup[]; episodeRows: EpisodeRow[]; episodeCount: number;
+  seriesMetadata?: SeriesMetadataCatalog;
   nextUp?: EpisodeRow; episodeFilter: EpisodeFilter; episodeSort: EpisodeSort; jump: string;
   playingId?: string; status?: PlayStatus; metadata: ReturnType<typeof useEpisodeMetadata>; listRef: RefObject<HTMLDivElement | null>;
   onPlay: (episode: Episode) => void; onBookmark: () => void; onBack: () => void;
@@ -27,11 +28,23 @@ interface Props {
 }
 
 export default function SeriesScreen({ anime, progress, isSaved, player, mode, quality, lastQuery, busy, resolving,
-  pendingSources, sourceErrors, episodeGroups, episodeRows, episodeCount, nextUp, episodeFilter, episodeSort,
+  pendingSources, sourceErrors, episodeGroups, episodeRows, seriesMetadata, nextUp, episodeFilter, episodeSort,
   jump, playingId, status, metadata, listRef, onPlay, onBookmark, onBack, onMode, onQuality, onCheckSources, onRefreshSources,
   onJump, onWatched, onWatchedAll, onDismissStatus, reorder }: Props) {
   const hasEpisodes = episodeGroups.some((group) => group.episodes.length);
   const allWatched = hasEpisodes && episodeRowsOf(episodeGroups, progress, "unwatched", "oldest").length === 0;
+  const counts = (kind: "available" | "announced"): string => {
+    const values = animeSources(anime).flatMap((source) => {
+      const live = kind === "available" ? episodeGroups.find((group) => group.provider === source.provider && group.episodes.length)?.episodes.length : undefined;
+      const stored = seriesMetadata?.sources.find((item) => item.sourceId === source.id)
+        ?? seriesMetadata?.sources.find((item) => item.provider === source.provider);
+      const value = live ?? (kind === "available" ? stored?.availableEpisodes : stored?.announcedEpisodes);
+      return value ? [{ provider: source.provider, value }] : [];
+    }).filter((item, index, all) => all.findIndex((other) => other.provider === item.provider) === index);
+    if (!values.length) return kind === "available" && busy ? "…" : "Unknown";
+    return values.every((item) => item.value === values[0].value) ? String(values[0].value)
+      : values.map((item) => `${item.provider} ${item.value}`).join(" · ");
+  };
   return (
     <div className="series">
       <aside className="side">
@@ -41,6 +54,9 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
           <button type="button" className="btn" onClick={() => onBookmark()} aria-pressed={isSaved}>{isSaved ? "Saved" : "Save"}<Icon name="bookmark" className={isSaved ? "fill" : undefined} /></button>
           <button type="button" className="btn" disabled={!hasEpisodes || allWatched} onClick={() => onWatchedAll()} title="Record every episode on every source as watched">{allWatched ? "All watched" : "Mark all watched"}<Icon name="check" /></button>
         </div>
+        {seriesMetadata?.genres.length ? <div className="genre-bubbles" aria-label="Genres">
+          {seriesMetadata.genres.map((genre) => <span key={genre.toLocaleLowerCase()}>{genre}</span>)}
+        </div> : null}
         <div className="prefs">
           <Chips label="Audio" value={mode} options={["sub", "dub"] as const} onChange={onMode} />
           <Chips label="Quality" value={QUALITIES.includes(quality) ? quality : "best"} options={QUALITIES.slice(0, 4)} onChange={onQuality} />
@@ -55,7 +71,8 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
           {animeSources(anime).find((source) => source.title !== anime.title) && <span>{animeSources(anime).find((source) => source.title !== anime.title)!.title}</span>}
         </div>
         <div className="facts">
-          <div><small>Episodes</small>{episodeCount || (busy ? "…" : "none")}</div>
+          <div><small>Available episodes</small>{counts("available")}</div>
+          <div><small>Announced total</small>{counts("announced")}</div>
           <div><small>Progress</small>{progress ? `${progress.completed === false ? "Started" : "Watched through"} ${progress.lastEpisode}` : "Not started"}</div>
           <div><small>Last source</small>{progress ? `${progress.lastProvider ?? providerFromId(progress.animeId)} · ${progress.mode}` : "—"}</div>
           <div><small>Plays in</small>{player}</div>

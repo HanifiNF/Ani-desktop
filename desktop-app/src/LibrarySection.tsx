@@ -1,6 +1,7 @@
-import type { LibraryEntry } from "../shared/contracts";
+import { useEffect, useRef } from "react";
+import type { LibraryEntry, SeriesMetadataCatalog } from "../shared/contracts";
+import { animeSources, providerFromId } from "../shared/catalog";
 import type { LibraryKind, LibraryRow } from "./library";
-import { episodeValue } from "./episodes";
 import Art from "./Art";
 import { Icon } from "./icons";
 import { stagger } from "./transition";
@@ -23,20 +24,37 @@ interface CardActions {
   onFocus: (index: number) => void;
   canMerge: (entry: LibraryEntry) => boolean;
   onMerge: (entry: LibraryEntry) => void;
+  metadataFor: (entry: LibraryEntry) => SeriesMetadataCatalog | undefined;
+  onMetadata: (entry: LibraryEntry) => void;
 }
 
-function LibraryCard({ row, index, order, current, onActivate, onRemove, onFocus, canMerge, onMerge }: CardActions & { row: LibraryRow; index: number; order: number; current: boolean }) {
+function LibraryCard({ row, index, order, current, onActivate, onRemove, onFocus, canMerge, onMerge, metadataFor, onMetadata }: CardActions & { row: LibraryRow; index: number; order: number; current: boolean }) {
   const { entry } = row;
-  const next = entry.completed === false ? entry.lastEpisode : String(Number.isFinite(episodeValue(entry.lastEpisode)) ? episodeValue(entry.lastEpisode) + 1 : entry.lastEpisode);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let requested = false;
+    const load = () => { if (!requested) { requested = true; onMetadata(entry); } };
+    const observer = "IntersectionObserver" in window ? new IntersectionObserver((records) => {
+      if (records.some((record) => record.isIntersecting)) { observer?.disconnect(); load(); }
+    }, { rootMargin: "160px" }) : undefined;
+    if (observer && ref.current) observer.observe(ref.current); else load();
+    return () => observer?.disconnect();
+  }, [entry, onMetadata]);
+  const provider = entry.lastProvider ?? providerFromId(entry.animeId);
+  const watched = entry.progressByProvider?.[provider]?.lastEpisode ?? entry.lastEpisode;
+  const sourceId = animeSources(entry).find((source) => source.provider === provider)?.id;
+  const metadata = metadataFor(entry);
+  const available = metadata?.sources.find((source) => source.sourceId === sourceId)?.availableEpisodes
+    ?? metadata?.sources.find((source) => source.provider === provider)?.availableEpisodes;
   const progress = Object.entries(entry.progressByProvider ?? {}).map(([name, value]) => `${name} ${value?.lastEpisode}`).join(" · ");
-  const sub = row.kind === "recent" ? when(entry.updatedAt)
-    : row.kind === "continue" ? `Ep ${entry.lastEpisode} · ${when(entry.updatedAt)}`
+  const sub = row.kind === "recent" ? `${entry.completed === false ? `Started ${watched} · ` : ""}${when(entry.updatedAt)}`
+    : row.kind === "continue" ? `${entry.completed === false ? "Started" : "Watched through"} ${watched} · ${when(entry.updatedAt)}`
     : `${entry.completed === false ? "Started" : "Watched through"} ${progress || entry.lastEpisode}`;
   const label = row.kind === "saved" ? `open ${entry.title}` : entry.completed === false ? `resume ${entry.title}` : `play next episode of ${entry.title}`;
-  return <div className={`card ${current ? "cur" : ""}`} data-cursor={current} style={stagger(order, 10)}>
+  return <div ref={ref} className={`card ${current ? "cur" : ""}`} data-cursor={current} style={stagger(order, 10)}>
     <button type="button" className="hit" onClick={() => onActivate(row)} onFocus={() => { if (index >= 0) onFocus(index); }} aria-label={label}>
       <Art src={entry.poster} className="poster" />
-      <span className="badges"><span className="badge hi">EP {next}</span><span className="badge">{entry.mode.toUpperCase()}</span></span>
+      <span className="badges"><span className="badge hi">EP {watched}/{available ?? "?"}</span><span className="badge">{entry.mode.toUpperCase()}</span></span>
     </button>
     <span className="t">{entry.title}</span><span className="s">{sub}</span>
     <span className="card-acts">

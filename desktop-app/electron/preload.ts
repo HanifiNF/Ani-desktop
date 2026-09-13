@@ -92,6 +92,7 @@ const api: AniDesktopApi = {
   search: (query, provider, request, update) => catalogInvoke("catalog:search", [query, provider], request, update),
   resolveSources: (anime, request, update) => catalogInvoke("catalog:resolve", [anime], request, update),
   episodes: (anime, request, update) => catalogInvoke("catalog:episodes", [anime], request, update),
+  seriesMetadata: (anime, request, update) => catalogInvoke("catalog:series-metadata", [anime], request, update),
   streams: (episodeId, mode, request) => catalogInvoke("catalog:streams", [episodeId, mode], request),
   availability: (episodeId, request) => catalogInvoke("catalog:availability", [episodeId], request),
   episodeMetadata: (id) => ipcRenderer.invoke("catalog:metadata", id),

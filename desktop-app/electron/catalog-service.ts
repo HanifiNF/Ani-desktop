@@ -16,6 +16,23 @@ export class CatalogService {
   private dirty = false;
   private readonly retention = 7 * 24 * 60 * 60_000;
 
+  cachedEpisodeCount(sourceId: string, config: SourceConfig): number | undefined {
+    const cached = this.episodesCache.get(`${catalogScope(config)}:${sourceId}`);
+    return cached && Date.now() - cached.at < this.retention ? cached.episodes.length : undefined;
+  }
+
+  async availableEpisodeCount(sourceId: string, config: SourceConfig): Promise<number | undefined> {
+    const cached = this.cachedEpisodeCount(sourceId, config);
+    if (cached !== undefined) return cached;
+    const episodes = await getProviderEpisodes(sourceId, config);
+    catalogContext.getStore()?.signal.throwIfAborted();
+    const key = `${catalogScope(config)}:${sourceId}`;
+    this.episodesCache.delete(key); this.episodesCache.set(key, { episodes, at: Date.now() });
+    this.trim(); this.dirty = true;
+    if (this.cachePath && !this.timer) this.timer = setTimeout(() => { void this.flush(); }, 250);
+    return episodes.length || undefined;
+  }
+
   async load(path: string): Promise<void> {
     this.cachePath = path;
     try {

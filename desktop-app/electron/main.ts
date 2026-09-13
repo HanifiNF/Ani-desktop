@@ -1,6 +1,8 @@
 import type { PlayerDiagnosticEvent } from "../shared/player-diagnostics";
 import { CatalogService } from "./catalog-service";
 import { ScheduleService } from "./schedule-service";
+import { SeriesMetadataService } from "./series-metadata-service";
+import { validateSeriesMetadataRequest } from "./series-metadata-validation";
 import { validateScheduleAnimeId, validateScheduleQuery } from "./schedule-validation";
 import { catalogScope, sourceSettingsKey } from "../shared/settings";
 import { catalogContext, catalogRequests } from "./catalog-requests";
@@ -45,6 +47,10 @@ let refreshMenu: () => void = () => undefined;
 const APP_PARTITION = "ani-desktop";
 
 const catalogService = new CatalogService();
+const seriesMetadataService = new SeriesMetadataService(
+  (sourceId, config) => catalogService.cachedEpisodeCount(sourceId, config),
+  (sourceId, config) => catalogService.availableEpisodeCount(sourceId, config)
+);
 const scheduleService = new ScheduleService();
 const catalogConsumers = new Map<string, AbortController>();
 const catalogSenders = new WeakSet<Electron.WebContents>();
@@ -266,6 +272,10 @@ function registerIpc(): void {
     return catalogService.search(query, state.settings, provider ?? "auto", state.providerLinks, update);
   }));
   ipcMain.handle("catalog:episodes", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, (update) => catalogService.episodes(anime, store.snapshot().settings, update)));
+  ipcMain.handle("catalog:series-metadata", (event, anime: AnimeResult, request?: CatalogRequest) => {
+    const validated = validateSeriesMetadataRequest(anime);
+    return catalogCall(event, request, (update) => seriesMetadataService.metadata(validated, store.snapshot().settings, update));
+  });
   ipcMain.handle("catalog:resolve", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
     const state = store.snapshot();
     const linked = expandWithLinks(anime, state.providerLinks ?? []);
@@ -385,6 +395,7 @@ app.whenReady().then(async () => {
   store = new StateStore(join(app.getPath("userData"), "state.json"));
   await store.load();
   await catalogService.load(join(app.getPath("userData"), "episode-lists.json"));
+  await seriesMetadataService.load(join(app.getPath("userData"), "series-metadata.json"));
   episodeMetadata = new EpisodeMetadataCache(join(app.getPath("userData"), "episode-metadata.json"));
   bookmarkMetadata = new BookmarkMetadataFetcher(catalogService, episodeMetadata);
   await episodeMetadata.load();
@@ -428,5 +439,5 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   bookmarkMetadata.cancel();
   const timeout = setTimeout(() => app.quit(), 2000);
-  void Promise.allSettled([diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
+  void Promise.allSettled([diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
 });

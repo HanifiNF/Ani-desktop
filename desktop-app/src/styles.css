@@ -202,7 +202,9 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .schedule-row.past { opacity: .48; }
 .schedule-row.past:hover, .schedule-row.past:focus-visible { opacity: .72; }
 .schedule-art, .schedule-art > .art { display: block; width: 44px; height: 50px; border-radius: 6px; overflow: hidden; background: var(--raised2); }
+.schedule-copy { display: grid; min-width: 0; gap: 3px; text-align: left; }
 .schedule-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.schedule-copy small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px; }
 .schedule-episode { color: var(--muted); font-size: 13px; white-space: nowrap; }
 .schedule-row time { color: var(--text); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .schedule-state { padding: 24px 12px; color: var(--muted); text-align: center; }
@@ -240,6 +242,8 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .series .side .stack .btn { width: 100%; justify-content: space-between; height: 40px; }
 /* A finished state stays legible: muted text instead of a faded button. */
 .series .side .stack .btn:disabled:not(.primary) { opacity: 1; color: var(--muted); }
+.genre-bubbles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.genre-bubbles span { padding: 4px 8px; border-radius: 999px; background: var(--raised); color: var(--muted); font-size: 11px; line-height: 1.2; }
 .series .side .prefs { display: grid; gap: 12px; margin-top: 16px; }
 .series .side .prefs .chips-row { display: grid; gap: 6px; justify-items: start; }
 .series .side .prefs .chips { flex-wrap: wrap; max-width: 100%; }
@@ -251,7 +255,7 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .series .meta { display: flex; gap: 8px; color: var(--muted); font-size: 13px; align-items: center; flex-wrap: wrap; }
 .series .meta .tag { padding: 3px 8px; border-radius: 6px; background: var(--raised); color: var(--text); font-size: 12px; font-weight: 500; }
 .series .meta .tag.quiet { background: none; color: var(--muted); font-weight: 400; }
-.series .facts { display: flex; gap: 28px; margin-top: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+.series .facts { display: flex; flex-wrap: wrap; gap: 16px 28px; margin-top: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
 .series .facts div { font-size: 14px; }
 .series .facts small { display: block; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .ep-head { display: flex; align-items: center; gap: 12px; margin: 18px 0 12px; }

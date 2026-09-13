@@ -78,6 +78,7 @@ beforeEach(async () => {
       openExternal: vi.fn().mockResolvedValue(true), setActive: vi.fn().mockResolvedValue(undefined)
     },
     search, resolveSources: vi.fn(async (anime) => anime), clearSourceLinks: vi.fn(), getState: vi.fn().mockResolvedValue(state), episodes: vi.fn().mockResolvedValue({ groups: [{ provider: "aniwave", episodes: [{ id: "ep-1", number: "1", provider: "aniwave" }] }] }),
+    seriesMetadata: vi.fn().mockResolvedValue({ sources: [], genres: [] }),
     episodeMetadata: vi.fn().mockResolvedValue(undefined), clearEpisodeMetadata: vi.fn().mockResolvedValue(undefined),
     sourceStatus: vi.fn().mockResolvedValue([]), checkSource: vi.fn().mockResolvedValue(undefined), fetchBookmarkMetadata: vi.fn(),
     schedule: vi.fn<AniDesktopApi["schedule"]>(async (query) => ({ provider: "aniwave", requestedDate: query.date, supportedDates: [], entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" })),
@@ -351,6 +352,21 @@ describe("live catalog search", () => {
     }));
     expect(container.querySelectorAll('.eps .chk[aria-checked="true"]')).toHaveLength(3);
     expect(button().textContent).toBe("All watched"); expect(button().disabled).toBe(true);
+  });
+
+  it("shows unified genre bubbles and keeps announced totals separate from available episodes", async () => {
+    vi.mocked(api.seriesMetadata).mockResolvedValue({ genres: ["Adventure", "Fantasy"], sources: [
+      { sourceId: "aniwave:frieren-1", provider: "aniwave", genres: ["Adventure"], availableEpisodes: 11, announcedEpisodes: 14, checkedAt: Date.now() }
+    ] });
+    vi.mocked(api.episodes).mockResolvedValue({ groups: [{ provider: "aniwave", episodes: Array.from({ length: 11 }, (_, index) => ({ id: `ep-${index + 1}`, number: String(index + 1), provider: "aniwave" as const })) }] });
+    await type("frieren"); await advance(); await press("Enter");
+    await act(async () => { await Promise.resolve(); });
+    expect([...container.querySelectorAll(".genre-bubbles span")].map((node) => node.textContent)).toEqual(["Adventure", "Fantasy"]);
+    expect(container.querySelector(".genre-bubbles")?.previousElementSibling?.classList.contains("stack")).toBe(true);
+    expect(container.querySelector(".genre-bubbles")?.nextElementSibling?.classList.contains("prefs")).toBe(true);
+    const facts = container.querySelector(".facts")?.textContent;
+    expect(facts).toContain("Available episodes11");
+    expect(facts).toContain("Announced total14");
   });
 
   it("looks the series up on the other providers and merges their episodes into the grouped list", async () => {

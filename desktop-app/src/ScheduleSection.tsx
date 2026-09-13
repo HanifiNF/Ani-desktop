@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AnimeResult, Episode, LibraryEntry, ScheduleArtwork, ScheduleEntry, ScheduleResult, Settings, TranslationMode } from "../shared/contracts";
+import type { AnimeResult, Episode, LibraryEntry, ScheduleArtwork, ScheduleEntry, ScheduleResult, SeriesMetadataCatalog, Settings, TranslationMode } from "../shared/contracts";
 import { animeSources } from "../shared/catalog";
 import Art from "./Art";
 import { catalogRequestId } from "./catalog-request";
@@ -15,22 +15,21 @@ function libraryPoster(anime: AnimeResult, entries: LibraryEntry[]): string | un
     ?? entries.find((entry) => animeSources(entry).some((source) => [source.title, ...source.aliases].some((alias) => aliases.has(titleKey(alias)))))?.poster;
 }
 
-function LazyScheduleArt({ animeId, src, onArtwork }: { animeId: string; src?: string; onArtwork: (value: ScheduleArtwork) => void }) {
+function LazyScheduleArt({ anime, src, onArtwork, onVisible }: { anime: AnimeResult; src?: string; onArtwork: (value: ScheduleArtwork) => void; onVisible: (anime: AnimeResult) => void }) {
   const ref = useRef<HTMLSpanElement>(null);
   useEffect(() => {
-    if (src) return;
     const id = catalogRequestId("schedule-artwork");
     let requested = false;
     const load = () => {
-      if (requested) return; requested = true;
-      void window.aniDesktop.scheduleArtwork(animeId, { id, priority: "visible" }).then(onArtwork).catch(() => undefined);
+      if (requested) return; requested = true; onVisible(anime);
+      if (!src) void window.aniDesktop.scheduleArtwork(anime.id, { id, priority: "visible" }).then(onArtwork).catch(() => undefined);
     };
     const observer = "IntersectionObserver" in window ? new IntersectionObserver((records) => {
       if (records.some((record) => record.isIntersecting)) { observer?.disconnect(); load(); }
     }, { rootMargin: "160px" }) : undefined;
     if (observer && ref.current) observer.observe(ref.current); else load();
     return () => { observer?.disconnect(); window.aniDesktop.cancelCatalog(id); };
-  }, [animeId, src, onArtwork]);
+  }, [anime.id, src, onArtwork, onVisible]);
   return <span ref={ref} className="schedule-art"><Art src={src} /></span>;
 }
 
@@ -38,9 +37,11 @@ interface Props {
   settings: Settings;
   library: LibraryEntry[];
   onOpen: (anime: AnimeResult, episode: Episode, mode: TranslationMode) => void;
+  metadataFor?: (anime: AnimeResult) => SeriesMetadataCatalog | undefined;
+  onMetadata?: (anime: AnimeResult) => void;
 }
 
-export default function ScheduleSection({ settings, library, onOpen }: Props) {
+export default function ScheduleSection({ settings, library, onOpen, metadataFor = () => undefined, onMetadata = () => undefined }: Props) {
   const [now, setNow] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()));
   const [mode, setMode] = useState<TranslationMode>(settings.preferredMode);
@@ -111,11 +112,12 @@ export default function ScheduleSection({ settings, library, onOpen }: Props) {
         const poster = entry.anime.poster ?? libraryPoster(entry.anime, library) ?? extra?.poster;
         const sources = animeSources(entry.anime).map((source) => ({ ...source, aliases: [...new Set([...source.aliases, ...(extra?.aliases ?? [])])], poster: source.poster ?? poster }));
         const anime = { ...entry.anime, title: entry.anime.title || extra?.title || "Untitled", poster, sources };
+        const genres = metadataFor(anime)?.genres ?? [];
         const past = releaseHasPassed(entry.releaseAt, now);
         return <button type="button" className={`schedule-row ${past ? "past" : ""}`} key={`${entry.episode.id}:${entry.releaseAt}`}
           onClick={() => onOpen(anime, entry.episode, mode)} aria-label={`Open ${anime.title}, episode ${entry.episode.number}, ${new Date(entry.releaseAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}>
-          <LazyScheduleArt animeId={anime.id} src={poster} onArtwork={rememberArtwork} />
-          <span className="schedule-title">{anime.title}</span>
+          <LazyScheduleArt anime={anime} src={poster} onArtwork={rememberArtwork} onVisible={onMetadata} />
+          <span className="schedule-copy"><span className="schedule-title">{anime.title}</span>{genres.length ? <small>{genres.join(" · ")}</small> : null}</span>
           <span className="schedule-episode">Episode {entry.episode.number}</span>
           <time dateTime={entry.releaseAt}>{new Date(entry.releaseAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
         </button>;

@@ -1,5 +1,12 @@
 import type { AnimeResult, Episode, ProviderName, ScheduleArtwork, ScheduleEntry, Stream, TextTrackSource, TranslationMode } from "../shared/contracts";
 
+export interface SeriesMetadataFields { genres: string[]; availableEpisodes?: number; announcedEpisodes?: number; }
+
+const positiveInteger = (value: unknown): number | undefined => {
+  const number = typeof value === "number" ? value : typeof value === "string" && /^\s*\d+\s*$/.test(value) ? Number(value) : NaN;
+  return Number.isSafeInteger(number) && number > 0 ? number : undefined;
+};
+
 const decodeEntities = (value: string): string =>
   value
     .replaceAll("&#039;", "'")
@@ -7,6 +14,16 @@ const decodeEntities = (value: string): string =>
     .replaceAll("&amp;", "&")
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">");
+
+const cleanGenres = (values: unknown[]): string[] => {
+  const found = new Map<string, string>();
+  for (const raw of values) {
+    if (typeof raw !== "string") continue;
+    const value = decodeEntities(raw.replace(/<[^>]+>/g, "").trim());
+    if (value && value.length <= 80 && !found.has(value.toLocaleLowerCase())) found.set(value.toLocaleLowerCase(), value);
+  }
+  return [...found.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+};
 
 export function parseSearchPage(html: string): AnimeResult[] {
   const normalized = html.replace(/\r?\n/g, " ");
@@ -205,6 +222,15 @@ export function parseAniwaveTooltip(html: string, animeId: string): ScheduleArtw
   return { animeId, title, aliases: [...new Set([title, romanized && decodeEntities(romanized), ...other].filter((value): value is string => Boolean(value)))], poster };
 }
 
+export function parseAniwaveSeriesMetadata(html: string): SeriesMetadataFields {
+  const genreBlock = html.match(/<span>\s*Genre:\s*<\/span>\s*<span>([\s\S]*?)<\/span>/i)?.[1] ?? "";
+  const genres = cleanGenres([...genreBlock.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)].map((match) => match[1]));
+  const count = (className: string) => positiveInteger(html.match(new RegExp(`class=["'][^"']*\\b${className}\\b[^"']*["'][\\s\\S]*?<span[^>]*>\\s*(\\d+)\\s*<\\/span>`, "i"))?.[1]);
+  const sub = count("sub"), dub = count("dub");
+  const availableEpisodes = sub || dub ? Math.max(sub ?? 0, dub ?? 0) : undefined;
+  return { genres, availableEpisodes, announcedEpisodes: count("total") };
+}
+
 export function parseAniwavePoster(html: string): string | undefined {
   const raw = html.match(/<img\b[^>]*\bitemprop=["']image["'][^>]*(?:data-src|src)=["']([^"']+)["']/i)?.[1]
     ?? html.match(/<meta\b[^>]*\bproperty=["']og:image["'][^>]*\bcontent=["']([^"']+)["']/i)?.[1];
@@ -282,6 +308,49 @@ export function parseHiAnimeEpisodes(payload: unknown): Episode[] {
     episodes.set(slug, { id: `hianime:${slug}`, number: String(number), provider: "hianime" });
   }
   return [...episodes.values()].sort((a, b) => Number(a.number) - Number(b.number));
+}
+
+export function parseHiAnimeSeriesMetadata(payload: unknown): SeriesMetadataFields {
+  if (typeof payload === "string") {
+    try { return parseHiAnimeSeriesMetadata(JSON.parse(payload)); } catch { return { genres: [] }; }
+  }
+  if (!payload || typeof payload !== "object") return { genres: [] };
+  const root = payload as Record<string, unknown>;
+  const anime = root.anime && typeof root.anime === "object" ? root.anime as Record<string, unknown> : root;
+  const genres = cleanGenres(Array.isArray(anime.genres) ? anime.genres : []);
+  const episodes = Array.isArray(anime.episodes) ? anime.episodes.length : undefined;
+  const advertised = positiveInteger(anime.totalEpisodes) ?? positiveInteger(anime.totalSubbed) ?? positiveInteger(anime.totalSub);
+  return { genres, availableEpisodes: episodes && episodes > 0 ? episodes : advertised };
+}
+
+function metadataRecord(payload: unknown): Record<string, unknown> | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const record = payload as Record<string, unknown>;
+  for (const key of ["anime", "data", "result"]) {
+    const nested = metadataRecord(record[key]);
+    if (nested) return nested;
+  }
+  return record;
+}
+
+/** AniDB deployments have used multiple response envelopes; accept only explicit metadata fields. */
+export function parseAniDbSeriesMetadata(payload: unknown): SeriesMetadataFields {
+  if (typeof payload === "string") {
+    try { return parseAniDbSeriesMetadata(JSON.parse(payload)); } catch { return { genres: [] }; }
+  }
+  const record = metadataRecord(payload);
+  if (!record) return { genres: [] };
+  const rawGenres = record.genres ?? record.genre;
+  const genres = cleanGenres(Array.isArray(rawGenres) ? rawGenres.flatMap((item) => {
+    if (typeof item === "string") return [item];
+    if (item && typeof item === "object") {
+      const value = item as Record<string, unknown>;
+      return [value.name, value.title].filter((entry): entry is string => typeof entry === "string");
+    }
+    return [];
+  }) : typeof rawGenres === "string" ? rawGenres.split(",") : []);
+  const announcedEpisodes = positiveInteger(record.totalEpisodes) ?? positiveInteger(record.episodeCount) ?? positiveInteger(record.episodesCount);
+  return { genres, announcedEpisodes };
 }
 
 export function hiAnimeEmbedUrls(payload: unknown, mode: TranslationMode): string[] {

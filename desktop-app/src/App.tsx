@@ -12,7 +12,7 @@ import { applyTheme } from "./theme";
 import { bestQuality } from "../shared/episode-metadata";
 import { messageFrom } from "./errors";
 import { DEFAULT_STATE, catalogScope } from "../shared/settings";
-import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   AnimeResult,
   Episode,
@@ -30,6 +30,7 @@ import type {
 import { catalogRequestId } from "./catalog-request";
 import { useEpisodeMetadata } from "./useEpisodeMetadata";
 import { useAnimeSearch } from "./useAnimeSearch";
+import { useSeriesMetadata } from "./useSeriesMetadata";
 import { MINI_PLAYER_WIDTH, clampMiniPlayerWidth } from "../shared/contracts";
 import { animeSources, enabledProviders, expandWithLinks, likelyDuplicate, mergeKey, overlaps, sourceIds, unifyAnimeResults } from "../shared/catalog";
 import { Icon } from "./icons";
@@ -151,6 +152,15 @@ function App() {
   const selectEpisodeAt = (index: number) => setSelectedEpisodeId(episodeRows[index]?.episode.id);
   const sourceScope = catalogScope(appState.settings);
   const metadata = useEpisodeMetadata(listRef, screen === "series", episodeRows.map((row) => row.episode.id), episodeRows[selectedEpisodeIndex]?.episode.id, mode, sourceScope);
+  const seriesMetadata = useSeriesMetadata(`${sourceScope}|${enabledProviders(appState.settings).join(",")}`);
+  const linkedAnime = useCallback((anime: AnimeResult) => expandWithLinks(anime, appState.providerLinks ?? []), [appState.providerLinks]);
+  const libraryMetadata = useCallback((entry: LibraryEntry) => seriesMetadata.get(linkedAnime(asAnime(entry))), [linkedAnime, seriesMetadata.get]);
+  const loadLibraryMetadata = useCallback((entry: LibraryEntry) => seriesMetadata.load(linkedAnime(asAnime(entry)), "visible"), [linkedAnime, seriesMetadata.load]);
+  const scheduleMetadata = useCallback((anime: AnimeResult) => seriesMetadata.get(linkedAnime(anime)), [linkedAnime, seriesMetadata.get]);
+  const loadScheduleMetadata = useCallback((anime: AnimeResult) => seriesMetadata.load(linkedAnime(anime), "visible"), [linkedAnime, seriesMetadata.load]);
+  useEffect(() => {
+    if (screen === "series" && selectedAnime) seriesMetadata.load(linkedAnime(selectedAnime), "selected");
+  }, [screen, selectedAnime, linkedAnime, seriesMetadata.load]);
 
   // Anchor the first visible source row while asynchronous provider updates insert rows above it.
   const scrollAnchor = useRef<{ id: string; top: number } | undefined>(undefined);
@@ -685,7 +695,8 @@ function App() {
       onMore={more ? () => go(more) : undefined}
       onClearHistory={kind === "recent" && appState.history.length ? () => void clearHistory() : undefined}
       onActivate={(row) => void activate(row)} onRemove={(row) => void removeRow(row)} onFocus={setCursor}
-      canMerge={(entry) => Boolean(libraryMergeCandidate(entry))} onMerge={(entry) => void manuallyMergeEntry(entry)} />;
+      canMerge={(entry) => Boolean(libraryMergeCandidate(entry))} onMerge={(entry) => void manuallyMergeEntry(entry)}
+      metadataFor={libraryMetadata} onMetadata={loadLibraryMetadata} />;
   };
 
   const playingId = session?.request.episode?.id;
@@ -801,6 +812,7 @@ function App() {
                 {cardSection("saved", "Saved", "saved")}
               </>}
             <ScheduleSection settings={appState.settings} library={[...appState.history, ...appState.bookmarks]}
+              metadataFor={scheduleMetadata} onMetadata={loadScheduleMetadata}
               onOpen={(anime, episode, audio) => void openAnime(expandWithLinks(anime, appState.providerLinks ?? []), { mode: audio, focusEpisodeId: episode.id })} />
           </>
         )}
@@ -817,12 +829,13 @@ function App() {
           <SeriesScreen anime={selectedAnime} progress={progress} isSaved={isSaved} player={player}
             mode={mode} quality={quality} lastQuery={lastQuery} busy={busy} resolving={resolving}
             pendingSources={pendingSources} sourceErrors={sourceErrors} episodeGroups={episodeGroups} episodeRows={episodeRows}
-            episodeCount={episodeCount} nextUp={nextUp} episodeFilter={episodeFilter}
+            episodeCount={episodeCount} seriesMetadata={seriesMetadata.get(selectedAnime)} nextUp={nextUp} episodeFilter={episodeFilter}
             episodeSort={episodeSort} jump={jump} playingId={playingId} status={status} metadata={metadata} listRef={listRef}
             onPlay={(episode) => void playEpisode(episode)} onBookmark={() => void toggleBookmark()} onBack={goBack}
             onMode={setMode} onQuality={setQuality} onCheckSources={() => void openAnime(selectedAnime, { refresh: true, checkNow: true })}
             onRefreshSources={() => {
               void metadata.refresh(episodeGroups.flatMap((group) => group.episodes.map((episode) => episode.id))).catch((error) => setError(messageFrom(error)));
+              seriesMetadata.load(linkedAnime(selectedAnime), "selected", true);
               void openAnime(selectedAnime, { refresh: true });
             }} onJump={jumpTo} onWatched={(episode) => void markWatched(episode)}
             onWatchedAll={() => void markAllWatched()} onDismissStatus={cancelPlay} reorder={reorder} />

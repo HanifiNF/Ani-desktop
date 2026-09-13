@@ -46,6 +46,25 @@ export interface EpisodeGroup {
 
 export interface EpisodeCatalog { groups: EpisodeGroup[]; }
 
+export interface ProviderSeriesMetadata {
+  sourceId: string;
+  provider: ProviderName;
+  genres: string[];
+  /** Episodes currently listed by this provider. */
+  availableEpisodes?: number;
+  /** A separately advertised season total; never inferred from episode lists. */
+  announcedEpisodes?: number;
+  checkedAt: number;
+  stale?: boolean;
+  error?: string;
+}
+
+export interface SeriesMetadataCatalog {
+  sources: ProviderSeriesMetadata[];
+  /** Case-insensitively deduplicated genres from the known enabled sources. */
+  genres: string[];
+}
+
 export interface CatalogRequest { id: string; priority?: "playback" | "selected" | "visible" | "nearby"; refresh?: boolean; checkNow?: boolean; }
 export interface SourceHealthStatus {
   state: "unknown" | "reachable" | "paused" | "checking";
@@ -207,6 +226,7 @@ export interface AniDesktopApi {
   player: AniPlayerApi;
   search(query: string, provider?: ProviderPreference, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult[]>) => void): Promise<AnimeResult[]>;
   episodes(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: EpisodeCatalog) => void): Promise<EpisodeCatalog>;
+  seriesMetadata(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: SeriesMetadataCatalog) => void): Promise<SeriesMetadataCatalog>;
   /** Look the anime up on every provider it is not yet known on, remembering confident matches. */
   resolveSources(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult>) => void): Promise<AnimeResult>;
   streams(episodeId: string, mode: TranslationMode, request?: CatalogRequest): Promise<Stream[]>;

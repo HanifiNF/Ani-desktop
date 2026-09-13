@@ -1,7 +1,7 @@
 import { catalogContext, catalogRequests, CatalogNetworkError } from "./catalog-requests";
-import type { AnimeResult, Episode, EpisodeAvailability, ProviderName, ScheduleArtwork, ScheduleQuery, ScheduleResult, Settings, Stream, TranslationMode } from "../shared/contracts";
+import type { AnimeResult, Episode, EpisodeAvailability, ProviderName, ProviderSeriesMetadata, ScheduleArtwork, ScheduleQuery, ScheduleResult, Settings, Stream, TranslationMode } from "../shared/contracts";
 import { animeSources, sourceMatch } from "../shared/catalog";
-import { findEmbedUrl, hiAnimeEmbedUrls, parseAniwaveEpisodes, parseAniwavePoster, parseAniwaveSchedule, parseAniwaveSearch, parseAniwaveTooltip, parseAniwaveVidplayId, parseEpisodes, parseHiAnimeEmbed, parseHiAnimeEpisodes, parseHiAnimeSearch, parseMasterPlaylist, parseMasterUrl, parseResultUrl, parseSearchPage, parseVidplaySource } from "./parsers";
+import { findEmbedUrl, hiAnimeEmbedUrls, parseAniDbSeriesMetadata, parseAniwaveEpisodes, parseAniwavePoster, parseAniwaveSchedule, parseAniwaveSearch, parseAniwaveSeriesMetadata, parseAniwaveTooltip, parseAniwaveVidplayId, parseEpisodes, parseHiAnimeEmbed, parseHiAnimeEpisodes, parseHiAnimeSearch, parseHiAnimeSeriesMetadata, parseMasterPlaylist, parseMasterUrl, parseResultUrl, parseSearchPage, parseVidplaySource } from "./parsers";
 
 const RETRY_DELAY_MS = 750;
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -109,9 +109,29 @@ export async function getAniwaveScheduleArtwork(animeId: string, config: SourceC
   const match = animeId.match(/^aniwave:([a-z0-9-]+)-(\d+)$/i);
   if (!match) throw new Error("Invalid AniWave anime identifier");
   const root = sourceBase(config.aniwaveBaseUrl);
-  const value = parseAniwaveTooltip(await fetchText(`${root}/ajax/anime/tooltip/${match[2]}`, "AniWave schedule artwork", `${root}/`), animeId);
+  const value = parseAniwaveTooltip(await fetchText(`${root}/ajax/anime/tooltip/${match[2]}`, "AniWave series metadata", `${root}/`), animeId);
   if (!value.poster) value.poster = parseAniwavePoster(await fetchText(`${root}/watch/${match[1]}-${match[2]}`, "AniWave schedule artwork", `${root}/`));
   return value;
+}
+
+export async function getProviderSeriesMetadata(sourceId: string, config: SourceConfig): Promise<ProviderSeriesMetadata> {
+  const { provider, value } = splitId(sourceId);
+  let fields;
+  if (provider === "aniwave") {
+    const match = value.match(/^[a-z0-9-]+-(\d+)$/i);
+    if (!match) throw new Error("Invalid AniWave anime identifier");
+    const root = sourceBase(config.aniwaveBaseUrl);
+    fields = parseAniwaveSeriesMetadata(await fetchText(`${root}/ajax/anime/tooltip/${match[1]}`, "AniWave series metadata", `${root}/`));
+  } else if (provider === "hianime") {
+    if (!/^[\p{L}\p{N}:!'().,_+~-]+(?:-[\p{L}\p{N}:!'().,_+~-]+)*$/u.test(value)) throw new Error("Invalid HiAnime anime identifier");
+    fields = parseHiAnimeSeriesMetadata(await fetchJson(`${HIANIME_API_BASE}/anime/${encodeURIComponent(value)}`, "HiAnime series metadata", `${sourceBase(config.hianimeBaseUrl)}/`));
+  } else {
+    const match = value.match(/^[a-z0-9-]+-(\d+)$/i);
+    if (!match) throw new Error("Invalid AniDB anime identifier");
+    const root = sourceBase(config.anidbBaseUrl);
+    fields = parseAniDbSeriesMetadata(await fetchJson(`${root}/api/frontend/anime/${match[1]}`, "AniDB series metadata", `${root}/`));
+  }
+  return { sourceId, provider, ...fields, checkedAt: Date.now() };
 }
 
 const RESOLVE_QUERIES = 3;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findEmbedUrl, hiAnimeEmbedUrls, parseAniwaveEpisodes, parseAniwavePoster, parseAniwaveSchedule, parseAniwaveSearch, parseAniwaveTooltip, parseAniwaveVidplayId, parseEpisodes, parseHiAnimeEmbed, parseHiAnimeEpisodes, parseHiAnimeSearch, parseMasterPlaylist, parseMasterUrl, parseResultUrl, parseSearchPage, parseVidplaySource } from "../electron/parsers";
+import { findEmbedUrl, hiAnimeEmbedUrls, parseAniDbSeriesMetadata, parseAniwaveEpisodes, parseAniwavePoster, parseAniwaveSchedule, parseAniwaveSearch, parseAniwaveSeriesMetadata, parseAniwaveTooltip, parseAniwaveVidplayId, parseEpisodes, parseHiAnimeEmbed, parseHiAnimeEpisodes, parseHiAnimeSearch, parseHiAnimeSeriesMetadata, parseMasterPlaylist, parseMasterUrl, parseResultUrl, parseSearchPage, parseVidplaySource } from "../electron/parsers";
 
 describe("source parsers", () => {
   it("extracts and decodes search results", () => {
@@ -76,6 +76,12 @@ describe("source parsers", () => {
     expect(parseAniwavePoster(`<meta property="og:image" content="javascript:bad">`)).toBeUndefined();
   });
 
+  it("keeps available and announced AniWave episode counts separate and extracts genres", () => {
+    const html = `<span class="ep-status sub"><span>11</span></span><span class="ep-status dub"><span>9</span></span><span class="ep-status total"><span>14</span></span><div><span>Genre:</span><span><a>Adventure</a>, <a>Drama</a>, <a>Fantasy</a>, <a>drama</a></span></div>`;
+    expect(parseAniwaveSeriesMetadata(html)).toEqual({ genres: ["Adventure", "Drama", "Fantasy"], availableEpisodes: 11, announcedEpisodes: 14 });
+    expect(parseAniwaveSeriesMetadata(`<span class="ep-status total"><span>soon</span></span>`)).toEqual({ genres: [], availableEpisodes: undefined, announcedEpisodes: undefined });
+  });
+
   it("parses HiAnime titles, Unicode aliases, punctuation IDs, and episodes", () => {
     expect(parseHiAnimeSearch([{ English: "Boruto: Naruto Next Generations", title: "Boruto", Japanese: "BORUTO-ボルト-", alternateTitle: "", image: "https://img.test/boruto.jpg", slugs: [...Array.from({ length: 10 }, (_, index) => `old-${index}`), "boruto:-naruto-next-generations-3dmuk9"] }])).toEqual([
       { id: "hianime:boruto:-naruto-next-generations-3dmuk9", title: "Boruto: Naruto Next Generations", poster: "https://img.test/boruto.jpg", provider: "hianime", sources: [{ id: "hianime:boruto:-naruto-next-generations-3dmuk9", title: "Boruto: Naruto Next Generations", aliases: ["Boruto: Naruto Next Generations", "Boruto", "BORUTO-ボルト-"], poster: "https://img.test/boruto.jpg", provider: "hianime" }] }
@@ -83,6 +89,13 @@ describe("source parsers", () => {
     expect(parseHiAnimeEpisodes({ anime: { episodes: [{ episodeNumber: 2, slug: "show-episode-2-bbb222" }, { episodeNumber: 1, slugs: ["show-episode-1-aaa111"] }] } })).toEqual([
       { id: "hianime:show-episode-1-aaa111", number: "1", provider: "hianime" }, { id: "hianime:show-episode-2-bbb222", number: "2", provider: "hianime" }
     ]);
+  });
+
+  it("reads HiAnime availability without treating it as an announced total and accepts explicit AniDB metadata", () => {
+    expect(parseHiAnimeSeriesMetadata(JSON.stringify({ anime: { episodes: [{}, {}], genres: ["Fantasy", "冒険", "fantasy"], totalEpisodes: "12" } })))
+      .toEqual({ genres: ["Fantasy", "冒険"], availableEpisodes: 2 });
+    expect(parseAniDbSeriesMetadata({ data: { genres: [{ name: "Drama" }, "Fantasy"], episodeCount: 24 } }))
+      .toEqual({ genres: ["Drama", "Fantasy"], announcedEpisodes: 24 });
   });
 
   it("extracts HiAnime mode servers and decodes ZokoAnime HLS metadata", () => {
