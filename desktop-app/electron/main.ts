@@ -1,5 +1,7 @@
 import type { PlayerDiagnosticEvent } from "../shared/player-diagnostics";
 import { CatalogService } from "./catalog-service";
+import { ScheduleService } from "./schedule-service";
+import { validateScheduleAnimeId, validateScheduleQuery } from "./schedule-validation";
 import { catalogScope, sourceSettingsKey } from "../shared/settings";
 import { catalogContext, catalogRequests } from "./catalog-requests";
 import { EpisodeMetadataCache } from "./episode-metadata-cache";
@@ -10,7 +12,7 @@ import { spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { app, BrowserWindow, ipcMain, nativeImage, session, shell } from "electron";
-import type { AnimeResult, CatalogRequest, LibraryEntry, PlayerSession, PlayRequest, ProviderName, ProviderPreference, Settings, TranslationMode } from "../shared/contracts";
+import type { AnimeResult, CatalogRequest, LibraryEntry, PlayerSession, PlayRequest, ProviderName, ProviderPreference, ScheduleQuery, Settings, TranslationMode } from "../shared/contracts";
 import { playerArguments } from "./player";
 import { assertPlayerSender, registerPlayerFullscreenEvents, setPlayerFullscreen } from "./player-window";
 import { isPlaybackRequest, validatePlayRequest, withMediaCors, withPlaybackReferrer } from "./playback-security";
@@ -43,6 +45,7 @@ let refreshMenu: () => void = () => undefined;
 const APP_PARTITION = "ani-desktop";
 
 const catalogService = new CatalogService();
+const scheduleService = new ScheduleService();
 const catalogConsumers = new Map<string, AbortController>();
 const catalogSenders = new WeakSet<Electron.WebContents>();
 function catalogCall<T>(event: Electron.IpcMainInvokeEvent, request: CatalogRequest | undefined, operation: (update: (value: unknown) => void) => Promise<T>): Promise<T> {
@@ -249,6 +252,14 @@ function registerIpc(): void {
       // Exercise the actual catalog endpoint through the shared recovery gate.
       await searchOne("naruto", provider, store.snapshot().settings);
     });
+  });
+  ipcMain.handle("catalog:schedule", (event, query: ScheduleQuery, request?: CatalogRequest) => {
+    const validated = validateScheduleQuery(query);
+    return catalogCall(event, request, () => scheduleService.get(validated, store.snapshot().settings));
+  });
+  ipcMain.handle("catalog:schedule-artwork", (event, animeId: unknown, request?: CatalogRequest) => {
+    const validated = validateScheduleAnimeId(animeId);
+    return catalogCall(event, request, () => scheduleService.getArtwork(validated, store.snapshot().settings));
   });
   ipcMain.handle("catalog:search", (event, query: string, provider?: ProviderPreference, request?: CatalogRequest) => catalogCall(event, request, (update) => {
     const state = store.snapshot();

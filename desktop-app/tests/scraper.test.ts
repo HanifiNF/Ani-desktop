@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getStreams, retryAfterDelay, searchOne, type SourceConfig } from "../electron/scraper";
+import { getAniwaveSchedule, getAniwaveScheduleArtwork, getStreams, retryAfterDelay, searchOne, type SourceConfig } from "../electron/scraper";
 import { catalogContext, catalogRequests } from "../electron/catalog-requests";
 
 import { CatalogService } from "../electron/catalog-service";
@@ -154,6 +154,35 @@ describe("multi-source scraper", () => {
   it("rejects unsupported HiAnime video hosts", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ episode: { link: { sub: ["https://unknown.test/embed"] } } }), { status: 200, headers: { "content-type": "application/json" } })));
     await expect(getStreams("hianime:naruto-episode-1-aaa111", "sub", config)).rejects.toThrow("unsupported host unknown.test");
+  });
+
+  it("requests the selected AniWave date, timezone, and DUB schedule without substituting weekdays", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/ajax/schedule/date")) return new Response(JSON.stringify({ result: `<a class="item" href="/watch/test-show-42/ep-7"><div class="time" data-tip="42">07:30 PM</div><div class="ep"><span>Episode 7</span></div><div class="title d-title" data-jp="Test JP">Test Show</div></a>` }));
+      return new Response(JSON.stringify({ result: `<div data-time="2099-04-06"></div>` }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const value = await getAniwaveSchedule({ date: "2099-04-06", timezoneOffset: 420, mode: "dub" }, config);
+    expect(value.entries[0]).toMatchObject({ anime: { id: "aniwave:test-show-42" }, episode: { id: "aniwave:42:7", number: "7" } });
+    const urls = fetchMock.mock.calls.map(([input]) => String(input));
+    expect(urls[0]).toContain("tz=7"); expect(urls[0]).toContain("dub=1");
+    expect(urls[1]).toContain("time=2099-04-06"); expect(urls[1]).toContain("dub=1");
+    fetchMock.mockClear();
+    vi.stubGlobal("fetch", fetchMock.mockResolvedValue(new Response(JSON.stringify({ result: `<div data-time="2099-04-07"></div>` }))));
+    await expect(getAniwaveSchedule({ date: "2099-04-06", timezoneOffset: 420, mode: "sub" }, config)).resolves.toMatchObject({ status: "unavailable", entries: [] });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("enriches visible schedule rows through tooltip metadata and an AniWave poster fallback", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => String(input).includes("/tooltip/")
+      ? new Response(`<div class="title d-title" data-jp="Test JP">Test Show</div>`)
+      : new Response(`<img itemprop="image" src="https://img.test/test.jpg">`));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(getAniwaveScheduleArtwork("aniwave:test-show-42", config)).resolves.toEqual({ animeId: "aniwave:test-show-42", title: "Test Show", aliases: ["Test Show", "Test JP"], poster: "https://img.test/test.jpg" });
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "https://aniwave.test/ajax/anime/tooltip/42", "https://aniwave.test/watch/test-show-42"
+    ]);
   });
 });
 

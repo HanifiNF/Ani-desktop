@@ -107,6 +107,22 @@ export function installDevApi(): void {
     async cancelBookmarkMetadata() { return undefined; },
     async sourceStatus() { return (["aniwave", "anidb", "hianime"] as const).map((provider) => ({ provider, origin: `https://${provider}.example`, state: "unknown" as const, canRetry: true })); },
     async checkSource() { await wait(300); },
+    async schedule(query) {
+      await wait(250);
+      const entries = [
+        ["Frieren: Beyond Journey's End", "frieren-beyond-journeys-end-1", "13", 16, 30, posters.frieren],
+        ["Dandadan", "dandadan-3", "4", 19, 0, posters.dandadan],
+        ["The Apothecary Diaries", "the-apothecary-diaries-5", "8", 21, 15, posters.apothecary]
+      ].map(([title, slug, episode, hour, minute, poster]) => {
+        const local = new Date(`${query.date}T00:00:00`); local.setHours(Number(hour), Number(minute));
+        const id = `aniwave:${slug}`;
+        return { anime: { id, title: String(title), poster: String(poster), provider: "aniwave" as const, sources: [{ id, provider: "aniwave" as const, title: String(title), aliases: [String(title)], poster: String(poster) }] },
+          episode: { id: `aniwave:${String(slug).match(/-(\d+)$/)?.[1]}:${episode}`, number: String(episode), provider: "aniwave" as const },
+          releaseAt: local.toISOString(), timeLabel: local.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+      });
+      return { provider: "aniwave", requestedDate: query.date, supportedDates: [], entries, refreshedAt: new Date().toISOString(), status: "fresh" };
+    },
+    async scheduleArtwork(animeId) { return { animeId, aliases: [] }; },
     cancelCatalog() {},
     async availability() { await wait(150); return { sub: true, dub: true, checkedAt: Date.now() }; },
     async streams(episodeId, mode) {

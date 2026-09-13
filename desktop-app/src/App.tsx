@@ -4,6 +4,7 @@ import SeriesScreen from "./SeriesScreen";
 import type { PlayStatus, NowPlaying } from "./playback";
 import SettingsScreen from "./SettingsScreen";
 import LibrarySection from "./LibrarySection";
+import ScheduleSection from "./ScheduleSection";
 import { asAnime, libraryEntry, libraryEntryAllWatched, type Row, type LibraryKind } from "./library";
 import { shortcut } from "./keys";
 import { episodeValue, episodeRowsOf, nextUpIndex, providerList, type EpisodeFilter, type EpisodeSort } from "./episodes";
@@ -30,7 +31,7 @@ import { catalogRequestId } from "./catalog-request";
 import { useEpisodeMetadata } from "./useEpisodeMetadata";
 import { useAnimeSearch } from "./useAnimeSearch";
 import { MINI_PLAYER_WIDTH, clampMiniPlayerWidth } from "../shared/contracts";
-import { animeSources, enabledProviders, likelyDuplicate, mergeKey, overlaps, sourceIds, unifyAnimeResults } from "../shared/catalog";
+import { animeSources, enabledProviders, expandWithLinks, likelyDuplicate, mergeKey, overlaps, sourceIds, unifyAnimeResults } from "../shared/catalog";
 import { Icon } from "./icons";
 import { withTransition } from "./transition";
 
@@ -792,12 +793,16 @@ function App() {
         </div>}
 
         {screen === "home" && (
-          libraryRows.length === 0
-            ? !paletteOpen && <div className="empty"><b>Nothing here yet</b>Search for a title with <kbd>{shortcut("K")}</kbd>. Titles you watch and save appear here.</div>
-            : <>
+          <>
+            {libraryRows.length === 0
+              ? <div className="empty"><b>Nothing here yet</b>Search for a title with <kbd>{shortcut("K")}</kbd>. Titles you watch and save appear here.</div>
+              : <>
                 {cardSection("continue", "Continue watching", "recent")}
                 {cardSection("saved", "Saved", "saved")}
-              </>
+              </>}
+            <ScheduleSection settings={appState.settings} library={[...appState.history, ...appState.bookmarks]}
+              onOpen={(anime, episode, audio) => void openAnime(expandWithLinks(anime, appState.providerLinks ?? []), { mode: audio, focusEpisodeId: episode.id })} />
+          </>
         )}
 
         {screen === "saved" && (rows.length === 0

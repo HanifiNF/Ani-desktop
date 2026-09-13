@@ -1,7 +1,7 @@
 import { catalogContext, catalogRequests, CatalogNetworkError } from "./catalog-requests";
-import type { AnimeResult, Episode, EpisodeAvailability, ProviderName, Settings, Stream, TranslationMode } from "../shared/contracts";
+import type { AnimeResult, Episode, EpisodeAvailability, ProviderName, ScheduleArtwork, ScheduleQuery, ScheduleResult, Settings, Stream, TranslationMode } from "../shared/contracts";
 import { animeSources, sourceMatch } from "../shared/catalog";
-import { findEmbedUrl, hiAnimeEmbedUrls, parseAniwaveEpisodes, parseAniwaveSearch, parseAniwaveVidplayId, parseEpisodes, parseHiAnimeEmbed, parseHiAnimeEpisodes, parseHiAnimeSearch, parseMasterPlaylist, parseMasterUrl, parseResultUrl, parseSearchPage, parseVidplaySource } from "./parsers";
+import { findEmbedUrl, hiAnimeEmbedUrls, parseAniwaveEpisodes, parseAniwavePoster, parseAniwaveSchedule, parseAniwaveSearch, parseAniwaveTooltip, parseAniwaveVidplayId, parseEpisodes, parseHiAnimeEmbed, parseHiAnimeEpisodes, parseHiAnimeSearch, parseMasterPlaylist, parseMasterUrl, parseResultUrl, parseSearchPage, parseVidplaySource } from "./parsers";
 
 const RETRY_DELAY_MS = 750;
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -60,7 +60,7 @@ async function responseBody(url: string, label: string, accept: string, referrer
     throw new Error(`${label} failed`);
   };
   if (!context) return execute();
-  const ttl = /search|server lookup|stream lookup/.test(label) ? 60_000 : /episode lookup/.test(label) ? 30_000 : 20_000;
+  const ttl = /schedule lookup/.test(label) ? 5 * 60_000 : /schedule artwork/.test(label) ? 7 * 24 * 60 * 60_000 : /search|server lookup|stream lookup/.test(label) ? 60_000 : /episode lookup/.test(label) ? 30_000 : 20_000;
   return catalogRequests.read(JSON.stringify([url, accept, referrer, body]), new URL(url).origin, ttl, execute, context);
 }
 const fetchText = (url: string, label: string, referrer?: string) => responseBody(url, label, "text/html,application/json;q=0.9,*/*;q=0.8", referrer);
@@ -85,6 +85,33 @@ export async function searchOne(query: string, provider: ProviderName, config: S
   }
   const root = sourceBase(config.anidbBaseUrl);
   return parseSearchPage(await fetchText(`${root}/browse?q=${encodeURIComponent(query)}`, "AniDB search", `${root}/`));
+}
+
+const timezoneDate = (timezoneOffset: number): string => new Date(Date.now() + timezoneOffset * 60_000).toISOString().slice(0, 10);
+const scheduleTimezone = (timezoneOffset: number): string => String(timezoneOffset / 60);
+
+export async function getAniwaveSchedule(query: ScheduleQuery, config: SourceConfig): Promise<ScheduleResult> {
+  const root = sourceBase(config.aniwaveBaseUrl);
+  const params = new URLSearchParams({ tz: scheduleTimezone(query.timezoneOffset) });
+  if (query.mode === "dub") params.set("dub", "1");
+  const overviewPayload = await fetchJson(`${root}/ajax/schedule?${params}`, "AniWave schedule lookup", `${root}/`);
+  const overview = parseAniwaveSchedule(overviewPayload, timezoneDate(query.timezoneOffset), query.timezoneOffset);
+  if (!overview.supportedDates.includes(query.date)) {
+    return { provider: "aniwave", requestedDate: query.date, supportedDates: overview.supportedDates, entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" };
+  }
+  const entries = query.date === timezoneDate(query.timezoneOffset)
+    ? overview.entries
+    : parseAniwaveSchedule(await fetchJson(`${root}/ajax/schedule/date?${new URLSearchParams({ ...Object.fromEntries(params), time: query.date })}`, "AniWave schedule lookup", `${root}/`), query.date, query.timezoneOffset).entries;
+  return { provider: "aniwave", requestedDate: query.date, supportedDates: overview.supportedDates, entries, refreshedAt: new Date().toISOString(), status: "fresh" };
+}
+
+export async function getAniwaveScheduleArtwork(animeId: string, config: SourceConfig): Promise<ScheduleArtwork> {
+  const match = animeId.match(/^aniwave:([a-z0-9-]+)-(\d+)$/i);
+  if (!match) throw new Error("Invalid AniWave anime identifier");
+  const root = sourceBase(config.aniwaveBaseUrl);
+  const value = parseAniwaveTooltip(await fetchText(`${root}/ajax/anime/tooltip/${match[2]}`, "AniWave schedule artwork", `${root}/`), animeId);
+  if (!value.poster) value.poster = parseAniwavePoster(await fetchText(`${root}/watch/${match[1]}-${match[2]}`, "AniWave schedule artwork", `${root}/`));
+  return value;
 }
 
 const RESOLVE_QUERIES = 3;

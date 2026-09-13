@@ -56,6 +56,38 @@ export interface SourceHealthStatus {
 }
 export interface ProviderSourceStatus extends SourceHealthStatus { provider: ProviderName; origin: string; }
 export interface CatalogProgress<T> { value: T; pending: ProviderName[]; errors: Partial<Record<ProviderName, string>>; }
+
+export interface ScheduleQuery {
+  /** Local calendar date in YYYY-MM-DD form. */
+  date: string;
+  /** Minutes east of UTC (Jakarta is 420). */
+  timezoneOffset: number;
+  mode: TranslationMode;
+}
+
+export interface ScheduleEntry {
+  anime: AnimeResult;
+  episode: Episode;
+  releaseAt: string;
+  timeLabel: string;
+}
+
+export interface ScheduleResult {
+  provider: "aniwave";
+  requestedDate: string;
+  supportedDates: string[];
+  entries: ScheduleEntry[];
+  refreshedAt: string;
+  status: "fresh" | "stale" | "unavailable";
+  error?: string;
+}
+
+export interface ScheduleArtwork {
+  animeId: string;
+  title?: string;
+  aliases: string[];
+  poster?: string;
+}
 /** Availability advertised by a supported provider server; playback is verified separately. */
 export interface EpisodeAvailability { sub: boolean; dub: boolean; checkedAt: number; }
 export interface EpisodeQuality { quality?: string; checkedAt: number; }
@@ -187,6 +219,8 @@ export interface AniDesktopApi {
   cancelBookmarkMetadata(): Promise<BookmarkMetadataProgress | undefined>;
   sourceStatus(): Promise<ProviderSourceStatus[]>;
   checkSource(provider: ProviderName, request?: CatalogRequest): Promise<void>;
+  schedule(query: ScheduleQuery, request?: CatalogRequest): Promise<ScheduleResult>;
+  scheduleArtwork(animeId: string, request?: CatalogRequest): Promise<ScheduleArtwork>;
   cancelCatalog(requestId: string): void;
   play(request: PlayRequest): Promise<boolean>;
   getState(): Promise<PersistedState>;

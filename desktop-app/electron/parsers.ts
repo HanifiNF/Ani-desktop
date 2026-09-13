@@ -1,4 +1,4 @@
-import type { AnimeResult, Episode, ProviderName, Stream, TextTrackSource, TranslationMode } from "../shared/contracts";
+import type { AnimeResult, Episode, ProviderName, ScheduleArtwork, ScheduleEntry, Stream, TextTrackSource, TranslationMode } from "../shared/contracts";
 
 const decodeEntities = (value: string): string =>
   value
@@ -141,6 +141,76 @@ export function parseAniwaveEpisodes(payload: unknown, animeNumericId: string): 
     episodes.set(number, { id: `aniwave:${animeNumericId}:${number}`, number, provider: "aniwave" });
   }
   return [...episodes.values()].sort((a, b) => Number(a.number) - Number(b.number));
+}
+
+function attribute(attributes: string, name: string): string | undefined {
+  return attributes.match(new RegExp(`\\b${name}=["']([^"']*)["']`, "i"))?.[1];
+}
+
+function releaseTimestamp(date: string, time: string, timezoneOffset: number): string | undefined {
+  const dateParts = date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeParts = time.trim().match(/^(\d{1,2}):(\d{2})\s*([AP]M)$/i);
+  if (!dateParts || !timeParts) return undefined;
+  const sourceHour = Number(timeParts[1]), minute = Number(timeParts[2]);
+  if (sourceHour < 1 || sourceHour > 12 || minute > 59) return undefined;
+  let hour = sourceHour % 12;
+  if (timeParts[3].toUpperCase() === "PM") hour += 12;
+  const value = Date.UTC(Number(dateParts[1]), Number(dateParts[2]) - 1, Number(dateParts[3]), hour, minute) - timezoneOffset * 60_000;
+  return Number.isFinite(value) ? new Date(value).toISOString() : undefined;
+}
+
+/** Parse either the full schedule response or one date response without trusting remote markup in the renderer. */
+export function parseAniwaveSchedule(payload: unknown, requestedDate: string, timezoneOffset: number): { supportedDates: string[]; entries: ScheduleEntry[] } {
+  const html = resultHtml(payload);
+  const supportedDates = [...new Set([...html.matchAll(/\bdata-time=["'](\d{4}-\d{2}-\d{2})["']/gi)].map((match) => match[1]))];
+  const entries: ScheduleEntry[] = [];
+  const anchors = /<a\b([^>]*\bclass=["'][^"']*\bitem\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi;
+  for (const match of html.matchAll(anchors)) {
+    const href = attribute(match[1], "href")?.match(/^\/watch\/([^/?#]+)\/ep-([0-9.]+)$/i);
+    if (!href || !/-\d+$/.test(href[1])) continue;
+    const timeTag = match[2].match(/<div\b([^>]*\bclass=["'][^"']*\btime\b[^"']*["'][^>]*)>([\s\S]*?)<\/div>/i);
+    const titleTag = match[2].match(/<div\b([^>]*\bclass=["'][^"']*\btitle\b[^"']*["'][^>]*)>([\s\S]*?)<\/div>/i);
+    const episodeText = match[2].match(/<div\b[^>]*\bclass=["'][^"']*\bep\b[^"']*["'][^>]*>[\s\S]*?<span[^>]*>\s*Episode\s+([0-9.]+)\s*<\/span>/i)?.[1] ?? href[2];
+    if (!timeTag || !titleTag) continue;
+    const timeLabel = decodeEntities(timeTag[2].replace(/<[^>]+>/g, "").trim());
+    const releaseAt = releaseTimestamp(requestedDate, timeLabel, timezoneOffset);
+    const title = decodeEntities(titleTag[2].replace(/<[^>]+>/g, "").trim());
+    const romanized = attribute(titleTag[1], "data-jp");
+    const numeric = attribute(timeTag[1], "data-tip") ?? href[1].match(/-(\d+)$/)?.[1];
+    if (!releaseAt || !title || !numeric || !/^\d+$/.test(numeric)) continue;
+    const id = `aniwave:${href[1]}`;
+    const aliases = [...new Set([title, romanized && decodeEntities(romanized)].filter((value): value is string => Boolean(value)))];
+    const source = { id, provider: "aniwave" as const, title, aliases };
+    entries.push({
+      anime: { id, title, provider: "aniwave", sources: [source] },
+      episode: { id: `aniwave:${numeric}:${episodeText}`, number: episodeText, provider: "aniwave" },
+      releaseAt, timeLabel
+    });
+  }
+  entries.sort((left, right) => left.releaseAt.localeCompare(right.releaseAt) || left.anime.title.localeCompare(right.anime.title));
+  return { supportedDates, entries };
+}
+
+export function parseAniwaveTooltip(html: string, animeId: string): ScheduleArtwork {
+  const titleTag = html.match(/<div\b([^>]*\bclass=["'][^"']*\btitle\b[^"']*["'][^>]*)>([\s\S]*?)<\/div>/i);
+  const title = titleTag ? decodeEntities(titleTag[2].replace(/<[^>]+>/g, "").trim()) : undefined;
+  const romanized = titleTag ? attribute(titleTag[1], "data-jp") : undefined;
+  const other = html.match(/<span>\s*Other names:\s*<\/span>\s*<span>([\s\S]*?)<\/span>/i)?.[1]
+    ?.replace(/<[^>]+>/g, "").split(",").map((value) => decodeEntities(value.trim())).filter(Boolean) ?? [];
+  const rawPoster = html.match(/<img\b[^>]*(?:data-src|src)=["']([^"']+)["']/i)?.[1];
+  let poster: string | undefined;
+  if (rawPoster) {
+    try { const value = new URL(decodeEntities(rawPoster)); if (/^https?:$/.test(value.protocol)) poster = value.toString(); } catch { /* malformed remote artwork */ }
+  }
+  return { animeId, title, aliases: [...new Set([title, romanized && decodeEntities(romanized), ...other].filter((value): value is string => Boolean(value)))], poster };
+}
+
+export function parseAniwavePoster(html: string): string | undefined {
+  const raw = html.match(/<img\b[^>]*\bitemprop=["']image["'][^>]*(?:data-src|src)=["']([^"']+)["']/i)?.[1]
+    ?? html.match(/<meta\b[^>]*\bproperty=["']og:image["'][^>]*\bcontent=["']([^"']+)["']/i)?.[1];
+  if (!raw) return undefined;
+  try { const value = new URL(decodeEntities(raw)); return /^https?:$/.test(value.protocol) ? value.toString() : undefined; }
+  catch { return undefined; }
 }
 
 export function parseAniwaveVidplayId(payload: unknown, mode: TranslationMode): string | undefined {

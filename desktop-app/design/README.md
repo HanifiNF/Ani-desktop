@@ -8,7 +8,7 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
 - Top bar: wordmark, a centred search pill (⌘K or / focuses it), then home, saved, recent, and settings icons. The bar
   carries nothing about playback: the corner player is the way back to the full player (its expand button or the
   backtick).
-- Home: "Continue watching" and "Saved" as poster-card rows, eight across (six in narrower windows), with a next-episode badge and the audio mode.
+- Home: "Continue watching" and "Saved" as poster-card rows, eight across (six in narrower windows), with a next-episode badge and the audio mode. A seasonal schedule follows Saved with equal Sunday–Saturday tabs, a local estimated-time list, and SUB/DUB controls; it remains visible when the library is empty.
   Arrow keys move between cards and rows, up and down also cross sections, Enter plays, o opens,
   x removes.
 - Search: typing in the pill opens a palette over the page with a result count, and thumbnail rows
