@@ -26,6 +26,7 @@ import { PlayerDiagnostics, sanitizeDiagnostic } from "./player-diagnostics";
 import { playbackKey } from "../shared/playback";
 import { configureVideoRenderingPolicy } from "./video-rendering-policy";
 import { isHexColor, resolveTheme } from "../shared/theme";
+import { isAllowedExternalUrl } from "../shared/external-url";
 
 // Preserve existing settings and library data across the display-name change.
 app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? "Ani Desktop" : "ani-desktop"));
@@ -211,7 +212,7 @@ function createWindow(): void {
     });
   }
   win.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith("https://")) void shell.openExternal(url);
+    if (isAllowedExternalUrl(url)) void shell.openExternal(url);
     return { action: "deny" };
   });
   win.webContents.on("will-navigate", (event) => event.preventDefault());

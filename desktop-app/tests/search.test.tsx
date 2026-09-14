@@ -102,6 +102,23 @@ afterEach(async () => {
   vi.useRealTimers(); vi.unstubAllGlobals();
 });
 
+describe("site footer navigation", () => {
+  it("opens informational pages, replaces search, and returns home with Escape", async () => {
+    expect(container.querySelector(".site-footer")).not.toBeNull();
+    await click("About");
+    expect(container.querySelector(".page-about .about-page")).not.toBeNull();
+    expect(container.querySelector(".search.as-button")?.textContent).toContain("Search anime");
+    expect(input()).toBeNull();
+
+    await press("Escape");
+    expect(container.querySelector(".page-home")).not.toBeNull();
+    await click("Contact");
+    expect(container.querySelector(".page-contact .contact-page")).not.toBeNull();
+    await click("Home");
+    expect(container.querySelector(".page-home")).not.toBeNull();
+  });
+});
+
 describe("built-in player screen", () => {
   const session = (id: string, episodeId: string): PlayerSession => ({ id, preferences: {}, canOpenExternal: false, fullscreen: false,
     request: { url: `https://cdn.test/${episodeId}.m3u8`, title: `Frieren — Episode ${episodeId.slice(-1)}`, episode: { id: episodeId,

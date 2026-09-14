@@ -11,7 +11,11 @@ const PATHS = {
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   x: <path d="M6 6l12 12M18 6 6 18" />,
   up: <path d="M12 19V5M6 11l6-6 6 6" />,
-  down: <path d="M12 5v14M6 13l6 6 6-6" />
+  down: <path d="M12 5v14M6 13l6 6 6-6" />,
+  github: <><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.3-.4 6.8-1.6 6.8-7.4A5.8 5.8 0 0 0 19.3 3 5.4 5.4 0 0 0 19.1-.1S17.9-.5 15 1.5a13.4 13.4 0 0 0-6 0C6.1-.5 4.9-.1 4.9-.1A5.4 5.4 0 0 0 4.7 3a5.8 5.8 0 0 0-1.5 4.1c0 5.8 3.5 7 6.8 7.4A4.8 4.8 0 0 0 9 18v4" /><path d="M9 19c-3 .9-3-1.5-4.2-2" /></>,
+  discord: <><path d="M8.4 7.2A9.8 9.8 0 0 1 12 6.5a9.8 9.8 0 0 1 3.6.7M7.1 17.2c3.4 1.7 6.4 1.7 9.8 0" /><path d="M7.8 4.8A14 14 0 0 0 4.3 16a10 10 0 0 0 3.5 2.2l.9-1.3M16.2 4.8A14 14 0 0 1 19.7 16a10 10 0 0 1-3.5 2.2l-.9-1.3" /><circle cx="9" cy="12.5" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="12.5" r="1" fill="currentColor" stroke="none" /></>,
+  instagram: <><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r=".8" fill="currentColor" stroke="none" /></>,
+  mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m4 7 8 6 8-6" /></>
 } as const;
 
 type IconName = keyof typeof PATHS;

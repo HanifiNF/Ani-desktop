@@ -35,8 +35,9 @@ import { MINI_PLAYER_WIDTH, clampMiniPlayerWidth } from "../shared/contracts";
 import { animeSources, enabledProviders, expandWithLinks, likelyDuplicate, mergeKey, overlaps, sourceIds, unifyAnimeResults } from "../shared/catalog";
 import { Icon } from "./icons";
 import { withTransition } from "./transition";
+import { AboutPage, ContactPage, SiteFooter, type SitePage } from "./SitePages";
 
-type Screen = "home" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
+type Screen = "home" | "series" | "opening" | "saved" | "recent" | "settings" | "about" | "contact" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
 const loadPlayerScreen = () => import("./PlayerScreen");
 const PlayerScreen = lazy(loadPlayerScreen);
@@ -215,7 +216,7 @@ function App() {
     return () => observer.disconnect();
   }, [cursorKey, screen]);
   useEffect(() => {
-    if (screen !== "series" && screen !== "settings" && screen !== "player") fieldRef.current?.focus();
+    if (screen !== "series" && screen !== "settings" && screen !== "about" && screen !== "contact" && screen !== "player") fieldRef.current?.focus();
   }, [screen]);
 
   async function run<T>(label: string, operation: () => Promise<T>): Promise<T | undefined> {
@@ -648,6 +649,11 @@ function App() {
     if (event.altKey) return;
     if (event.key === "Enter" && target?.closest("button:not(.hit):not(.src-hit)")) return;
     if (screen === "settings") { if (event.key === "Escape") goBack(); return; }
+    if (screen === "about" || screen === "contact") {
+      if (event.key === "Escape") { event.preventDefault(); goBack(); }
+      else if (event.key === "?") { event.preventDefault(); setShowHints((value) => !value); }
+      return;
+    }
     if (event.key === "Escape") { event.preventDefault(); if (showHints) { setShowHints(false); return; } goBack(); return; }
     if (screen === "opening") return;
     if (!typing && event.key === "?") { event.preventDefault(); setShowHints((value) => !value); return; }
@@ -729,7 +735,7 @@ function App() {
           <button type="button" className="logo" onClick={() => { go("home"); setQuery(""); catalogSearch.clear(); }} aria-label="Home">ANI<em>desktop</em></button>
         </div>
         <div className={`searchbox ${paletteOpen ? "open" : ""}`}>
-          {screen === "settings" || screen === "player"
+          {screen === "settings" || screen === "about" || screen === "contact" || screen === "player"
             ? <button type="button" className="search as-button" onClick={() => { go("home"); }}><Icon name="search" /><span>Search anime</span><kbd>{shortcut("K")}</kbd></button>
             : <label className="search">
                 <Icon name="search" />
@@ -847,6 +853,12 @@ function App() {
             onSave={() => void saveSettings()} onCancel={goBack} onClearLinks={() => void clearSourceLinks()}
             onOpenLogs={() => { void run("opening player logs", () => window.aniDesktop.openPlayerLogs()); }} />
         )}
+
+        {screen === "about" && <AboutPage />}
+        {screen === "contact" && <ContactPage />}
+
+        {screen !== "opening" && <SiteFooter current={screen === "home" || screen === "about" || screen === "contact" ? screen : undefined}
+          onNavigate={(page: SitePage) => { setQuery(""); catalogSearch.clear(); go(page); }} />}
       </div>}
       </div>
 
