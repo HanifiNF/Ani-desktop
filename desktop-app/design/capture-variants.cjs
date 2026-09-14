@@ -1,6 +1,6 @@
 // Screenshots each [data-variant] element of a mockup page (or a selector on the live app) at the app's window width.
 // Usage: env -u ELECTRON_RUN_AS_NODE npx electron design/capture-variants.cjs <file.html | url> <prefix> [selector]
-// SHOT_CSS injects a stylesheet before capturing, for trying a rule against the live app.
+// SHOT_CSS injects a stylesheet before capturing, for trying a rule against the live app; SHOT_JS runs a script after load, for staging content.
 const { app, BrowserWindow } = require("electron");
 const { mkdir, writeFile } = require("node:fs/promises");
 const { join, resolve } = require("node:path");
@@ -17,6 +17,7 @@ app.whenReady().then(async () => {
   await win.loadURL(url);
   if (process.env.SHOT_CSS) await win.webContents.insertCSS(process.env.SHOT_CSS);
   await wait(Number(process.env.SHOT_WAIT) || 1500);
+  if (process.env.SHOT_JS) { await win.webContents.executeJavaScript(process.env.SHOT_JS); await wait(300); }
   const rects = await win.webContents.executeJavaScript(`[...document.querySelectorAll(${JSON.stringify(selector)})].map((el, i) => { const r = el.getBoundingClientRect(); return { name: el.dataset.variant || String(i + 1), x: Math.floor(r.left), y: Math.floor(r.top + window.scrollY), width: Math.ceil(r.width), height: Math.ceil(r.height) }; })`);
   for (const r of rects) {
     const image = await win.webContents.capturePage({ x: r.x, y: r.y, width: r.width, height: r.height });

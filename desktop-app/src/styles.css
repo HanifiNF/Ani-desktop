@@ -198,12 +198,17 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .schedule-audio button { color: var(--muted); font-size: 13px; font-weight: 500; transition: color .15s; }
 .schedule-audio button:hover, .schedule-audio button.on { color: var(--text); }
 .schedule-art { display: block; }
-.schedule-card .poster { transition: opacity .2s ease-out; }
-.schedule-card.past .poster { opacity: .45; }
-.schedule-card.past .t { color: var(--muted); }
-.schedule-card.past:hover .poster, .schedule-card.past:focus-within .poster { opacity: .7; }
-.tags { display: flex; gap: 4px; margin-top: 6px; overflow: hidden; }
-.tag { flex: none; padding: 4px 6px; border-radius: 5px; background: var(--raised); color: var(--muted); font-size: 10.5px; line-height: 1; white-space: nowrap; }
+/* Entries that have not aired yet are darkened and desaturated (not faded, which turns pale art hazy); aired ones stay at full brightness because they can be watched. */
+.schedule-card .poster { transition: filter .2s ease-out; }
+.schedule-card.upcoming .poster { filter: brightness(.5) saturate(.55); }
+.schedule-card.upcoming .t { color: var(--muted); }
+.schedule-card.upcoming:hover .poster, .schedule-card.upcoming:focus-within .poster { filter: brightness(.75) saturate(.8); }
+/* One line of whole chips; the component hides the ones that do not fit and shows a "+n" chip instead. The wrap and clamp are a safety net before measuring. */
+.tags { position: relative; display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-height: 18px; overflow: hidden; }
+.tag[hidden] { display: none; }
+.tag.more { color: var(--text); }
+.tag.more.probe { position: absolute; visibility: hidden; }
+.tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; background: var(--raised); color: var(--muted); font-size: 10.5px; line-height: 1; white-space: nowrap; }
 /* Holds one row's worth of height while a day loads so switching days does not collapse the section and jump the scroll. */
 .section-schedule .cards:empty + .schedule-state { min-height: 300px; display: grid; place-items: center; }
 .schedule-state { padding: 24px 12px; color: var(--muted); text-align: center; }

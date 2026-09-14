@@ -35,9 +35,9 @@ describe("Home schedule section", () => {
 
   afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
-  it("selects Monday, labels the season, sorts cards, dims elapsed releases, shows genre chips, and opens without playing", async () => {
+  it("selects Monday, labels the season, sorts cards, dims unreleased entries, shows genre chips, and opens without playing", async () => {
     await act(async () => { root.render(<ScheduleSection settings={DEFAULT_STATE.settings} library={[]} onOpen={open}
-      metadataFor={() => ({ sources: [], genres: ["Fantasy", "Adventure", "Drama"] })} onMetadata={() => undefined} />); });
+      metadataFor={() => ({ sources: [], genres: ["Fantasy", "Adventure", "Drama", "Comedy"] })} onMetadata={() => undefined} />); });
     expect(container.querySelector("h2")?.textContent).toBe("Schedule");
     expect(container.querySelector(".schedule-sub")?.textContent).toContain("Summer 2026");
     const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
@@ -46,12 +46,13 @@ describe("Home schedule section", () => {
     expect(tabs.filter((tab) => tab.classList.contains("today")).map((tab) => tab.textContent)).toEqual(["Mon"]);
     expect([...container.querySelectorAll(".schedule-audio button")].map((button) => `${button.textContent}:${button.ariaPressed}`)).toEqual(["SUB:true", "DUB:false"]);
     expect([...container.querySelectorAll(".schedule-card .t")].map((node) => node.textContent)).toEqual(["Earlier", "Later"]);
-    expect([...container.querySelectorAll(".schedule-card .tag")].map((node) => node.textContent)).toEqual(["Fantasy", "Adventure", "Fantasy", "Adventure"]);
+    expect([...container.querySelectorAll(".schedule-card .tag:not(.more)")].map((node) => node.textContent)).toEqual(["Fantasy", "Adventure", "Drama", "Comedy", "Fantasy", "Adventure", "Drama", "Comedy"]);
+    expect(container.querySelectorAll(".schedule-card .tag[hidden], .schedule-card .tag.more:not(.probe)")).toHaveLength(0);
     const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     expect([...container.querySelectorAll(".schedule-card .badge")].map((node) => node.textContent)).toEqual(["EP 3", "EP 4"]);
-    expect(container.querySelectorAll(".schedule-card.past")).toHaveLength(1);
-    expect(container.querySelector(".schedule-card.past .s")?.textContent).toBe(`Aired · ${clock("2026-09-14T09:00:00.000Z")}`);
-    expect(container.querySelector(".schedule-card:not(.past) .s")?.textContent).toBe(`${clock("2026-09-14T14:00:00.000Z")} · in 3h`);
+    expect([...container.querySelectorAll(".schedule-card")].map((card) => card.classList.contains("upcoming") ? "upcoming" : "aired")).toEqual(["aired", "upcoming"]);
+    expect(container.querySelector(".schedule-card.aired .s")?.textContent).toBe(`Aired · ${clock("2026-09-14T09:00:00.000Z")}`);
+    expect(container.querySelector(".schedule-card.upcoming .s")?.textContent).toBe(`${clock("2026-09-14T14:00:00.000Z")} · in 3h`);
     await act(async () => { container.querySelector<HTMLButtonElement>(".schedule-card .hit")!.click(); });
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ title: "Earlier" }), expect.objectContaining({ number: "3" }), "sub");
   });

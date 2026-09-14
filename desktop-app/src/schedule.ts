@@ -46,3 +46,19 @@ export const releaseHasPassed = (releaseAt: string, now: Date): boolean => {
 
 export const timezoneOffsetEast = (date: Date): number => -date.getTimezoneOffset();
 
+
+/**
+ * How many leading chips fit on one line of `width`, leaving room for a "+n" chip whenever some are left over.
+ * An unmeasured line (width 0, as in a test DOM) fits everything.
+ */
+export function chipsThatFit(width: number, chipWidths: number[], gap: number, moreWidth: number): number {
+  if (width <= 0) return chipWidths.length;
+  let used = 0;
+  for (let index = 0; index < chipWidths.length; index++) {
+    const next = used + (index ? gap : 0) + chipWidths[index];
+    const last = index === chipWidths.length - 1;
+    if ((last ? next : next + gap + moreWidth) > width) return index;
+    used = next;
+  }
+  return chipWidths.length;
+}
