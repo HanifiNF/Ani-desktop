@@ -89,7 +89,7 @@ Check the repository's [Releases page](https://github.com/HanifiNF/Ani-cli-aniwa
 | macOS Intel | x64 `.dmg` |
 | Linux x64 | `.AppImage` |
 
-macOS packages are currently unsigned. For a build you trust, attempt to open it, then use **System Settings → Privacy & Security → Open Anyway** if macOS blocks the first launch.
+macOS packages use ad-hoc signatures and are currently unnotarized. For a build you trust, attempt to open it, then use **System Settings → Privacy & Security → Open Anyway** if macOS blocks the first launch. The original `v0.1.0` Mac packages contain an invalid signature and should be replaced with a newer build.
 
 To create a package from your checkout, see [Building and development](#building-and-development).
 

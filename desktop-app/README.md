@@ -138,7 +138,9 @@ On macOS, build Intel and Apple Silicon DMGs with:
 npm run dist:mac
 ```
 
-The unsigned DMGs are written to `release/`. A downloaded unsigned build may be blocked on first launch; after attempting to open it, a trusted user can approve it with **System Settings → Privacy & Security → Open Anyway**.
+The DMGs are written to `release/`. Apps use ad-hoc signing (`mac.identity: "-"`), with Electron's default hardened-runtime entitlements. The build mounts each completed DMG and verifies the app's signature, nested code, and CPU architecture before succeeding. Setting `identity` to `null` skips signing and can leave an invalid Electron signature after packaging.
+
+These builds are unnotarized. A downloaded build may be blocked on first launch; after attempting to open it, a trusted user can approve it with **System Settings → Privacy & Security → Open Anyway**. Developer ID signing and Apple notarization are required for distribution that passes Gatekeeper without an override. The original `v0.1.0` Mac packages contain an invalid signature; install a newer build if macOS reports that version as damaged.
 
 ## Linux package
 
@@ -163,7 +165,7 @@ The release version is applied to the package and lockfile in the build workspac
 
 Release runs queue one at a time (up to GitHub's 100 pending-run limit). Failed checks or package builds prevent publication. Uploads stay in a draft until all files are attached. Retrying a tagged commit reuses its version and preserves an already published release. If a failed run's version was claimed by a later commit, choose **Re-run all jobs** to select a fresh version.
 
-To test packages from a branch, open **Actions → Desktop release → Run workflow** and select the branch. Manual runs execute the same checks and builds and save the packages as workflow artifacts. Publication happens on pushes to `master`. macOS packages are currently unsigned; signing and notarization can be added later.
+To test packages from a branch, open **Actions → Desktop release → Run workflow** and select the branch. Manual runs execute the same checks and builds and save the packages as workflow artifacts. Publication happens on pushes to `master`. macOS packages currently use ad-hoc signing; Developer ID signing and notarization can be added later.
 
 Vidstack loads the bundled hls.js module directly, so the player requires no CDN script permission. Vidstack and hls.js are bundled JavaScript dependencies; no native player executable or streamed media is included. See [Third-party notices](THIRD_PARTY_NOTICES.md).
 
