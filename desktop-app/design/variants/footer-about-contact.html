@@ -1,0 +1,298 @@
+<!doctype html><meta charset="utf-8"><title>Footer, About, Contact · variants</title>
+<style>
+:root {
+  --bg:#1F2023; --text:#EDEDEE; --cursor:#EDEDEE;
+  --raised: color-mix(in oklab, var(--bg), var(--text) 6%);
+  --raised2: color-mix(in oklab, var(--bg), var(--text) 10%);
+  --rule: color-mix(in oklab, var(--bg), var(--text) 12%);
+  --dim: color-mix(in oklab, var(--bg), var(--text) 36%);
+  --muted: color-mix(in oklab, var(--bg), var(--text) 60%);
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font: 400 14px/1.45 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing:-.005em; padding: 40px 60px 80px; }
+button, a { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: none; text-align: left; }
+.caption { margin: 56px 0 10px; color: var(--dim); font-size: 12px; }
+.caption:first-child { margin-top: 0; }
+.variant { width: 1120px; padding: 24px 0 8px; }
+.icon { width: 18px; height: 18px; flex: none; }
+.logo { font-weight: 700; font-size: 19px; letter-spacing: .06em; color: var(--text); }
+.logo em { font-style: normal; color: var(--muted); font-weight: 500; }
+.rule-top { border-top: 1px solid var(--rule); }
+.dimtext { color: var(--dim); font-size: 12px; }
+.chip { color: var(--dim); font-size: 12px; padding: 2px 7px; border-radius: 6px; background: var(--raised2); font-variant-numeric: tabular-nums; }
+
+/* ---- F1 · atsu panel ---- */
+.panel { border-radius: 16px; background: var(--raised); padding: 32px 36px 28px; }
+.panel-head { display:flex; align-items:center; gap: 14px; margin-bottom: 30px; }
+.groups { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px 24px; }
+.group h4 { margin: 0 0 12px; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.link { display:flex; align-items:center; gap: 12px; padding: 7px 0; color: var(--muted); font-size: 14px; }
+.link .icon { color: var(--muted); width: 17px; height: 17px; }
+.link:hover { color: var(--text); }
+.link:hover .icon { color: var(--text); }
+.link .h { color: var(--dim); font-size: 13px; margin-left: 4px; }
+.gridlinks { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 0 24px; }
+.panel-foot { display:flex; align-items:center; justify-content:space-between; gap: 16px; margin-top: 26px; padding-top: 18px; border-top: 1px solid color-mix(in oklab, var(--raised), var(--text) 8%); }
+.panel-foot .dimtext { max-width: 70%; }
+
+/* ---- F2 · hairline ---- */
+.flat { padding-top: 28px; margin-top: 12px; }
+.flat .row { display:flex; align-items:center; justify-content:space-between; gap: 24px; }
+.flat nav { display:flex; align-items:center; gap: 22px; color: var(--muted); font-size: 14px; }
+.flat nav a.on { color: var(--text); }
+.flat nav .sep { width: 1px; height: 14px; background: var(--rule); }
+.flat nav .icon { width: 16px; height: 16px; }
+.flat .row2 { margin-top: 14px; color: var(--dim); font-size: 12px; display:flex; align-items:center; justify-content:space-between; gap: 16px; }
+.flat .row2 b { font-weight: 500; color: var(--muted); }
+
+/* ---- F3 · panel with about and contact folded in ---- */
+.wide { display:grid; grid-template-columns: 1.4fr 1fr 1.4fr; gap: 40px; }
+.wide p { margin: 12px 0 0; color: var(--muted); max-width: 320px; line-height: 1.55; }
+.wide p a { color: var(--text); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+.person { display:flex; align-items:center; gap: 12px; padding: 6px 0; }
+.person + .person { margin-top: 6px; }
+.pic { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--raised2); flex:none; }
+.person b { display:block; font-weight: 500; font-size: 14px; }
+.person .socials { display:flex; gap: 8px; margin-top: 3px; }
+.person .socials a { display:grid; place-items:center; width: 24px; height: 24px; border-radius: 6px; color: var(--muted); }
+.person .socials a:hover { color: var(--text); background: var(--raised2); }
+.person .socials .icon { width: 15px; height: 15px; }
+
+/* ---- About pages ---- */
+.page { padding: 36px 0 20px; }
+.narrow { width: 640px; margin: 0 auto; }
+.narrow h1 { margin: 0 0 18px; font-size: 32px; font-weight: 600; letter-spacing: -.03em; line-height: 1.15; }
+.narrow p { margin: 0 0 16px; color: var(--muted); font-size: 15px; line-height: 1.6; }
+.narrow p a, .facts dd a { color: var(--text); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+.facts { margin: 30px 0 0; padding: 0; }
+.facts > div { display:grid; grid-template-columns: 140px minmax(0,1fr); gap: 16px; padding: 12px 0; border-top: 1px solid var(--rule); }
+.facts > div:last-child { border-bottom: 1px solid var(--rule); }
+.facts dt { color: var(--dim); }
+.facts dd { margin: 0; color: var(--text); }
+.facts dd .dimtext { margin-left: 8px; }
+.narrow .note { margin-top: 18px; color: var(--dim); font-size: 12px; }
+
+.apanel h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
+.apanel .lead { margin: 10px 0 0; color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 620px; }
+.apanel .groups { margin-top: 30px; }
+.apanel .link .h { display:block; margin: 0; }
+
+/* ---- Contact pages ---- */
+.rows { width: 760px; margin: 0 auto; }
+.rows h1 { margin: 0 0 6px; font-size: 32px; font-weight: 600; letter-spacing: -.03em; }
+.rows .lead { margin: 0 0 26px; color: var(--muted); font-size: 15px; }
+.crow { display:grid; grid-template-columns: 48px 150px minmax(0,1fr); align-items:center; gap: 18px; padding: 18px 0; border-top: 1px solid var(--rule); }
+.crow:last-child { border-bottom: 1px solid var(--rule); }
+.crow .pic { width: 48px; height: 48px; }
+.crow b { display:block; font-size: 16px; font-weight: 600; }
+.crow small { color: var(--dim); font-size: 12px; }
+.crow .chan { display:flex; flex-wrap: wrap; gap: 4px 22px; }
+.crow .chan a { display:inline-flex; align-items:center; gap: 8px; color: var(--muted); font-size: 14px; padding: 4px 0; }
+.crow .chan a:hover { color: var(--text); }
+.crow .chan .icon { width: 15px; height: 15px; }
+
+.cpanels { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+.cpanel { border-radius: 16px; background: var(--raised); padding: 26px 28px 22px; }
+.cpanel .who { display:flex; align-items:center; gap: 14px; margin-bottom: 18px; }
+.cpanel .who .pic { width: 44px; height: 44px; }
+.cpanel .who b { display:block; font-size: 16px; font-weight: 600; }
+.cpanel .who small { color: var(--dim); font-size: 12px; }
+.cpanel .gridlinks { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.cpanel .link { padding: 8px 0; }
+.cpanel .link span { display:block; line-height: 1.2; }
+.cpanel .link .h { display:block; margin: 2px 0 0; color: var(--text); font-size: 14px; }
+.cpanel .link .k { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.pagehead { display:flex; align-items:baseline; gap: 10px; margin-bottom: 18px; }
+.pagehead h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.pagehead span { color: var(--muted); font-size: 13px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></symbol>
+  <symbol id="bookmark" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.3-.4 6.8-1.6 6.8-7.4A5.8 5.8 0 0 0 19.3 3 5.4 5.4 0 0 0 19.1-.1S17.9-.5 15 1.5a13.4 13.4 0 0 0-6 0C6.1-.5 4.9-.1 4.9-.1A5.4 5.4 0 0 0 4.7 3a5.8 5.8 0 0 0-1.5 4.1c0 5.8 3.5 7 6.8 7.4A4.8 4.8 0 0 0 9 18v4"/><path d="M9 19c-3 .9-3-1.5-4.2-2"/></symbol>
+  <symbol id="discord" viewBox="0 0 24 24"><path d="M8.4 7.2A9.8 9.8 0 0 1 12 6.5a9.8 9.8 0 0 1 3.6.7M7.1 17.2c3.4 1.7 6.4 1.7 9.8 0"/><path d="M7.8 4.8A14 14 0 0 0 4.3 16a10 10 0 0 0 3.5 2.2l.9-1.3M16.2 4.8A14 14 0 0 1 19.7 16a10 10 0 0 1-3.5 2.2l-.9-1.3"/><circle cx="9" cy="12.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="12.5" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".8" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></symbol>
+  <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-4 7.5"/></symbol>
+  <symbol id="heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
+  <symbol id="code" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></symbol>
+  <symbol id="calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+</svg>
+<script>
+  const I = (n) => `<svg class="icon" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><use href="#${n}"/></svg>`;
+  document.addEventListener("DOMContentLoaded", () => {
+    for (const el of document.querySelectorAll("[data-i]")) el.insertAdjacentHTML("afterbegin", I(el.dataset.i));
+  });
+</script>
+
+<div class="caption">F1 · Footer as an atsu-style panel. Grouped links with icons; version and a one-line note at the foot.</div>
+<div class="variant" data-variant="f1">
+  <footer class="panel">
+    <div class="panel-head"><span class="logo">ANI<em>desktop</em></span><span class="chip">v0.1.0</span></div>
+    <div class="groups">
+      <div class="group"><h4>App</h4>
+        <a class="link" data-i="home">Home</a>
+        <a class="link" data-i="bookmark">Saved</a>
+        <a class="link" data-i="clock">Recent</a>
+        <a class="link" data-i="gear">Settings</a>
+      </div>
+      <div class="group"><h4>Project</h4>
+        <a class="link" data-i="info">About</a>
+        <a class="link" data-i="at">Contact</a>
+        <a class="link" data-i="code">Source on GitHub</a>
+        <a class="link" data-i="heart">Inspired by ani-cli</a>
+      </div>
+      <div class="group"><h4>Hanifi</h4>
+        <a class="link" data-i="github">HanifiNF</a>
+        <a class="link" data-i="discord">hnf_fury</a>
+        <a class="link" data-i="instagram">hanifi.setiawan</a>
+        <a class="link" data-i="mail">Email</a>
+      </div>
+      <div class="group"><h4>Pascal</h4>
+        <a class="link" data-i="github">Pascalrjt</a>
+        <a class="link" data-i="discord">passpspsps</a>
+        <a class="link" data-i="instagram">not.passss</a>
+        <a class="link" data-i="mail">Email</a>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <span class="dimtext">ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span>
+      <span class="dimtext">Made by Hanifi and Pascal</span>
+    </div>
+  </footer>
+</div>
+
+<div class="caption">F2 · Hairline footer, tidied. One row of links with a GitHub icon at the end, one dim row of notes. Closest to what exists.</div>
+<div class="variant" data-variant="f2">
+  <footer class="flat rule-top">
+    <div class="row">
+      <span class="logo" style="font-size:17px">ANI<em>desktop</em></span>
+      <nav>
+        <a class="on">Home</a><a>About</a><a>Contact</a>
+        <span class="sep"></span>
+        <a data-i="github" style="display:flex;align-items:center;gap:8px">GitHub</a>
+      </nav>
+    </div>
+    <div class="row2">
+      <span>Made by <b>Hanifi</b> and <b>Pascal</b> · inspired by ani-cli</span>
+      <span>v0.1.0 · does not host streamed media</span>
+    </div>
+  </footer>
+</div>
+
+<div class="caption">F3 · Panel that folds About and Contact into the footer, so those pages can go away. Blurb and credit on the left, app links in the middle, creators with social icons on the right.</div>
+<div class="variant" data-variant="f3">
+  <footer class="panel">
+    <div class="wide">
+      <div>
+        <span class="logo">ANI<em>desktop</em></span>
+        <p>Browse and watch anime from several providers in one place, and keep track of what comes next.</p>
+        <p>Inspired by <a>ani-cli</a>. Source on <a>GitHub</a>.</p>
+      </div>
+      <div class="group"><h4>App</h4>
+        <a class="link" data-i="home">Home</a>
+        <a class="link" data-i="bookmark">Saved</a>
+        <a class="link" data-i="clock">Recent</a>
+        <a class="link" data-i="gear">Settings</a>
+      </div>
+      <div class="group"><h4>Made by</h4>
+        <div class="person"><img class="pic" src="../../public/creators/hanifi.webp" alt="">
+          <div><b>Hanifi</b><div class="socials"><a data-i="github" title="HanifiNF"></a><a data-i="discord" title="hnf_fury"></a><a data-i="instagram" title="hanifi.setiawan"></a><a data-i="mail" title="hanifisetiawan@gmail.com"></a></div></div></div>
+        <div class="person"><img class="pic" src="../../public/creators/pascal.webp" alt="">
+          <div><b>Pascal</b><div class="socials"><a data-i="github" title="Pascalrjt"></a><a data-i="discord" title="passpspsps"></a><a data-i="instagram" title="not.passss"></a><a data-i="mail" title="pascal.rogerjt@gmail.com"></a></div></div></div>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <span class="dimtext">ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span>
+      <span class="chip">v0.1.0</span>
+    </div>
+  </footer>
+</div>
+
+<div class="caption">A1 · About as a narrow editorial column. Smaller title, two short paragraphs, then a hairline fact list. No cards.</div>
+<div class="variant" data-variant="a1">
+  <main class="page"><div class="narrow">
+    <h1>About ANIdesktop</h1>
+    <p>ANIdesktop is a desktop app for browsing and watching anime through one unified catalog. Search across the providers you enable, follow the seasonal schedule, save titles, pick up recent episodes, and play them in the built-in player.</p>
+    <p>It started as a desktop take on <a>ani-cli</a>, whose simple approach to finding anime and opening episodes in a media player shaped the foundation of this app. We are grateful to its maintainers and contributors.</p>
+    <dl class="facts">
+      <div><dt>Made by</dt><dd>Hanifi and Pascal <span class="dimtext"><a style="color:var(--muted)">Contact</a></span></dd></div>
+      <div><dt>Inspired by</dt><dd><a>ani-cli on GitHub</a></dd></div>
+      <div><dt>Source</dt><dd><a>github.com/HanifiNF/ani-desktop</a></dd></div>
+      <div><dt>Version</dt><dd>0.1.0</dd></div>
+    </dl>
+    <p class="note">ANIdesktop does not host streamed media. Titles and playback availability depend on their respective providers.</p>
+  </div></main>
+</div>
+
+<div class="caption">A2 · About in the same panel language as F1. Heading and blurb inside one raised panel, then grouped icon links for credits and people.</div>
+<div class="variant" data-variant="a2">
+  <main class="page">
+    <div class="pagehead"><h1>About</h1><span>v0.1.0</span></div>
+    <div class="panel apanel">
+      <h1>Anime, all in one desktop app.</h1>
+      <p class="lead">Search across the providers you enable, follow the seasonal schedule, save titles, revisit recent episodes, and play them in the built-in player. ANIdesktop is a desktop take on ani-cli, whose simple approach to finding and playing anime gave this app its foundation.</p>
+      <div class="groups">
+        <div class="group"><h4>Credits</h4>
+          <a class="link" data-i="heart">ani-cli on GitHub</a>
+          <a class="link" data-i="code">Source on GitHub</a>
+        </div>
+        <div class="group"><h4>Made by</h4>
+          <a class="link" data-i="github">Hanifi<span class="h">HanifiNF</span></a>
+          <a class="link" data-i="github">Pascal<span class="h">Pascalrjt</span></a>
+        </div>
+        <div class="group"><h4>Get in touch</h4>
+          <a class="link" data-i="at">Contact</a>
+          <a class="link" data-i="discord">Discord</a>
+        </div>
+      </div>
+      <div class="panel-foot"><span class="dimtext">ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span></div>
+    </div>
+  </main>
+</div>
+
+<div class="caption">C1 · Contact as hairline rows. One row per creator: small portrait, name, then the channels inline. No cards, no label column.</div>
+<div class="variant" data-variant="c1">
+  <main class="page"><div class="rows">
+    <h1>Contact</h1>
+    <p class="lead">Questions, ideas, or collaboration: reach either of us through the channels below.</p>
+    <div class="crow"><img class="pic" src="../../public/creators/hanifi.webp" alt="">
+      <div><b>Hanifi</b><small>Creator</small></div>
+      <div class="chan"><a data-i="github">HanifiNF</a><a data-i="discord">hnf_fury</a><a data-i="instagram">hanifi.setiawan</a><a data-i="mail">hanifisetiawan@gmail.com</a></div></div>
+    <div class="crow"><img class="pic" src="../../public/creators/pascal.webp" alt="">
+      <div><b>Pascal</b><small>Creator</small></div>
+      <div class="chan"><a data-i="github">Pascalrjt</a><a data-i="discord">passpspsps</a><a data-i="instagram">not.passss</a><a data-i="mail">pascal.rogerjt@gmail.com</a></div></div>
+  </div></main>
+</div>
+
+<div class="caption">C2 · Contact as two panels in the F1 language. Portrait and name at the top, then a two-column icon grid with the channel as a small label and the handle beneath.</div>
+<div class="variant" data-variant="c2">
+  <main class="page">
+    <div class="pagehead"><h1>Contact</h1><span>Questions, ideas, or collaboration</span></div>
+    <div class="cpanels">
+      <div class="cpanel">
+        <div class="who"><img class="pic" src="../../public/creators/hanifi.webp" alt=""><div><b>Hanifi</b><small>Creator</small></div></div>
+        <div class="gridlinks">
+          <a class="link" data-i="github"><span><span class="k">GitHub</span><span class="h">HanifiNF</span></span></a>
+          <a class="link" data-i="discord"><span><span class="k">Discord</span><span class="h">hnf_fury</span></span></a>
+          <a class="link" data-i="instagram"><span><span class="k">Instagram</span><span class="h">hanifi.setiawan</span></span></a>
+          <a class="link" data-i="mail"><span><span class="k">Email</span><span class="h">hanifisetiawan@gmail.com</span></span></a>
+        </div>
+      </div>
+      <div class="cpanel">
+        <div class="who"><img class="pic" src="../../public/creators/pascal.webp" alt=""><div><b>Pascal</b><small>Creator</small></div></div>
+        <div class="gridlinks">
+          <a class="link" data-i="github"><span><span class="k">GitHub</span><span class="h">Pascalrjt</span></span></a>
+          <a class="link" data-i="discord"><span><span class="k">Discord</span><span class="h">passpspsps</span></span></a>
+          <a class="link" data-i="instagram"><span><span class="k">Instagram</span><span class="h">not.passss</span></span></a>
+          <a class="link" data-i="mail"><span><span class="k">Email</span><span class="h">pascal.rogerjt@gmail.com</span></span></a>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

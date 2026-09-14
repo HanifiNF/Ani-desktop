@@ -38,6 +38,7 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
   named options (player, quality, audio, preferred source). The cancel/save row sticks to the bottom of the scrolling
   form and save is disabled until something changes. The key-hint footer is gone; `?`
   shows a hint pill.
+- Footer: one raised, rounded panel under every page (like the atsu.moe footer), and the only place the app describes itself. Left: the wordmark, a one-line blurb, a credit line saying the app is built on ani-cli by pystardust and its contributors (both linked), and a link to the source. Middle: an "App" column of icon links (home, saved, recent, settings) with the current one lit. Right: "Made by", one row per creator with a small round portrait, the name, and icon-only links (GitHub, Discord, Instagram, email; the Discord icon copies the handle and shows a "Copied" tip). A dim foot line carries the media note. There are no About or Contact pages.
 - Type is the system sans-serif (Inter when installed); Fragment Mono is no longer bundled. Themes are unchanged.
 
 ## Capture the current UI

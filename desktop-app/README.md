@@ -4,7 +4,7 @@ A private Electron desktop client built from the ani-cli v5 workflow. It support
 
 ## Creator photos
 
-The Contact page looks for square creator photos at `public/creators/hanifi.webp` and `public/creators/pascal.webp`. It shows each creator's initial when a photo is absent. Add an optimized square WebP image at either path to replace that fallback without changing the component; JPEG files may also be used after updating the corresponding filename in `src/creators.ts`.
+The footer looks for square creator photos at `public/creators/hanifi.webp` and `public/creators/pascal.webp`. It shows each creator's initial when a photo is absent. Add an optimized square WebP image at either path to replace that fallback without changing the component; JPEG files may also be used after updating the corresponding filename in `src/creators.ts`.
 
 ## Requirements
 
