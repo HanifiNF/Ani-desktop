@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ScheduleService } from "../electron/schedule-service";
 import { getAniwaveSchedule, getAniwaveScheduleArtwork } from "../electron/scraper";
-import { localDateKey, localWeek, releaseHasPassed, seasonScheduleTitle, timezoneOffsetEast } from "../src/schedule";
+import { chipsThatFit, localDateKey, localWeek, releaseCountdown, releaseHasPassed, seasonLabel, seasonScheduleTitle, timezoneOffsetEast } from "../src/schedule";
 import type { ScheduleQuery, ScheduleResult } from "../shared/contracts";
 import { validateScheduleAnimeId, validateScheduleQuery } from "../electron/schedule-validation";
 
@@ -74,5 +74,28 @@ describe("schedule IPC validation", () => {
     expect(validateScheduleAnimeId("aniwave:test-show-42")).toBe("aniwave:test-show-42");
     expect(() => validateScheduleAnimeId("hianime:test-show-42")).toThrow("Invalid schedule anime identifier");
     expect(() => validateScheduleAnimeId("aniwave:../../42")).toThrow("Invalid schedule anime identifier");
+  });
+
+  it("counts down to a release in hours and minutes, rounding minutes up, and goes quiet once it has passed", () => {
+    const now = new Date("2026-09-14T10:00:00.000Z");
+    expect(seasonLabel(new Date(2026, 6, 1))).toBe("Summer 2026");
+    expect(releaseCountdown("2026-09-14T10:00:30.000Z", now)).toBe("in 1m");
+    expect(releaseCountdown("2026-09-14T10:45:00.000Z", now)).toBe("in 45m");
+    expect(releaseCountdown("2026-09-14T11:30:00.000Z", now)).toBe("in 1h 30m");
+    expect(releaseCountdown("2026-09-14T16:00:00.000Z", now)).toBe("in 6h");
+    expect(releaseCountdown("2026-09-15T00:20:00.000Z", now)).toBe("in 14h");
+    expect(releaseCountdown("2026-09-17T10:00:00.000Z", now)).toBe("in 3 days");
+    expect(releaseCountdown("2026-09-14T10:00:00.000Z", now)).toBe("");
+    expect(releaseCountdown("not a date", now)).toBe("");
+  });
+
+  it("fits whole genre chips on one line and keeps room for a +n chip when some are left over", () => {
+    expect(chipsThatFit(126, [60, 40], 4, 24)).toBe(2);           // both fit exactly at 104
+    expect(chipsThatFit(140, [60, 40, 50], 4, 24)).toBe(2);       // third would need 158; two chips plus "+1" need 132
+    expect(chipsThatFit(126, [60, 40, 50], 4, 24)).toBe(1);       // two chips would fit alone but leave no room for "+1"
+    expect(chipsThatFit(126, [120], 4, 24)).toBe(1);              // a lone chip needs no "+n"
+    expect(chipsThatFit(126, [130, 20], 4, 24)).toBe(0);          // nothing fits, only "+2"
+    expect(chipsThatFit(0, [60, 60, 60], 4, 24)).toBe(3);         // unmeasured: show everything
+    expect(chipsThatFit(126, [], 4, 24)).toBe(0);
   });
 });

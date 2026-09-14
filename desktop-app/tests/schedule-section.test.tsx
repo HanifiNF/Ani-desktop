@@ -35,17 +35,25 @@ describe("Home schedule section", () => {
 
   afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
-  it("selects Monday, labels the current season, sorts rows, dims elapsed releases, and opens without playing", async () => {
+  it("selects Monday, labels the season, sorts cards, dims unreleased entries, shows genre chips, and opens without playing", async () => {
     await act(async () => { root.render(<ScheduleSection settings={DEFAULT_STATE.settings} library={[]} onOpen={open}
-      metadataFor={() => ({ sources: [], genres: ["Fantasy", "Adventure"] })} onMetadata={() => undefined} />); });
-    expect(container.querySelector("h2")?.textContent).toBe("Summer 2026 Season Schedule");
+      metadataFor={() => ({ sources: [], genres: ["Fantasy", "Adventure", "Drama", "Comedy"] })} onMetadata={() => undefined} />); });
+    expect(container.querySelector("h2")?.textContent).toBe("Schedule");
+    expect(container.querySelector(".schedule-sub")?.textContent).toContain("Summer 2026");
     const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
     expect(tabs).toHaveLength(7);
     expect(tabs.find((tab) => tab.ariaSelected === "true")?.textContent).toContain("Mon");
-    expect([...container.querySelectorAll(".schedule-title")].map((node) => node.textContent)).toEqual(["Earlier", "Later"]);
-    expect(container.querySelector(".schedule-copy small")?.textContent).toBe("Fantasy · Adventure");
-    expect(container.querySelectorAll(".schedule-row.past")).toHaveLength(1);
-    await act(async () => { container.querySelector<HTMLButtonElement>(".schedule-row")!.click(); });
+    expect(tabs.filter((tab) => tab.classList.contains("today")).map((tab) => tab.textContent)).toEqual(["Mon"]);
+    expect([...container.querySelectorAll(".schedule-audio button")].map((button) => `${button.textContent}:${button.ariaPressed}`)).toEqual(["SUB:true", "DUB:false"]);
+    expect([...container.querySelectorAll(".schedule-card .t")].map((node) => node.textContent)).toEqual(["Earlier", "Later"]);
+    expect([...container.querySelectorAll(".schedule-card .tag:not(.more)")].map((node) => node.textContent)).toEqual(["Fantasy", "Adventure", "Drama", "Comedy", "Fantasy", "Adventure", "Drama", "Comedy"]);
+    expect(container.querySelectorAll(".schedule-card .tag[hidden], .schedule-card .tag.more:not(.probe)")).toHaveLength(0);
+    const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    expect([...container.querySelectorAll(".schedule-card .badge")].map((node) => node.textContent)).toEqual(["EP 3", "EP 4"]);
+    expect([...container.querySelectorAll(".schedule-card")].map((card) => card.classList.contains("upcoming") ? "upcoming" : "aired")).toEqual(["aired", "upcoming"]);
+    expect(container.querySelector(".schedule-card.aired .s")?.textContent).toBe(`Aired · ${clock("2026-09-14T09:00:00.000Z")}`);
+    expect(container.querySelector(".schedule-card.upcoming .s")?.textContent).toBe(`${clock("2026-09-14T14:00:00.000Z")} · in 3h`);
+    await act(async () => { container.querySelector<HTMLButtonElement>(".schedule-card .hit")!.click(); });
     expect(open).toHaveBeenCalledWith(expect.objectContaining({ title: "Earlier" }), expect.objectContaining({ number: "3" }), "sub");
   });
 
@@ -55,28 +63,28 @@ describe("Home schedule section", () => {
     await act(async () => { root.render(<ScheduleSection settings={DEFAULT_STATE.settings} library={[]} onOpen={open} />); });
     await act(async () => { container.querySelectorAll<HTMLButtonElement>('[role="tab"]')[0].click(); });
     await act(async () => { monday.resolve(scheduleResult("2026-09-14", "Monday")); await monday.promise; });
-    expect(container.querySelector(".schedule-title")?.textContent).not.toBe("Monday");
+    expect(container.querySelector(".schedule-card .t")?.textContent).not.toBe("Monday");
     await act(async () => { sunday.resolve(scheduleResult("2026-09-13", "Sunday")); await sunday.promise; });
-    expect(container.querySelector(".schedule-title")?.textContent).toBe("Sunday");
+    expect(container.querySelector(".schedule-card .t")?.textContent).toBe("Sunday");
   });
 
-  it("hides rows whose audio mode or source address does not match the active request", async () => {
+  it("hides cards whose audio mode or source address does not match the active request", async () => {
     const dub = deferred<ReturnType<typeof scheduleResult>>();
     schedule.mockImplementation(async (query) => query.mode === "dub" ? dub.promise : scheduleResult(query.date, "Sub Show"));
     await act(async () => { root.render(<ScheduleSection settings={DEFAULT_STATE.settings} library={[]} onOpen={open} />); });
-    expect(container.querySelector(".schedule-title")?.textContent).toBe("Sub Show");
-    await act(async () => { [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "DUB")!.click(); });
-    expect(container.querySelector(".schedule-title")).toBeNull();
+    expect(container.querySelector(".schedule-card .t")?.textContent).toBe("Sub Show");
+    await act(async () => { [...container.querySelectorAll<HTMLButtonElement>(".schedule-audio button")].find((button) => button.textContent === "DUB")!.click(); });
+    expect(schedule).toHaveBeenLastCalledWith(expect.objectContaining({ mode: "dub" }), expect.anything());
+    expect(container.querySelector(".schedule-card .t")).toBeNull();
     await act(async () => { dub.resolve(scheduleResult("2026-09-14", "Dub Show")); await dub.promise; });
-    expect(container.querySelector(".schedule-title")?.textContent).toBe("Dub Show");
+    expect(container.querySelector(".schedule-card .t")?.textContent).toBe("Dub Show");
 
     const changed = { ...DEFAULT_STATE.settings, aniwaveBaseUrl: "https://alternate.test" };
     const alternate = deferred<ReturnType<typeof scheduleResult>>();
     schedule.mockReturnValueOnce(alternate.promise);
     await act(async () => { root.render(<ScheduleSection settings={changed} library={[]} onOpen={open} />); });
-    expect(container.querySelector(".schedule-title")).toBeNull();
+    expect(container.querySelector(".schedule-card .t")).toBeNull();
     await act(async () => { alternate.resolve(scheduleResult("2026-09-14", "Alternate")); await alternate.promise; });
-    expect(container.querySelector(".schedule-title")?.textContent).toBe("Alternate");
+    expect(container.querySelector(".schedule-card .t")?.textContent).toBe("Alternate");
   });
 });
-

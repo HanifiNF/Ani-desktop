@@ -103,17 +103,16 @@ afterEach(async () => {
 });
 
 describe("site footer navigation", () => {
-  it("opens informational pages, replaces search, and returns home with Escape", async () => {
+  it("moves between screens, marks the current one, and keeps the search available", async () => {
     expect(container.querySelector(".site-footer")).not.toBeNull();
-    await click("About");
-    expect(container.querySelector(".page-about .about-page")).not.toBeNull();
+    expect(container.querySelector('.footer-link[aria-current="page"]')?.textContent).toBe("Home");
+    await click("Saved");
+    expect(container.querySelector(".page-saved")).not.toBeNull();
+    expect(container.querySelector('.footer-link[aria-current="page"]')?.textContent).toBe("Saved");
+    expect(input()).not.toBeNull();
+    await click("Settings");
+    expect(container.querySelector(".page-settings")).not.toBeNull();
     expect(container.querySelector(".search.as-button")?.textContent).toContain("Search anime");
-    expect(input()).toBeNull();
-
-    await press("Escape");
-    expect(container.querySelector(".page-home")).not.toBeNull();
-    await click("Contact");
-    expect(container.querySelector(".page-contact .contact-page")).not.toBeNull();
     await click("Home");
     expect(container.querySelector(".page-home")).not.toBeNull();
   });

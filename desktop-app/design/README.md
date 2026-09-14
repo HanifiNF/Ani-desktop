@@ -8,7 +8,7 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
 - Top bar: wordmark, a centred search pill (⌘K or / focuses it), then home, saved, recent, and settings icons. The bar
   carries nothing about playback: the corner player is the way back to the full player (its expand button or the
   backtick).
-- Home: "Continue watching" and "Saved" as poster-card rows, eight across (six in narrower windows), with a next-episode badge and the audio mode. A seasonal schedule follows Saved with equal Sunday–Saturday tabs, a local estimated-time list, and SUB/DUB controls; it remains visible when the library is empty.
+- Home: "Continue watching" and "Saved" as poster-card rows, eight across (six in narrower windows), with a next-episode badge and the audio mode. A schedule follows Saved and remains visible when the library is empty: the section head carries the season, the local zone, and plain-text Sunday–Saturday tabs with a dot under today; the body is the same poster-card grid, each card (titles reserve two lines on every card so the line beneath and the chips align across a row) showing an episode badge on the poster, then the local air time with a countdown for today's upcoming entries (or "Aired · time" once it has passed; posters that have not aired yet are darkened and desaturated, not faded, while aired ones stay at full brightness because they can be watched), and genre chips on one line: whole chips only, then a "+n" chip for the ones that did not fit (hovering it lists them). A plain-text SUB/DUB switch sits after the tabs behind a hairline; a card opens the series page.
   Arrow keys move between cards and rows, up and down also cross sections, Enter plays, o opens,
   x removes.
 - Search: typing in the pill opens a palette over the page with a result count, and thumbnail rows
@@ -38,6 +38,7 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
   named options (player, quality, audio, preferred source). The cancel/save row sticks to the bottom of the scrolling
   form and save is disabled until something changes. The key-hint footer is gone; `?`
   shows a hint pill.
+- Footer: one raised, rounded panel under every page (like the atsu.moe footer), and the only place the app describes itself. Left: the wordmark, a one-line blurb, a credit line saying the app is built on ani-cli by pystardust and its contributors (both linked), and a link to the source. Middle: an "App" column of icon links (home, saved, recent, settings) with the current one lit. Right: "Made by", one row per creator with a small round portrait, the name, and icon-only links (GitHub, Discord, Instagram, email; the Discord icon copies the handle and shows a "Copied" tip). A dim foot line carries the media note. There are no About or Contact pages.
 - Type is the system sans-serif (Inter when installed); Fragment Mono is no longer bundled. Themes are unchanged.
 
 ## Capture the current UI

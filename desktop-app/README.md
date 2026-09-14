@@ -1,10 +1,12 @@
-# ANIdesktop
+# ANIdesktop technical guide
 
-A private Electron desktop client built from the ani-cli v5 workflow. It supports Auto, AniWave/Vidplay, AniDB, and HiAnime providers. HLS video plays in a built-in Vidstack screen on Windows, macOS, and Linux; mpv, VLC, and IINA remain optional external fallbacks. The React renderer has no direct Node.js access.
+See the [main README](../README.md) for the app overview, screenshots, and getting started. This guide covers desktop configuration, development, and troubleshooting.
+
+ANIdesktop is an Electron desktop client built on the ani-cli v5 workflow. It supports AniWave/Vidplay, AniDB, and HiAnime, with automatic source selection. HLS video plays in a built-in Vidstack screen on Windows, macOS, and Linux; mpv, VLC, and IINA remain optional external fallbacks. The React renderer has no direct Node.js access.
 
 ## Creator photos
 
-The Contact page looks for square creator photos at `public/creators/hanifi.webp` and `public/creators/pascal.webp`. It shows each creator's initial when a photo is absent. Add an optimized square WebP image at either path to replace that fallback without changing the component; JPEG files may also be used after updating the corresponding filename in `src/creators.ts`.
+The footer looks for square creator photos at `public/creators/hanifi.webp` and `public/creators/pascal.webp`. It shows each creator's initial when a photo is absent. Add an optimized square WebP image at either path to replace that fallback without changing the component; JPEG files may also be used after updating the corresponding filename in `src/creators.ts`.
 
 ## Requirements
 
@@ -30,7 +32,7 @@ npm start
 Type at least two characters to search automatically after a short pause, or press Enter to search immediately. Results, saved titles, and recent titles support mouse and keyboard navigation.
 
 - Catalog search checks AniWave, AniDB, and HiAnime concurrently and combines matching titles as each provider responds. Results show posters and full titles, keeping season, part, and special names visible. Provider choices appear under episodes. The preferred source setting controls playback selection.
-- Home shows the current seasonal schedule below Saved. It opens on today in the local Sunday–Saturday week, supports SUB/DUB, orders AniWave's estimated releases by local time, and dims elapsed times without claiming the episode is already available. AniWave must be enabled for live schedule updates; cached rows remain visible with a stale notice during an outage.
+- Home shows the current seasonal schedule below Saved as a poster-card grid. It opens on today in the local Sunday–Saturday week, supports SUB/DUB, orders AniWave's estimated releases by local time, shows a countdown and one line of genre chips per card (with a "+n" chip for any that do not fit), and dims entries that have not aired yet while leaving aired ones at full brightness. AniWave must be enabled for live schedule updates; cached rows remain visible with a stale notice during an outage.
 - Open a series to see episodes grouped by number, with provider sources underneath. Click an episode to play, use the sidebar to save or mark watched, and use **Jump to** to find an episode. This page uses mouse controls with standard Tab focus, without custom keyboard shortcuts or a selection highlight. Known and newly discovered sources populate independently, preserving scroll position.
 - Supported sub/dub availability loads before full stream resolution. Audio labels describe provider-listed availability; playback verifies the host. Quality checks prioritize the selected episode and nearby visible rows. Failed checks offer **Retry info**.
 - **Refresh sources** refreshes cached data while respecting paused services. Cached episode lists remain visible if a refresh fails, alongside the provider error. **Check now**, **Retry search**, and **Retry info** permit a controlled recovery check.
