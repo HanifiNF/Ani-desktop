@@ -150,14 +150,20 @@ The AppImage is written to `release/`. Linux runs through Electron on X11 or Way
 
 ## GitHub releases
 
-Set the package version, commit it, and push the matching tag:
+Each push to `master`, including a merged pull request, starts the desktop release workflow. It runs the unit, build, and native player checks alongside builds of a Windows x64 installer, Linux x64 AppImage, and Intel and Apple Silicon macOS DMGs. Once all checks and packages succeed, it creates a version tag on the exact built commit and publishes the packages with generated release notes.
+
+The first release uses the version in `package.json` (currently `0.1.0`). Each subsequent release increments the highest stable `vMAJOR.MINOR.PATCH` tag's patch number: `0.1.1`, `0.1.2`, and so on. To start a larger release, update the package and lockfile to a version above the latest release, then commit those files in your pull request:
 
 ```sh
-git tag v0.2.0
-git push origin v0.2.0
+cd desktop-app
+npm version 0.2.0 --no-git-tag-version
 ```
 
-The desktop release workflow tests the app and attaches a Windows x64 installer, Linux x64 AppImage, and Intel and Apple Silicon macOS DMGs to the tag's GitHub Release. macOS signing and notarization can be added later.
+The release version is applied to the package and lockfile in the build workspace. The workflow creates tags and releases using GitHub's built-in token; it creates no version-bump commits. The checked-in package version serves as the minimum version for future releases, so source checkouts can show an older version than downloaded packages.
+
+Release runs queue one at a time (up to GitHub's 100 pending-run limit). Failed checks or package builds prevent publication. Uploads stay in a draft until all files are attached. Retrying a tagged commit reuses its version and preserves an already published release. If a failed run's version was claimed by a later commit, choose **Re-run all jobs** to select a fresh version.
+
+To test packages from a branch, open **Actions → Desktop release → Run workflow** and select the branch. Manual runs execute the same checks and builds and save the packages as workflow artifacts. Publication happens on pushes to `master`. macOS packages are currently unsigned; signing and notarization can be added later.
 
 Vidstack loads the bundled hls.js module directly, so the player requires no CDN script permission. Vidstack and hls.js are bundled JavaScript dependencies; no native player executable or streamed media is included. See [Third-party notices](THIRD_PARTY_NOTICES.md).
 

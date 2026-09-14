@@ -2,89 +2,100 @@ name: Desktop release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [master]
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+# Serialize version allocation and publication, including overlapping merges.
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+  queue: max
 
 jobs:
-  windows:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: desktop-app
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: desktop-app/package-lock.json
-      - run: npm ci
-      - name: Verify tag matches package version
-        shell: bash
-        run: node -e "const p=require('./package.json'); if(process.env.GITHUB_REF_NAME !== 'v'+p.version) throw new Error('Tag must be v'+p.version)"
-      - run: npm test
-      - run: npm run typecheck
-      - run: npm run dist:win
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-x64
-          path: desktop-app/release/*.exe
-          if-no-files-found: error
-
-  macos:
-    runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: desktop-app
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: desktop-app/package-lock.json
-      - run: npm ci
-      - name: Verify tag matches package version
-        run: node -e "const p=require('./package.json'); if(process.env.GITHUB_REF_NAME !== 'v'+p.version) throw new Error('Tag must be v'+p.version)"
-      - run: npm test
-      - run: npm run typecheck
-      - run: npm run dist:mac
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos
-          path: desktop-app/release/*.dmg
-          if-no-files-found: error
-
-  linux:
+  prepare:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: desktop-app
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test .github/scripts/desktop-release-version.test.mjs
+      - name: Choose release version
+        id: version
+        run: node .github/scripts/desktop-release-version.mjs
+
+  checks:
+    needs: prepare
+    uses: ./.github/workflows/desktop-checks.yml
+
+  build:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact: windows-x64
+            extension: exe
+          - os: macos-latest
+            platform: mac
+            artifact: macos
+            extension: dmg
+          - os: ubuntu-latest
+            platform: linux
+            artifact: linux-x64
+            extension: AppImage
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop-app
+    env:
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: desktop-app/package-lock.json
       - run: npm ci
-      - name: Verify tag matches package version
-        run: node -e "const p=require('./package.json'); if(process.env.GITHUB_REF_NAME !== 'v'+p.version) throw new Error('Tag must be v'+p.version)"
-      - run: npm test
-      - run: npm run dist:linux
+      - name: Set packaged version
+        run: npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
+      - run: npm run dist:${{ matrix.platform }}
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-x64
-          path: desktop-app/release/*.AppImage
+          name: ${{ matrix.artifact }}
+          path: desktop-app/release/*.${{ matrix.extension }}
           if-no-files-found: error
 
   release:
-    needs: [windows, macos, linux]
+    # Manual runs validate packages and keep them as workflow artifacts.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: [prepare, checks, build]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -92,4 +103,30 @@ jobs:
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --generate-notes --verify-tag
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        shell: bash
+        run: |
+          # Retries must keep existing tags attached to the same commit.
+          tag_commit=$(git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{commit}" || true)
+          if [[ -n "$tag_commit" && "$tag_commit" != "$GITHUB_SHA" ]]; then
+            echo "::error::$RELEASE_TAG belongs to another commit. Re-run all jobs to choose a fresh version."
+            exit 1
+          fi
+          if [[ -z "$tag_commit" ]]; then
+            gh api --method POST "repos/$GH_REPO/git/refs" \
+              -f ref="refs/tags/$RELEASE_TAG" -f sha="$GITHUB_SHA" > /dev/null
+          fi
+
+          if is_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft'); then
+            if [[ "$is_draft" == "false" ]]; then
+              echo "Release $RELEASE_TAG is already published."
+              exit 0
+            fi
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --target "$GITHUB_SHA" --draft --generate-notes
+          fi
+
+          # Keep incomplete uploads in a draft so a retry can finish the release.
+          gh release upload "$RELEASE_TAG" artifacts/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false
