@@ -1,6 +1,8 @@
-# ANIdesktop
+# ANIdesktop technical guide
 
-A private Electron desktop client built from the ani-cli v5 workflow. It supports Auto, AniWave/Vidplay, AniDB, and HiAnime providers. HLS video plays in a built-in Vidstack screen on Windows, macOS, and Linux; mpv, VLC, and IINA remain optional external fallbacks. The React renderer has no direct Node.js access.
+See the [main README](../README.md) for the app overview, screenshots, and getting started. This guide covers desktop configuration, development, and troubleshooting.
+
+ANIdesktop is an Electron desktop client built on the ani-cli v5 workflow. It supports AniWave/Vidplay, AniDB, and HiAnime, with automatic source selection. HLS video plays in a built-in Vidstack screen on Windows, macOS, and Linux; mpv, VLC, and IINA remain optional external fallbacks. The React renderer has no direct Node.js access.
 
 ## Creator photos
 
