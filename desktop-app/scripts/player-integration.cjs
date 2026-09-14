@@ -158,7 +158,13 @@ app.whenReady().then(async () => {
   }
   console.log('PASS: bundled HLS startup with production CSP inside the app window');
   await waitFor("!document.querySelector('video').paused", 'autoplay');
-  // HLS can report a partial duration during startup; percentage shortcuts use the player duration.
+  // HLS initially reports a partial duration. Vidstack stops updating hidden time labels,
+  // so wait for the media duration, then reveal the controls before checking their text.
+  await waitFor("!document.querySelector('[data-media-player]').hasAttribute('data-controls')", 'controls idle before duration check');
+  await waitFor("document.querySelector('video').duration >= 32 && document.querySelector('video').duration < 33", 'full media duration');
+  await evaluate("document.querySelector('[data-media-player]').focus()");
+  await key('Shift');
+  await waitFor("document.querySelector('[data-media-player]').hasAttribute('data-controls')", 'visible player controls');
   await waitFor("document.querySelector('.vds-time[data-type=duration]')?.textContent.trim() === '0:32'", 'full fixture duration');
   await key('k'); await waitFor("document.querySelector('video').paused", 'K before click');
   await key(' '); await waitFor("!document.querySelector('video').paused", 'Space before click');
@@ -225,6 +231,10 @@ app.whenReady().then(async () => {
     }
   }
 
+  // Native window and PiP transitions can consume most of the short fixture. Give the
+  // quality-switch assertion a full playback interval on runners with slower animation.
+  await key('0');
+  await waitFor("document.querySelector('video').currentTime < 2 && !document.querySelector('video').seeking", 'rewind before quality switch');
   await evaluate(`document.querySelector('.vds-menu-button[data-root]').dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,button:0}))`);
   await waitFor("!!document.querySelector('.vds-quality-menu')",'quality menu available');
   await evaluate(`document.querySelector('.vds-quality-menu .vds-menu-item').dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,button:0}))`);
