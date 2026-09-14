@@ -1,0 +1,104 @@
+<!doctype html><meta charset="utf-8"><title>Schedule · A with genres</title>
+<style>
+:root { --bg:#1F2023; --text:#EDEDEE; --cursor:#EDEDEE; --cursor-text:var(--bg); --radius:10px;
+  --raised: color-mix(in oklab, var(--bg), var(--text) 6%); --raised2: color-mix(in oklab, var(--bg), var(--text) 10%);
+  --rule: color-mix(in oklab, var(--bg), var(--text) 12%); --dim: color-mix(in oklab, var(--bg), var(--text) 36%); --muted: color-mix(in oklab, var(--bg), var(--text) 60%); }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font: 14px/1.4 -apple-system, "Inter", system-ui, sans-serif; padding: 40px 60px 80px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.caption { margin: 48px 0 10px; color: var(--muted); font-size: 12px; }
+.caption:first-child { margin-top: 0; }
+.variant { width: 1120px; padding: 12px 0 8px; }
+
+/* section header, shared */
+.head { display:flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.head h2 { margin:0; font-size:22px; font-weight:600; letter-spacing:-0.02em; display:flex; align-items:center; gap:6px; }
+.head h2 svg { width:16px; height:16px; color: var(--muted); }
+.head .sub { color: var(--muted); font-size: 13px; }
+.head .right { margin-left:auto; display:flex; align-items:center; gap: 22px; }
+.tabs { display:flex; gap: 16px; font-size: 14px; }
+.tabs button { color: var(--muted); padding: 2px 0; position: relative; }
+.tabs button.on { color: var(--text); font-weight: 500; }
+.tabs button.today::after { content:""; position:absolute; left:50%; bottom:-6px; width:4px; height:4px; margin-left:-2px; border-radius:50%; background: var(--muted); }
+.tabs button.on.today::after { background: var(--text); }
+.seg { display:flex; gap: 12px; font-size: 13px; padding-left: 22px; border-left: 1px solid var(--rule); }
+.seg button { color: var(--muted); }
+.seg button.on { color: var(--text); font-weight: 500; }
+
+/* posters */
+.poster { display:block; position:relative; aspect-ratio: 2/3; border-radius: var(--radius); overflow:hidden; background: var(--raised); box-shadow: 0 1px 0 color-mix(in oklab, var(--text) 8%, transparent) inset; }
+.poster::after { content:""; position:absolute; inset:0; }
+.p1 { background:#d7e3ee; } .p1::after { background: linear-gradient(165deg, transparent 52%, #1b2a3d 52%); box-shadow: 0 0 0 200px transparent; }
+.p1::before { content:""; position:absolute; left:32%; top:12%; width:60%; aspect-ratio:1; border-radius:50%; background:#5c85b4; }
+.p2 { background:#f6e64a; } .p2::before { content:""; position:absolute; left:14%; top:16%; width:42%; aspect-ratio:1; border-radius:50%; background:#e5383b; } .p2::after { inset:auto 18% 34% 18%; height:12%; background:#111; }
+.p3 { background:#efd9b5; } .p3::after { background: linear-gradient(170deg, transparent 38%, #4a7a45 38%); } .p3::before { content:""; position:absolute; left:28%; top:40%; width:48%; aspect-ratio:1; border-radius:50%; background:#3a2418; z-index:1; }
+.p4 { background:#f5e2ea; } .p4::before { content:""; position:absolute; left:12%; top:16%; width:50%; aspect-ratio:1; background:#b5546e; } .p4::after { inset:auto 14% 22% 44%; aspect-ratio:1; background:#4f7d64; opacity:.85; }
+.p5 { background:#d5dde2; } .p5::before { content:""; position:absolute; left:14%; top:14%; width:36%; aspect-ratio:1; background:#3f5666; } .p5::after { inset:auto 14% 18% 40%; aspect-ratio:1; background:#b3472f; }
+.p6 { background:#2b2f3a; } .p6::before { content:""; position:absolute; left:20%; top:30%; width:60%; aspect-ratio:1; border-radius:50%; background:#7fb2ff; }
+.p7 { background:#e6efe0; } .p7::after { background: linear-gradient(200deg, transparent 55%, #2f6b4f 55%); } .p7::before { content:""; position:absolute; right:10%; top:10%; width:34%; aspect-ratio:1; background:#f2b134; z-index:1; }
+.p8 { background:#4b6fd6; } .p8::before { content:""; position:absolute; left:18%; top:20%; width:64%; aspect-ratio:1; background:#fff; opacity:.9; border-radius:8px; }
+.badges { position:absolute; left:8px; right:8px; bottom:8px; display:flex; gap:4px; flex-wrap:wrap; z-index:2; }
+.badge { font-size:11px; font-weight:600; line-height:1; padding:5px 7px; border-radius:6px; background: color-mix(in oklab, #000 62%, transparent); color:#fff; backdrop-filter: blur(6px); }
+.badge.hi { background: var(--cursor); color: var(--cursor-text); }
+
+/* A · poster grid */
+.grid { display:grid; grid-template-columns: repeat(8, minmax(0,1fr)); gap: 18px 16px; }
+.card { min-width:0; display:grid; align-content:start; text-align:left; }
+.card .t { display:block; margin-top:10px; font-size:14px; font-weight:500; line-height:1.3; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.card .s { display:block; margin-top:3px; color: var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card.past .poster { opacity: .45; }
+.card.past .t { color: var(--muted); }
+
+
+.card { width:100%; }
+.card .g { display:block; margin-top: 2px; color: var(--dim); font-size: 11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card.past .g { color: var(--dim); }
+/* A3 hover scrim */
+.scrim { position:absolute; left:0; right:0; bottom:0; z-index:1; padding: 34px 8px 30px; font-size: 11px; line-height: 1.35; color: #fff; background: linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,.55) 55%, transparent); opacity: 0; transition: opacity .12s; }
+.card:hover .scrim, .card.hovered .scrim { opacity: 1; }
+.card.hovered .poster { box-shadow: 0 0 0 2px var(--rule); }
+/* A4 chips */
+.chips { display:flex; gap: 4px; margin-top: 6px; overflow:hidden; }
+.chip { flex:none; font-size: 10.5px; line-height: 1; padding: 4px 6px; border-radius: 5px; background: var(--raised); color: var(--muted); white-space:nowrap; }
+</style>
+<script>
+const chev = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const items = [
+  { p:"p6", t:"Kaiju No. 8", ep:10, time:"01:30", past:true, eta:"aired" },
+  { p:"p7", t:"Wind Breaker", ep:21, time:"09:00", past:true, eta:"aired" },
+  { p:"p8", t:"Oshi no Ko", ep:7, time:"12:30", past:true, eta:"aired" },
+  { p:"p1", t:"Frieren: Beyond Journey's End", ep:13, time:"16:30", past:true, eta:"aired" },
+  { p:"p2", t:"Dandadan", ep:4, time:"19:00", eta:"in 1h 30m" },
+  { p:"p4", t:"The Apothecary Diaries", ep:8, time:"21:15", eta:"in 3h 45m" },
+  { p:"p3", t:"Sakamoto Days", ep:11, time:"22:00", eta:"in 4h 30m" },
+  { p:"p5", t:"Blue Box", ep:15, time:"23:30", eta:"in 6h" }
+];
+const tabs = (active = 1) => `<div class="tabs">${days.map((d, i) => `<button class="${i===active?'on':''} ${i===1?'today':''}">${d}</button>`).join("")}</div>`;
+const seg = () => `<div class="seg"><button class="on">SUB</button><button>DUB</button></div>`;
+const head = (title, sub, right) => `<div class="head"><h2>${title}${chev}</h2><span class="sub">${sub}</span><div class="right">${right}</div></div>`;
+
+
+const genres = { "Kaiju No. 8": ["Action","Sci-Fi"], "Wind Breaker": ["Action","School"], "Oshi no Ko": ["Drama","Supernatural"], "Frieren: Beyond Journey's End": ["Adventure","Drama","Fantasy"], "Dandadan": ["Action","Comedy","Supernatural"], "The Apothecary Diaries": ["Drama","Mystery"], "Sakamoto Days": ["Action","Comedy"], "Blue Box": ["Romance","Sports"] };
+const g = (x) => genres[x.t] || [];
+const card = (x, body, extra = "") => `<button class="card ${x.past?'past':''} ${extra}"><span class="poster ${x.p}"><span class="badges"><span class="badge">EP ${x.ep}</span><span class="badge ${x.past?'':'hi'}">${x.time}</span></span>${extra==='hovered' || extra==='hov' ? `<span class="scrim">${g(x).join(" · ")}</span>` : ''}</span>${body}</button>`;
+
+const A1 = `<div class="variant" data-variant="a1">${head("Schedule", "Summer 2026 · estimated, GMT+10", tabs() + seg())}
+  <div class="grid">${items.map(x => card(x, `<span class="t">${x.t}</span><span class="s">${x.past ? 'Aired · ' + x.time : x.eta}</span><span class="g">${g(x).join(" · ")}</span>`)).join("")}</div></div>`;
+
+const A2 = `<div class="variant" data-variant="a2">${head("Schedule", "Summer 2026 · estimated, GMT+10", tabs() + seg())}
+  <div class="grid">${items.map(x => `<button class="card ${x.past?'past':''}"><span class="poster ${x.p}"><span class="badges"><span class="badge">EP ${x.ep}</span><span class="badge ${x.past?'':'hi'}">${x.past ? x.time : x.eta}</span></span></span><span class="t">${x.t}</span><span class="s">${g(x).join(" · ")}</span></button>`).join("")}</div></div>`;
+
+const A3 = `<div class="variant" data-variant="a3">${head("Schedule", "Summer 2026 · estimated, GMT+10", tabs() + seg())}
+  <div class="grid">${items.map((x, i) => card(x, `<span class="t">${x.t}</span><span class="s">${x.past ? 'Aired · ' + x.time : x.eta}</span>`, i === 4 ? 'hovered' : 'hov')).join("")}</div></div>`;
+
+const A4 = `<div class="variant" data-variant="a4">${head("Schedule", "Summer 2026 · estimated, GMT+10", tabs() + seg())}
+  <div class="grid">${items.map(x => card(x, `<span class="t">${x.t}</span><span class="s">${x.past ? 'Aired · ' + x.time : x.eta}</span><span class="chips">${g(x).slice(0,2).map(v => `<span class="chip">${v}</span>`).join("")}</span>`)).join("")}</div></div>`;
+
+document.write(
+  `<div class="caption">A1 · Third line — title, countdown, then genres in a dimmer muted line (truncates)</div>` + A1 +
+  `<div class="caption">A2 · Genres replace the countdown line; the countdown moves into the white pill on the poster (aired cards keep the clock time)</div>` + A2 +
+  `<div class="caption">A3 · Hover only — a scrim on the poster reveals genres on hover (Dandadan shown hovered); card text stays two lines</div>` + A3 +
+  `<div class="caption">A4 · Chips — up to two genre chips under the countdown</div>` + A4
+);
+</script>

@@ -1,0 +1,137 @@
+<!doctype html><meta charset="utf-8"><title>Schedule · C variants, atsu rows, full week</title>
+<style>
+:root { --bg:#1D1E20; --text:#F9F8F6; --muted:#B8BCC0; --dim:#7A7E83; --raised:#313234; --raised2:#3a3b3e; --rule:#2c2d30; --poster:#282828; --blue:#038CFC; --radius:12px; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font: 14px/1.5 -apple-system, "Inter", system-ui, sans-serif; padding: 40px 60px 80px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.caption { margin: 48px 0 10px; color: var(--dim); font-size: 12px; }
+.caption:first-child { margin-top: 0; }
+.variant { width: 1120px; padding: 12px 0 8px; }
+
+/* atsu section header */
+.head { display:flex; align-items:center; gap: 12px; margin-bottom: 16px; }
+.head h2 { margin:0; font-size: 24px; font-weight: 400; letter-spacing: 0; display:flex; align-items:center; gap: 10px; line-height: 32px; }
+.head h2 svg { width: 9px; height: 14px; color: var(--muted); }
+.head .sub { color: var(--dim); font-size: 13px; margin-top: 3px; }
+.head .right { margin-left:auto; display:flex; align-items:center; gap: 12px; }
+.segw { display:flex; gap: 4px; padding: 2px; border-radius: 8px; background: var(--raised); }
+.segw button { padding: 4px 14px; border-radius: 6px; font-size: 14px; color: var(--muted); line-height: 22px; }
+.segw button.on { color: var(--text); background: var(--bg); }
+.segw.plain button.on { background: none; }
+.segw button.today { position: relative; }
+.segw button.today::after { content:""; position:absolute; left: 50%; bottom: 2px; width: 3px; height: 3px; margin-left:-1.5px; border-radius: 50%; background: currentColor; opacity: .7; }
+.foot { display:flex; justify-content:flex-end; align-items:center; gap: 12px; margin-top: 18px; }
+.foot .more { color: var(--muted); font-size: 15px; display:flex; align-items:center; gap: 8px; padding: 6px 8px; }
+.foot .all { display:flex; align-items:center; gap: 8px; padding: 6px 12px 6px 14px; border-radius: 8px; background: var(--raised); font-size: 15px; }
+.foot svg { width: 10px; height: 14px; }
+
+/* posters */
+.poster { display:block; position:relative; aspect-ratio: 2/3; border-radius: var(--radius); overflow:hidden; background: var(--raised); box-shadow: 0 1px 0 color-mix(in oklab, var(--text) 8%, transparent) inset; }
+.poster::after { content:""; position:absolute; inset:0; }
+.p1 { background:#d7e3ee; } .p1::after { background: linear-gradient(165deg, transparent 52%, #1b2a3d 52%); box-shadow: 0 0 0 200px transparent; }
+.p1::before { content:""; position:absolute; left:32%; top:12%; width:60%; aspect-ratio:1; border-radius:50%; background:#5c85b4; }
+.p2 { background:#f6e64a; } .p2::before { content:""; position:absolute; left:14%; top:16%; width:42%; aspect-ratio:1; border-radius:50%; background:#e5383b; } .p2::after { inset:auto 18% 34% 18%; height:12%; background:#111; }
+.p3 { background:#efd9b5; } .p3::after { background: linear-gradient(170deg, transparent 38%, #4a7a45 38%); } .p3::before { content:""; position:absolute; left:28%; top:40%; width:48%; aspect-ratio:1; border-radius:50%; background:#3a2418; z-index:1; }
+.p4 { background:#f5e2ea; } .p4::before { content:""; position:absolute; left:12%; top:16%; width:50%; aspect-ratio:1; background:#b5546e; } .p4::after { inset:auto 14% 22% 44%; aspect-ratio:1; background:#4f7d64; opacity:.85; }
+.p5 { background:#d5dde2; } .p5::before { content:""; position:absolute; left:14%; top:14%; width:36%; aspect-ratio:1; background:#3f5666; } .p5::after { inset:auto 14% 18% 40%; aspect-ratio:1; background:#b3472f; }
+.p6 { background:#2b2f3a; } .p6::before { content:""; position:absolute; left:20%; top:30%; width:60%; aspect-ratio:1; border-radius:50%; background:#7fb2ff; }
+.p7 { background:#e6efe0; } .p7::after { background: linear-gradient(200deg, transparent 55%, #2f6b4f 55%); } .p7::before { content:""; position:absolute; right:10%; top:10%; width:34%; aspect-ratio:1; background:#f2b134; z-index:1; }
+.p8 { background:#4b6fd6; } .p8::before { content:""; position:absolute; left:18%; top:20%; width:64%; aspect-ratio:1; background:#fff; opacity:.9; border-radius:8px; }
+.poster { display:block; position:relative; aspect-ratio: 2/3; overflow:hidden; }
+
+/* atsu list row (reference screenshot) */
+.rowc { display:grid; grid-template-columns: 60px minmax(0,1fr); gap: 12px; align-items:center; width:100%; padding: 8px; border-radius: 8px; background: #2A2B2E; text-align:left; }
+.rowc:hover { background: #333437; }
+.rowc .th { display:block; width: 60px; height: 62px; border-radius: 6px; overflow:hidden; position:relative; background: var(--poster); }
+.rowc .th .poster { position:absolute; left:0; top:-14px; width:100%; aspect-ratio: 2/3; border-radius: 0; }
+.rowc b { display:block; font-weight: 400; font-size: 15px; line-height: 22px; color: var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rowc small { display:block; margin-top: 3px; font-size: 13px; line-height: 18px; color: var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rowc.past { opacity: .55; }
+.rowc.past b { color: var(--muted); }
+.stack { display:grid; gap: 6px; }
+
+
+h4.dh { margin: 0 0 10px; font-size: 16px; font-weight: 400; display:flex; align-items:center; gap: 8px; color: var(--muted); }
+h4.dh span { color: var(--dim); font-size: 13px; margin-left: auto; }
+.today > h4.dh { color: var(--text); }
+.sec h4.dh span { margin-left: 0; }
+
+/* C11 · seven columns, compact rows */
+.w7 { display:grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 12px; }
+.w7 > div { min-width: 0; }
+.w7 h4.dh { font-size: 14px; }
+.w7 h4.dh span { font-size: 12px; }
+.w7 .rowc { grid-template-columns: 40px minmax(0,1fr); gap: 9px; padding: 6px; }
+.w7 .rowc .th { width: 40px; height: 42px; border-radius: 5px; }
+.w7 .rowc .th .poster { top: -9px; }
+.w7 .rowc b { font-size: 13px; line-height: 18px; }
+.w7 .rowc small { font-size: 11px; line-height: 15px; margin-top: 1px; }
+
+/* C9 · day sections, three-across rows */
+.sec { margin-top: 22px; }
+.sec:first-of-type { margin-top: 0; }
+.sec h4 { color: var(--muted); }
+.sec.today h4 { color: var(--text); }
+.sec h4 span { margin-left: 0; }
+.grid3 { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 6px 16px; }
+
+
+
+/* C13 · day panels, 4 + 3 */
+.panels { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 24px 16px; }
+.panels > div { min-width: 0; }
+.panels .rowc { grid-template-columns: 48px minmax(0,1fr); gap: 10px; padding: 7px; }
+.panels .rowc .th { width: 48px; height: 50px; }
+.panels .rowc .th .poster { top: -11px; }
+.panels .rowc b { font-size: 14px; line-height: 20px; }
+.panels .rowc small { font-size: 12px; line-height: 16px; }
+.panels .empty { padding: 10px 0; color: var(--dim); font-size: 13px; }
+</style>
+<script>
+const chev = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>';
+const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const items = [
+  { p:"p6", t:"Kaiju No. 8", ep:10, time:"01:30", past:true, eta:"aired" },
+  { p:"p7", t:"Wind Breaker", ep:21, time:"09:00", past:true, eta:"aired" },
+  { p:"p8", t:"Oshi no Ko", ep:7, time:"12:30", past:true, eta:"aired" },
+  { p:"p1", t:"Frieren: Beyond Journey's End", ep:13, time:"16:30", past:true, eta:"aired" },
+  { p:"p2", t:"Dandadan", ep:4, time:"19:00", eta:"in 1h 30m" },
+  { p:"p4", t:"The Apothecary Diaries", ep:8, time:"21:15", eta:"in 3h 45m" },
+  { p:"p3", t:"Sakamoto Days", ep:11, time:"22:00", eta:"in 4h 30m" },
+  { p:"p5", t:"Blue Box", ep:15, time:"23:30", eta:"in 6h" }
+];
+
+const chevS = '<svg viewBox="0 0 9 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m1.5 1.5 5.5 5.5-5.5 5.5"/></svg>';
+const down = '<svg viewBox="0 0 12 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m1.5 5 4.5 4.5L10.5 5"/></svg>';
+const head = (title, sub, right) => `<div class="head"><h2>${title}${chevS}</h2><span class="sub">${sub}</span><div class="right">${right}</div></div>`;
+const foot = (more) => `<div class="foot">${more ? `<button class="more">See more ${down}</button>` : ''}<button class="all">See all ${chevS}</button></div>`;
+const audio = () => `<div class="segw plain"><button class="on">SUB</button><button>DUB</button></div>`;
+const row = (x, isToday) => { const past = isToday && x.past; const when = isToday ? (past ? 'aired' : x.eta) : ''; return `<button class="rowc ${past ? 'past' : ''}"><span class="th"><span class="poster ${x.p}"></span></span><span><b>${x.t}</b><small>Episode ${x.ep} · ${x.time}${when ? ' · ' + when : ''}</small></span></button>`; };
+const perDay = [[items[2], items[6]], items, [items[0], items[4], items[7]], [items[3]], [items[1], items[5], items[2]], [items[4], items[6]], [items[7], items[0], items[1], items[3]]];
+const order = [1,2,3,4,5,6,0];
+const label = (i) => i===1 ? 'Today' : (i===2 ? 'Tomorrow' : days[i]);
+
+
+const dh = (i) => `<h4 class="dh">${label(i)}<span>${13+i} Sept</span></h4>`;
+
+const C11 = `<div class="variant" data-variant="c11">
+  ${head("This week", "Summer 2026 · estimated, GMT+10", audio())}
+  <div class="w7">${days.map((d, i) => `<div class="${i===1?'today':''}">${dh(i)}<div class="stack">${perDay[i].map(x => row(x, i===1)).join("")}</div></div>`).join("")}</div>
+</div>`;
+
+const C12 = `<div class="variant" data-variant="c12">
+  ${head("This week", "Summer 2026 · estimated, GMT+10", audio())}
+  ${order.map(i => `<div class="sec ${i===1?'today':''}">${dh(i)}<div class="grid3">${perDay[i].map(x => row(x, i===1)).join("")}</div></div>`).join("")}
+</div>`;
+
+const C13 = `<div class="variant" data-variant="c13">
+  ${head("This week", "Summer 2026 · estimated, GMT+10", audio())}
+  <div class="panels">${order.map(i => `<div class="${i===1?'today':''}">${dh(i)}<div class="stack">${perDay[i].map(x => row(x, i===1)).join("")}</div></div>`).join("")}</div>
+</div>`;
+
+document.write(
+  `<div class="caption">C11 · Seven columns — every day side by side, rows shrunk to fit (40px thumbnail)</div>` + C11 +
+  `<div class="caption">C12 · Seven day sections — today first, each day a heading with rows three across, no See more</div>` + C12 +
+  `<div class="caption">C13 · Day panels — seven panels in a 4 + 3 grid, today first, rows at 48px</div>` + C13
+);
+</script>

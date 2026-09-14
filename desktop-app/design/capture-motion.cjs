@@ -1,4 +1,4 @@
-// Captures frame bursts around the moments that animate: opening a series, opening search, docking the player.
+// Captures frame bursts around the moments that animate: the home grid, switching a schedule day, opening search, opening a series, the playback status, docking and expanding the player.
 // Usage: env -u ELECTRON_RUN_AS_NODE npx electron design/capture-motion.cjs [url]
 const { app, BrowserWindow } = require("electron");
 const { mkdir, writeFile } = require("node:fs/promises");
@@ -29,6 +29,11 @@ app.whenReady().then(async () => {
 
   await win.loadURL(url);
   await burst("home", [0, 80, 160, 300, 600, 1500]);
+  await js(`document.querySelector(".section-schedule").scrollIntoView({ block: "start" }); true`);
+  await wait(300);
+  await click(".schedule-days button:nth-child(3)");
+  await burst("schedule-day", [0, 60, 120, 200, 300, 380, 460, 600, 900]);
+  await js(`window.scrollTo(0, 0); true`);
   await type("frieren");
   await burst("search", [0, 60, 120, 240, 600, 1500]);
   await click(".section-results .hit");

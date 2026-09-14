@@ -21,9 +21,22 @@ export function localWeek(now: Date): LocalScheduleDay[] {
   });
 }
 
-export function seasonScheduleTitle(date: Date): string {
+export function seasonLabel(date: Date): string {
   const names = ["Winter", "Spring", "Summer", "Fall"] as const;
-  return `${names[Math.floor(date.getMonth() / 3)]} ${date.getFullYear()} Season Schedule`;
+  return `${names[Math.floor(date.getMonth() / 3)]} ${date.getFullYear()}`;
+}
+
+export const seasonScheduleTitle = (date: Date): string => `${seasonLabel(date)} Season Schedule`;
+
+/** "in 1h 30m" style countdown to a release; empty once it has passed. Minutes are rounded up so "in 1m" never reads as "in 0m". */
+export function releaseCountdown(releaseAt: string, now: Date): string {
+  const remaining = Date.parse(releaseAt) - now.getTime();
+  if (!Number.isFinite(remaining) || remaining <= 0) return "";
+  const minutes = Math.ceil(remaining / 60_000);
+  const hours = Math.floor(minutes / 60);
+  if (hours >= 48) return `in ${Math.round(hours / 24)} days`;
+  if (hours >= 1) return minutes % 60 && hours < 10 ? `in ${hours}h ${minutes % 60}m` : `in ${hours}h`;
+  return `in ${minutes}m`;
 }
 
 export const releaseHasPassed = (releaseAt: string, now: Date): boolean => {

@@ -3,10 +3,12 @@ import type { AnimeResult, Episode, LibraryEntry, ScheduleArtwork, ScheduleEntry
 import { animeSources } from "../shared/catalog";
 import Art from "./Art";
 import { catalogRequestId } from "./catalog-request";
-import { localDateKey, localWeek, releaseHasPassed, seasonScheduleTitle, timezoneOffsetEast } from "./schedule";
+import { localDateKey, localWeek, releaseCountdown, releaseHasPassed, seasonLabel, timezoneOffsetEast } from "./schedule";
 import { messageFrom } from "./errors";
+import { stagger } from "./transition";
 
 const titleKey = (value: string) => value.normalize("NFKD").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 function libraryPoster(anime: AnimeResult, entries: LibraryEntry[]): string | undefined {
   const ids = new Set(animeSources(anime).map((source) => source.id));
@@ -30,7 +32,7 @@ function LazyScheduleArt({ anime, src, onArtwork, onVisible }: { anime: AnimeRes
     if (observer && ref.current) observer.observe(ref.current); else load();
     return () => { observer?.disconnect(); window.aniDesktop.cancelCatalog(id); };
   }, [anime.id, src, onArtwork, onVisible]);
-  return <span ref={ref} className="schedule-art"><Art src={src} /></span>;
+  return <span ref={ref} className="schedule-art"><Art src={src} className="poster" /></span>;
 }
 
 interface Props {
@@ -44,7 +46,6 @@ interface Props {
 export default function ScheduleSection({ settings, library, onOpen, metadataFor = () => undefined, onMetadata = () => undefined }: Props) {
   const [now, setNow] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()));
-  const [mode, setMode] = useState<TranslationMode>(settings.preferredMode);
   const [loaded, setLoaded] = useState<{ identity: string; value: ScheduleResult }>();
   const [artwork, setArtwork] = useState<Record<string, ScheduleArtwork>>({});
   const [loading, setLoading] = useState(false);
@@ -54,6 +55,7 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
   const todayRef = useRef(localDateKey(now));
   const week = useMemo(() => localWeek(now), [localDateKey(now)]);
   const timezoneOffset = timezoneOffsetEast(now);
+  const [mode, setMode] = useState<TranslationMode>(settings.preferredMode);
   const sourceScope = `${settings.aniwaveBaseUrl}|${(settings.disabledSources ?? []).includes("aniwave")}`;
   const requestIdentity = `${sourceScope}|${selectedDate}|${timezoneOffset}|${mode}`;
   const result = loaded?.identity === requestIdentity ? loaded.value : undefined;
@@ -91,42 +93,47 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
   const rememberArtwork = useCallback((value: ScheduleArtwork) => setArtwork((current) => current[value.animeId] ? current : { ...current, [value.animeId]: value }), []);
 
   return <section className="section section-schedule" aria-labelledby="schedule-heading">
-    <div className="section-head schedule-heading">
-      <div><h2 id="schedule-heading">{seasonScheduleTitle(now)}</h2><span className="schedule-estimated">Estimated release times · {zone ?? "local time"}</span></div>
-      <div className="chips-row" aria-label="Schedule audio">
-        <span className="chips-lab">audio</span><span className="chips">
-          {(["sub", "dub"] as const).map((value) => <button type="button" key={value} className={mode === value ? "on" : ""} aria-pressed={mode === value} onClick={() => setMode(value)}>{value.toUpperCase()}</button>)}
-        </span>
+    <div className="section-head">
+      <h2 id="schedule-heading">Schedule</h2>
+      <span className="schedule-sub">{seasonLabel(now)} · estimated release times · {zone ?? "local time"}</span>
+      <div className="schedule-days" role="tablist" aria-label="Schedule day">
+        {week.map((day) => <button type="button" role="tab" key={day.date} aria-selected={day.date === selectedDate}
+          aria-label={`${day.weekday} ${day.dateLabel}${day.today ? ", today" : ""}`} title={day.dateLabel}
+          className={`${day.date === selectedDate ? "on" : ""} ${day.today ? "today" : ""}`} onClick={() => setSelectedDate(day.date)}>
+          {day.weekday}
+        </button>)}
+      </div>
+      <div className="schedule-audio" role="group" aria-label="Schedule audio">
+        {(["sub", "dub"] as const).map((value) => <button type="button" key={value} className={mode === value ? "on" : ""} aria-pressed={mode === value} onClick={() => setMode(value)}>{value.toUpperCase()}</button>)}
       </div>
     </div>
-    <div className="schedule-days" role="tablist" aria-label="Schedule day">
-      {week.map((day) => <button type="button" role="tab" key={day.date} aria-selected={day.date === selectedDate}
-        className={day.date === selectedDate ? "on" : ""} onClick={() => setSelectedDate(day.date)}>
-        <b>{day.weekday}</b><span>{day.dateLabel}{day.today ? " · today" : ""}</span>
-      </button>)}
-    </div>
-    <div className="schedule-list" aria-live="polite" aria-busy={loading}>
-      {loading && rows.length === 0 && <div className="schedule-state">Loading schedule ···</div>}
-      {!loading && (unavailable || (!displayError && rows.length === 0)) && <div className="schedule-state">Schedule unavailable for this date.</div>}
-      {displayError && <div className="schedule-state schedule-error">
-        <span>{result?.status === "stale" && rows.length ? `Showing saved schedule · ${displayError}` : displayError}</span>
-        <button type="button" className="link" onClick={() => setRetry((value) => value + 1)}>Retry</button>
-      </div>}
-      {rows.map((entry: ScheduleEntry) => {
+    <div className="cards" role="group" aria-labelledby="schedule-heading" aria-live="polite" aria-busy={loading}>
+      {rows.map((entry: ScheduleEntry, order) => {
         const extra = artwork[entry.anime.id];
         const poster = entry.anime.poster ?? libraryPoster(entry.anime, library) ?? extra?.poster;
         const sources = animeSources(entry.anime).map((source) => ({ ...source, aliases: [...new Set([...source.aliases, ...(extra?.aliases ?? [])])], poster: source.poster ?? poster }));
         const anime = { ...entry.anime, title: entry.anime.title || extra?.title || "Untitled", poster, sources };
-        const genres = metadataFor(anime)?.genres ?? [];
+        const genres = (metadataFor(anime)?.genres ?? []).slice(0, 2);
         const past = releaseHasPassed(entry.releaseAt, now);
-        return <button type="button" className={`schedule-row ${past ? "past" : ""}`} key={`${entry.episode.id}:${entry.releaseAt}`}
-          onClick={() => onOpen(anime, entry.episode, mode)} aria-label={`Open ${anime.title}, episode ${entry.episode.number}, ${new Date(entry.releaseAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}>
-          <LazyScheduleArt anime={anime} src={poster} onArtwork={rememberArtwork} onVisible={onMetadata} />
-          <span className="schedule-copy"><span className="schedule-title">{anime.title}</span>{genres.length ? <small>{genres.join(" · ")}</small> : null}</span>
-          <span className="schedule-episode">Episode {entry.episode.number}</span>
-          <time dateTime={entry.releaseAt}>{new Date(entry.releaseAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time>
-        </button>;
+        const time = clock(entry.releaseAt);
+        const countdown = selectedDate === todayRef.current ? releaseCountdown(entry.releaseAt, now) : "";
+        const sub = past ? `Aired · ${time}` : countdown ? `${time} · ${countdown}` : time;
+        return <div className={`card schedule-card ${past ? "past" : ""}`} key={`${entry.episode.id}:${entry.releaseAt}`} style={stagger(order, 10)}>
+          <button type="button" className="hit" onClick={() => onOpen(anime, entry.episode, mode)}
+            aria-label={`Open ${anime.title}, episode ${entry.episode.number}, ${past ? "aired" : "airs"} ${time}`}>
+            <LazyScheduleArt anime={anime} src={poster} onArtwork={rememberArtwork} onVisible={onMetadata} />
+            <span className="badges"><span className="badge">EP {entry.episode.number}</span></span>
+          </button>
+          <span className="t">{anime.title}</span><span className="s">{sub}</span>
+          {genres.length > 0 && <span className="tags">{genres.map((genre) => <span className="tag" key={genre}>{genre}</span>)}</span>}
+        </div>;
       })}
     </div>
+    {loading && rows.length === 0 && <div className="schedule-state">Loading schedule ···</div>}
+    {!loading && (unavailable || (!displayError && rows.length === 0)) && <div className="schedule-state">Schedule unavailable for this date.</div>}
+    {displayError && <div className="schedule-state schedule-error">
+      <span>{result?.status === "stale" && rows.length ? `Showing saved schedule · ${displayError}` : displayError}</span>
+      <button type="button" className="link" onClick={() => setRetry((value) => value + 1)}>Retry</button>
+    </div>}
   </section>;
 }
