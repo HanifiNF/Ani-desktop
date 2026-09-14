@@ -87,7 +87,6 @@ export async function searchOne(query: string, provider: ProviderName, config: S
   return parseSearchPage(await fetchText(`${root}/browse?q=${encodeURIComponent(query)}`, "AniDB search", `${root}/`));
 }
 
-const timezoneDate = (timezoneOffset: number): string => new Date(Date.now() + timezoneOffset * 60_000).toISOString().slice(0, 10);
 const scheduleTimezone = (timezoneOffset: number): string => String(timezoneOffset / 60);
 
 export async function getAniwaveSchedule(query: ScheduleQuery, config: SourceConfig): Promise<ScheduleResult> {
@@ -95,13 +94,15 @@ export async function getAniwaveSchedule(query: ScheduleQuery, config: SourceCon
   const params = new URLSearchParams({ tz: scheduleTimezone(query.timezoneOffset) });
   if (query.mode === "dub") params.set("dub", "1");
   const overviewPayload = await fetchJson(`${root}/ajax/schedule?${params}`, "AniWave schedule lookup", `${root}/`);
-  const overview = parseAniwaveSchedule(overviewPayload, timezoneDate(query.timezoneOffset), query.timezoneOffset);
+  const overview = parseAniwaveSchedule(overviewPayload, query.date, query.timezoneOffset);
   if (!overview.supportedDates.includes(query.date)) {
     return { provider: "aniwave", requestedDate: query.date, supportedDates: overview.supportedDates, entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" };
   }
-  const entries = query.date === timezoneDate(query.timezoneOffset)
-    ? overview.entries
-    : parseAniwaveSchedule(await fetchJson(`${root}/ajax/schedule/date?${new URLSearchParams({ ...Object.fromEntries(params), time: query.date })}`, "AniWave schedule lookup", `${root}/`), query.date, query.timezoneOffset).entries;
+  const entries = parseAniwaveSchedule(
+    await fetchJson(`${root}/ajax/schedule/date?${new URLSearchParams({ ...Object.fromEntries(params), time: query.date })}`, "AniWave schedule lookup", `${root}/`),
+    query.date,
+    query.timezoneOffset
+  ).entries;
   return { provider: "aniwave", requestedDate: query.date, supportedDates: overview.supportedDates, entries, refreshedAt: new Date().toISOString(), status: "fresh" };
 }
 

@@ -45,17 +45,21 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
   const [now, setNow] = useState(() => new Date());
   const [selectedDate, setSelectedDate] = useState(() => localDateKey(new Date()));
   const [mode, setMode] = useState<TranslationMode>(settings.preferredMode);
-  const [result, setResult] = useState<ScheduleResult>();
+  const [loaded, setLoaded] = useState<{ identity: string; value: ScheduleResult }>();
   const [artwork, setArtwork] = useState<Record<string, ScheduleArtwork>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [retry, setRetry] = useState(0);
+  const requestGeneration = useRef(0);
   const todayRef = useRef(localDateKey(now));
   const week = useMemo(() => localWeek(now), [localDateKey(now)]);
   const timezoneOffset = timezoneOffsetEast(now);
   const sourceScope = `${settings.aniwaveBaseUrl}|${(settings.disabledSources ?? []).includes("aniwave")}`;
+  const requestIdentity = `${sourceScope}|${selectedDate}|${timezoneOffset}|${mode}`;
+  const result = loaded?.identity === requestIdentity ? loaded.value : undefined;
 
   useEffect(() => setMode(settings.preferredMode), [settings.preferredMode]);
+  useEffect(() => setArtwork({}), [sourceScope]);
   useEffect(() => {
     const update = () => {
       const value = new Date(), today = localDateKey(value);
@@ -69,13 +73,14 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
 
   useEffect(() => {
     const id = catalogRequestId("schedule");
-    let current = true;
+    const generation = ++requestGeneration.current;
     setLoading(true); setError(undefined);
     window.aniDesktop.schedule({ date: selectedDate, timezoneOffset, mode }, { id, priority: "selected", refresh: retry > 0, checkNow: retry > 0 })
-      .then((value) => { if (current) setResult(value); }, (reason) => { if (current) setError(messageFrom(reason)); })
-      .finally(() => { if (current) setLoading(false); });
-    return () => { current = false; window.aniDesktop.cancelCatalog(id); };
-  }, [selectedDate, timezoneOffset, mode, sourceScope, retry]);
+      .then((value) => { if (requestGeneration.current === generation) setLoaded({ identity: requestIdentity, value }); },
+        (reason) => { if (requestGeneration.current === generation) setError(messageFrom(reason)); })
+      .finally(() => { if (requestGeneration.current === generation) setLoading(false); });
+    return () => { if (requestGeneration.current === generation) requestGeneration.current += 1; window.aniDesktop.cancelCatalog(id); };
+  }, [requestIdentity, retry]);
 
   const rows = result?.requestedDate === selectedDate
     ? [...result.entries].sort((left, right) => left.releaseAt.localeCompare(right.releaseAt) || left.anime.title.localeCompare(right.anime.title))
