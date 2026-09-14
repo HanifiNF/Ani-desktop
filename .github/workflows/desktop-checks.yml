@@ -1,10 +1,12 @@
 name: Desktop checks
 
 on:
+  workflow_call:
   pull_request:
-    paths: ['desktop-app/**', '.github/workflows/desktop-checks.yml']
+    paths: ['desktop-app/**', '.github/workflows/desktop-*.yml', '.github/scripts/**']
   push:
-    paths: ['desktop-app/**', '.github/workflows/desktop-checks.yml']
+    branches-ignore: [master]
+    paths: ['desktop-app/**', '.github/workflows/desktop-*.yml', '.github/scripts/**']
 
 permissions:
   contents: read
@@ -25,6 +27,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: desktop-app/package-lock.json
+      - run: node --test ../.github/scripts/desktop-release-version.test.mjs
       - run: npm ci
       - run: npm test
       - run: npm run build
@@ -80,12 +83,13 @@ jobs:
       - name: Test player under Wayland
         if: matrix.display == 'wayland'
         run: |
-          export XDG_RUNTIME_DIR=$(mktemp -d)
+          XDG_RUNTIME_DIR=$(mktemp -d)
+          export XDG_RUNTIME_DIR
           chmod 700 "$XDG_RUNTIME_DIR"
           weston --backend=headless-backend.so --use-pixman --width=1280 --height=800 --socket=ani-player-test >/tmp/ani-weston.log 2>&1 &
           compositor=$!
           trap 'kill "$compositor"; rm -rf "$XDG_RUNTIME_DIR"' EXIT
-          for attempt in $(seq 1 50); do
+          for _ in $(seq 1 50); do
             test -S "$XDG_RUNTIME_DIR/ani-player-test" && break
             sleep 0.1
           done

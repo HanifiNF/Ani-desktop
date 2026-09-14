@@ -80,7 +80,7 @@ npm start
 
 ### Desktop packages
 
-Check the repository's [Releases page](https://github.com/HanifiNF/Ani-cli-aniwave/releases) for published builds. The [desktop release workflow](./.github/workflows/desktop-release.yml) builds these packages for versioned releases:
+Check the repository's [Releases page](https://github.com/HanifiNF/Ani-cli-aniwave/releases) for published builds. After each merge into `master`, the [desktop release workflow](./.github/workflows/desktop-release.yml) runs the desktop checks, builds these packages, and publishes a release with an automatically incremented patch version:
 
 | Platform | Package |
 | --- | --- |

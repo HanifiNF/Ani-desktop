@@ -9,12 +9,12 @@
     "build": "npm run typecheck && vite build && tsc -p tsconfig.electron.json && node scripts/generate-icons.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest run",
-    "dist:win": "npm run build && electron-builder --win nsis",
-    "dist:mac": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --x64 --arm64",
+    "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "dist:mac": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --x64 --arm64 --publish never",
     "start": "npm run build && electron .",
     "test:player": "npm run build && node scripts/run-player-integration.cjs",
     "test:player:native": "npm run build && cross-env ANI_PLAYER_NATIVE_TEST=1 node scripts/run-player-integration.cjs",
-    "dist:linux": "npm run build && electron-builder --linux AppImage"
+    "dist:linux": "npm run build && electron-builder --linux AppImage --x64 --publish never"
   },
   "dependencies": {
     "@vidstack/react": "1.15.6",

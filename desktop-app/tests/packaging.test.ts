@@ -11,13 +11,8 @@ describe("cross-platform desktop packaging", () => {
     expect(pkg.scripts["dist:mac"]).toContain("--x64 --arm64");
   });
 
-  it("generates a macOS icon and publishes both platforms from matching version tags", async () => {
+  it("generates a macOS icon", async () => {
     const icons = await readFile(new URL("../scripts/generate-icons.mjs", import.meta.url), "utf8");
-    const workflow = await readFile(new URL("../../.github/workflows/desktop-release.yml", import.meta.url), "utf8");
     expect(icons).toContain('new URL("icon.icns", output)');
-    expect(workflow).toContain("runs-on: windows-latest");
-    expect(workflow).toContain("runs-on: macos-latest");
-    expect(workflow).toContain("GITHUB_REF_NAME !== 'v'+p.version");
-    expect(workflow).toContain("gh release create");
   });
 });
