@@ -21,7 +21,8 @@ describe("Home schedule section", () => {
   const schedule = vi.fn<AniDesktopApi["schedule"]>();
 
   beforeEach(() => {
-    vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 8, 14, 18, 0));
+    // Use one absolute instant so UTC CI and local GMT+7 classify releases identically.
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-14T11:00:00.000Z"));
     vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.stubGlobal("IntersectionObserver", class { observe() {} disconnect() {} });
     window.aniDesktop = { schedule, scheduleArtwork: vi.fn(async (animeId) => ({ animeId, aliases: [] })), cancelCatalog: vi.fn() } as unknown as AniDesktopApi;
