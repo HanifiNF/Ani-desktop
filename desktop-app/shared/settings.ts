@@ -24,6 +24,7 @@ export const DEFAULT_STATE: PersistedState = {
     hianimeBaseUrl: "https://hianimes.se",
     animeInfo: true,
     offlineIndex: false,
+    emptyBackdrop: true,
     theme: "graphite",
     customTheme: { ...THEME_PRESETS.graphite }
   }

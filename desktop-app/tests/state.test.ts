@@ -20,6 +20,14 @@ beforeEach(async () => {
 afterEach(() => rm(directory, { recursive: true, force: true }));
 
 describe("StateStore", () => {
+  it("keeps backdrop art on until it is switched off, and remembers the choice", async () => {
+    expect(store.snapshot().settings.emptyBackdrop).toBe(true);
+    await store.saveSettings({ ...store.snapshot().settings, emptyBackdrop: false });
+    await store.load();
+    expect(store.snapshot().settings.emptyBackdrop).toBe(false);
+    await store.saveSettings({ ...store.snapshot().settings, emptyBackdrop: undefined });
+    expect(store.snapshot().settings.emptyBackdrop).toBe(true);
+  });
   it("preserves exact episode IDs across history writes and restarts", async () => {
     const progress = { lastEpisode: "12", lastEpisodeId: "aniwave:1:12", mode: "dub" as const, updatedAt: "", completed: false };
     await store.recordHistory(entry({ animeId: "aniwave:frieren-1", lastProvider: "aniwave", completed: false, progressByProvider: { aniwave: progress } }));

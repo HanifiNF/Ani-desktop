@@ -3,6 +3,7 @@ import { CatalogService } from "./catalog-service";
 import { ScheduleService } from "./schedule-service";
 import { SeriesMetadataService } from "./series-metadata-service";
 import { WorkInfoService } from "./work-info-service";
+import { BackdropService } from "./backdrop-service";
 import { IdentityIndex } from "./identity-index";
 import { backfillLibraryIdentity } from "./identity-backfill";
 import { validateSeriesMetadataRequest } from "./series-metadata-validation";
@@ -62,6 +63,7 @@ const seriesMetadataService = new SeriesMetadataService(
 );
 const scheduleService = new ScheduleService();
 const workInfoService = new WorkInfoService();
+const backdropService = new BackdropService();
 let identityIndex: IdentityIndex;
 const backfill = new AbortController();
 /** References the library depends on; the information cache never evicts them. */
@@ -272,6 +274,12 @@ function registerIpc(): void {
     assertPlayerSender(mainWindow, event);
     await shell.openExternal(LATEST_RELEASE_URL);
   });
+  ipcMain.handle("app:backdrop", (event, kind: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    if (kind !== "wide" && kind !== "portrait") throw new Error("Unknown backdrop kind");
+    if (store.snapshot().settings.emptyBackdrop === false) return undefined;
+    return backdropService.pick(kind);
+  });
   ipcMain.on("catalog:cancel", (event, id: string) => {
     assertPlayerSender(mainWindow, event);
     catalogConsumers.get(`${event.sender.id}:${id}`)?.abort();
@@ -461,6 +469,7 @@ app.whenReady().then(async () => {
   await catalogService.load(join(app.getPath("userData"), "episode-lists.json"));
   await seriesMetadataService.load(join(app.getPath("userData"), "series-metadata.json"));
   await workInfoService.load(join(app.getPath("userData"), "work-info.json"));
+  await backdropService.load(join(app.getPath("userData"), "backdrops"));
   identityIndex = new IdentityIndex(join(app.getPath("userData"), "title-index.json"));
   await identityIndex.load();
   if (store.snapshot().settings.offlineIndex && identityIndex.needsUpdate()) void identityIndex.update();

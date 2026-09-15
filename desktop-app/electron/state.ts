@@ -146,6 +146,7 @@ export class StateStore {
           disabledSources: normalizeDisabledSources(settings.disabledSources),
           animeInfo: settings.animeInfo !== false,
           offlineIndex: settings.offlineIndex === true,
+          emptyBackdrop: settings.emptyBackdrop !== false,
           theme: isThemePreset(settings.theme) ? settings.theme : "graphite",
           customTheme: normalizeTheme(settings.customTheme)
         }
@@ -233,6 +234,7 @@ export class StateStore {
       disabledSources,
       animeInfo: settings.animeInfo !== false,
       offlineIndex: settings.offlineIndex === true,
+      emptyBackdrop: settings.emptyBackdrop !== false,
       aniwaveBaseUrl: normalizeSource(settings.aniwaveBaseUrl, "AniWave"),
       anidbBaseUrl: normalizeSource(settings.anidbBaseUrl, "AniDB"),
       hianimeBaseUrl: normalizeSource(settings.hianimeBaseUrl, "HiAnime"),

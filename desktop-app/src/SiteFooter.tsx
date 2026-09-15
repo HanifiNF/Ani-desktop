@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { CREATORS, type Creator } from "./creators";
 import { Icon } from "./icons";
+import { BackdropCredit } from "./Backdrop";
+import type { BackdropArt } from "../shared/contracts";
 
 export type FooterScreen = "home" | "saved" | "recent" | "settings";
 
@@ -18,10 +20,12 @@ const APP_LINKS: readonly { screen: FooterScreen; label: string; icon: "home" | 
 interface FooterProps {
   current: FooterScreen | undefined;
   onNavigate: (screen: FooterScreen) => void;
+  /** The illustration behind the page, credited at the end of the foot line. */
+  backdrop?: BackdropArt;
 }
 
 /** The footer holds the about text, the app links, and the creators, so there are no separate information pages. */
-export function SiteFooter({ current, onNavigate }: FooterProps) {
+export function SiteFooter({ current, onNavigate, backdrop }: FooterProps) {
   return <footer className="site-footer">
     <div className="footer-columns">
       <div className="footer-about">
@@ -42,6 +46,7 @@ export function SiteFooter({ current, onNavigate }: FooterProps) {
     </div>
     <div className="footer-foot">
       <span>ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span>
+      {backdrop && <BackdropCredit art={backdrop} />}
     </div>
   </footer>;
 }

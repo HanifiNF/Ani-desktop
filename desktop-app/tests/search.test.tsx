@@ -84,6 +84,7 @@ beforeEach(async () => {
     sourceStatus: vi.fn().mockResolvedValue([]), checkSource: vi.fn().mockResolvedValue(undefined), fetchBookmarkMetadata: vi.fn(),
     schedule: vi.fn<AniDesktopApi["schedule"]>(async (query) => ({ provider: "aniwave", requestedDate: query.date, supportedDates: [], entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" })),
     scheduleArtwork: vi.fn(async (animeId) => ({ animeId, aliases: [] })),
+    backdropArt: vi.fn(async () => undefined),
     bookmarkMetadataStatus: vi.fn().mockResolvedValue(undefined), cancelBookmarkMetadata: vi.fn(),
     availability: vi.fn().mockResolvedValue({ sub: true, dub: true, checkedAt: Date.now() }), cancelCatalog: vi.fn(),
     streams: vi.fn().mockResolvedValue([]), play: vi.fn().mockResolvedValue(true),

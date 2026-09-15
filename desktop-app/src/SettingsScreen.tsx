@@ -60,6 +60,7 @@ export default function SettingsScreen({ draft, setDraft, saved, bookmarkCount, 
             ))}
           </span></div>
         )}
+        <div className="r"><span className="k">Backdrop art<small>An illustration behind the home, saved, and recent pages, from a hand-picked set on nekosapi.com. Off keeps them plain and fetches nothing</small></span><Switch checked={draft.emptyBackdrop !== false} label="Backdrop art" onChange={(emptyBackdrop) => setDraft({ ...draft, emptyBackdrop })} /></div>
       </div></div>
       <IdentityIndexPanel saved={saved} draft={draft} onChange={setDraft} />
       <BookmarkMetadataPanel count={bookmarkCount} saved={saved} draft={draft} />

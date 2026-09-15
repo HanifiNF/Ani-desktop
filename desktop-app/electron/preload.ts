@@ -107,6 +107,7 @@ const api: AniDesktopApi = {
   checkSource: (provider, request) => catalogInvoke("catalog:source-check", [provider], request),
   schedule: (query, request) => catalogInvoke("catalog:schedule", [query], request),
   scheduleArtwork: (animeId, request) => catalogInvoke("catalog:schedule-artwork", [animeId], request),
+  backdropArt: (kind) => ipcRenderer.invoke("app:backdrop", kind),
   cancelCatalog: (id) => ipcRenderer.send("catalog:cancel", id),
   play: (request: PlayRequest) => ipcRenderer.invoke("player:play", request),
   getState: () => ipcRenderer.invoke("state:get"),

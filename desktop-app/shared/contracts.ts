@@ -272,8 +272,23 @@ export interface Settings {
   animeInfo?: boolean;
   /** Keep a local copy of the anime-offline-database for identity matching without network requests. */
   offlineIndex?: boolean;
+  /** Show an illustration behind the home, saved, and recent pages. On unless turned off. */
+  emptyBackdrop?: boolean;
   theme: ThemePreset;
   customTheme: CustomTheme;
+}
+
+export type BackdropKind = "wide" | "portrait";
+/** One illustration for a page backdrop, served from the app's own cache. */
+export interface BackdropArt {
+  id: number;
+  kind: BackdropKind;
+  /** A data URL of the cached image file. */
+  src: string;
+  sourceUrl?: string;
+  artist?: string;
+  /** The dominant colour is pale, so the page shows the image fainter than a dark one. */
+  light?: boolean;
 }
 
 export interface PersistedState {
@@ -343,6 +358,8 @@ export interface AniDesktopApi {
   checkSource(provider: ProviderName, request?: CatalogRequest): Promise<void>;
   schedule(query: ScheduleQuery, request?: CatalogRequest): Promise<ScheduleResult>;
   scheduleArtwork(animeId: string, request?: CatalogRequest): Promise<ScheduleArtwork>;
+  /** An illustration for a page backdrop, or nothing when the setting is off or no image is available. */
+  backdropArt(kind: BackdropKind): Promise<BackdropArt | undefined>;
   cancelCatalog(requestId: string): void;
   play(request: PlayRequest): Promise<boolean>;
   getState(): Promise<PersistedState>;

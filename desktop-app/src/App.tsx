@@ -4,6 +4,8 @@ import SeriesScreen from "./SeriesScreen";
 import type { PlayStatus, NowPlaying } from "./playback";
 import SettingsScreen from "./SettingsScreen";
 import LibrarySection from "./LibrarySection";
+import EmptyLibrary from "./EmptyLibrary";
+import { Backdrop, type BackdropPage, type BackdropVariant } from "./Backdrop";
 import ScheduleSection from "./ScheduleSection";
 import { asAnime, libraryEntry, libraryEntryAllWatched, type Row, type LibraryKind } from "./library";
 import { shortcut } from "./keys";
@@ -15,6 +17,7 @@ import { DEFAULT_STATE, catalogScope } from "../shared/settings";
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   AnimeResult,
+  BackdropArt,
   Episode,
   EpisodeGroup,
   EpisodeCatalog,
@@ -167,6 +170,21 @@ function App() {
     if (screen === "recent") return appState.history.filter(matches).map((entry): Row => ({ kind: "recent", entry }));
     return [];
   }, [screen, paletteOpen, unifiedResults, libraryRows, appState.history, appState.bookmarks, filter]);
+
+  // The home, saved, and recent pages carry an illustration behind them: a wash on home, a wash or a corner figure elsewhere, picked afresh on each visit.
+  const backdropPage: BackdropPage | undefined = screen === "home" || screen === "saved" || screen === "recent" ? screen : undefined;
+  const backdropsOn = stateLoaded && appState.settings.emptyBackdrop !== false;
+  const [backdrop, setBackdrop] = useState<{ page: BackdropPage; variant: BackdropVariant; art: BackdropArt }>();
+  useEffect(() => {
+    if (!backdropPage || !backdropsOn) { setBackdrop(undefined); return; }
+    const variant: BackdropVariant = backdropPage === "home" || Math.random() < 0.5 ? "wash" : "corner";
+    let current = true;
+    void window.aniDesktop.backdropArt(variant === "wash" ? "wide" : "portrait")
+      .then((art) => { if (current) setBackdrop(art ? { page: backdropPage, variant, art } : undefined); })
+      .catch(() => { if (current) setBackdrop(undefined); });
+    return () => { current = false; };
+  }, [backdropPage, backdropsOn]);
+  const focusSearch = () => { if (screen !== "home") go("home"); window.setTimeout(() => fieldRef.current?.focus(), 0); };
 
   const isSaved = Boolean(selectedAnime && appState.bookmarks.some((entry) => overlaps(entry, selectedAnime)));
   const progress = selectedAnime ? appState.history.find((entry) => overlaps(entry, selectedAnime)) : undefined;
@@ -753,6 +771,7 @@ function App() {
 
   return (
     <div className={`app ${screen === "player" && playerFullscreen ? "is-fullscreen" : ""}`}>
+      {backdrop && backdrop.page === backdropPage && <Backdrop key={backdrop.art.id} art={backdrop.art} variant={backdrop.variant} />}
       <header className="bar">
         <div className="brand">
           <button type="button" className="logo" onClick={() => { go("home"); setQuery(""); catalogSearch.clear(); }} aria-label="Home">ANI<em>desktop</em></button>
@@ -835,7 +854,7 @@ function App() {
         {screen === "home" && (
           <>
             {libraryRows.length === 0
-              ? <div className="empty"><b>Nothing here yet</b>Search for a title with <kbd>{shortcut("K")}</kbd>. Titles you watch and save appear here.</div>
+              ? <EmptyLibrary kind="home" onAction={focusSearch} />
               : <>
                 {cardSection("continue", "Continue watching", "recent")}
                 {cardSection("saved", "Saved", "saved")}
@@ -846,13 +865,17 @@ function App() {
           </>
         )}
 
-        {screen === "saved" && (rows.length === 0
-          ? <div className="section"><div className="section-head"><h2 id="saved-heading">Saved</h2></div><div className="empty"><b>{filter ? "No saved titles match" : "Nothing saved yet"}</b>{filter ? "Try a shorter filter." : "Open a series and choose save. Select a saved title to browse its episodes."}</div></div>
-          : cardSection("saved", "Saved"))}
+        {screen === "saved" && (appState.bookmarks.length === 0
+          ? <EmptyLibrary kind="saved" onAction={focusSearch} />
+          : rows.length === 0
+            ? <div className="section"><div className="section-head"><h2 id="saved-heading">Saved</h2></div><div className="empty"><b>No saved titles match</b>Try a shorter filter.</div></div>
+            : cardSection("saved", "Saved"))}
 
-        {screen === "recent" && (rows.length === 0
-          ? <div className="section"><div className="section-head"><h2 id="recent-heading">Recent</h2></div><div className="empty"><b>{filter ? "No recent titles match" : "Nothing watched yet"}</b>{filter ? "Try a shorter filter." : `Every episode you open in ${player} is listed here.`}</div></div>
-          : cardSection("recent", "Recent"))}
+        {screen === "recent" && (appState.history.length === 0
+          ? <EmptyLibrary kind="recent" onAction={focusSearch} />
+          : rows.length === 0
+            ? <div className="section"><div className="section-head"><h2 id="recent-heading">Recent</h2></div><div className="empty"><b>No recent titles match</b>Try a shorter filter.</div></div>
+            : cardSection("recent", "Recent"))}
 
         {screen === "series" && selectedAnime && (
           <SeriesScreen anime={selectedAnime} progress={progress} isSaved={isSaved} player={player}
@@ -880,6 +903,7 @@ function App() {
         )}
 
         {screen !== "opening" && <SiteFooter current={screen === "home" || screen === "saved" || screen === "recent" || screen === "settings" ? screen : undefined}
+          backdrop={backdrop && backdrop.page === backdropPage ? backdrop.art : undefined}
           onNavigate={(next: FooterScreen) => { setQuery(""); catalogSearch.clear(); go(next); }} />}
       </div>}
       </div>
