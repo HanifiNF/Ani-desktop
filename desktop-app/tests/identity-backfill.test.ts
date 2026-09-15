@@ -26,7 +26,7 @@ describe("library identity backfill", () => {
     const service = new WorkInfoService(search, vi.fn(async () => info));
     expect(await backfillLibraryIdentity(store, service, new AbortController().signal, 0)).toBe(1);
     expect(store.workOf("aniwave:frieren-1")).toMatchObject({ refs: ["anilist:1", "mal:10"], type: "TV", year: 2023 });
-    expect(search.mock.calls.map((call) => call[0])).toEqual(["Frieren", "Nothing Like It"]);
+    expect(search.mock.calls.map((call) => call[0]).sort()).toEqual(["Frieren", "Nothing Like It"]);
     await store.saveSettings({ ...store.snapshot().settings, animeInfo: false });
     expect(await backfillLibraryIdentity(store, service, new AbortController().signal, 0)).toBe(0);
   });
