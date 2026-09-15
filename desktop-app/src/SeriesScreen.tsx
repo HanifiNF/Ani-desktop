@@ -26,22 +26,20 @@ interface Props {
   onCheckSources: () => void; onRefreshSources: () => void; onJump: (value: string) => void;
   onWatched: (episode: Episode) => void; onWatchedAll: () => void; onDismissStatus: () => void;
   reorder: (filter: EpisodeFilter, sort: EpisodeSort) => void;
-  onRefreshInfo: () => void; onSplitSource: (sourceId: string) => void; onSearch: (title: string) => void;
+  onRefreshInfo: () => void; onSplitSource: (sourceId: string) => void;
 }
 
 const STATUS_WORDS: Record<WorkInfo["status"], string> = { finished: "Finished", ongoing: "Airing", upcoming: "Upcoming", unknown: "Unknown" };
 const TYPE_WORDS: Record<NonNullable<WorkInfo["type"]>, string> = { TV: "TV", MOVIE: "Movie", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", MUSIC: "Music" };
-const RELATION_ORDER = ["prequel", "sequel", "parent", "side story", "alternative", "spin off", "summary", "other"];
 
 export default function SeriesScreen({ anime, progress, isSaved, player, mode, quality, lastQuery, busy, resolving,
   pendingSources, sourceErrors, episodeGroups, episodeRows, seriesMetadata, info, nextUp, episodeFilter, episodeSort,
   jump, playingId, status, metadata, listRef, onPlay, onBookmark, onBack, onMode, onQuality, onCheckSources, onRefreshSources,
-  onJump, onWatched, onWatchedAll, onDismissStatus, reorder, onRefreshInfo, onSplitSource, onSearch }: Props) {
+  onJump, onWatched, onWatchedAll, onDismissStatus, reorder, onRefreshInfo, onSplitSource }: Props) {
   const [showAll, setShowAll] = useState(false);
   const hasEpisodes = episodeGroups.some((group) => group.episodes.length);
   const sources = animeSources(anime);
   const genres = [...new Map([...(seriesMetadata?.genres ?? []), ...(info?.genres ?? [])].map((genre) => [genre.toLocaleLowerCase(), genre])).values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-  const relations = [...(info?.relations ?? [])].sort((a, b) => RELATION_ORDER.indexOf(a.relation) - RELATION_ORDER.indexOf(b.relation));
   const format = info ? [info.type && TYPE_WORDS[info.type], info.year && `${info.season ? `${info.season[0].toUpperCase()}${info.season.slice(1)} ` : ""}${info.year}`].filter(Boolean).join(" · ") : "";
   // The romaji title from the information service, or failing that another source's title, names the anime a second way.
   const alias = info?.titles.romaji && info.titles.romaji !== anime.title ? info.titles.romaji : sources.find((source) => source.title !== anime.title)?.title;
@@ -102,9 +100,6 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
             {info.description && <p className={`synopsis ${showAll ? "open" : ""}`}>{info.description}</p>}
             <div className="about-row">
               {info.description && info.description.length > 320 && <button type="button" className="link" onClick={() => setShowAll((value) => !value)}>{showAll ? "Less" : "More"}</button>}
-              {relations.length > 0 && <span className="relations" aria-label="Related">
-                {relations.map((relation) => <button type="button" className="tag" key={`${relation.relation}:${relation.refs[0]}`} title={`Search for ${relation.title}`} onClick={() => onSearch(relation.title)}><small>{relation.relation}</small>{relation.title}</button>)}
-              </span>}
               <span className="about-src">{info.stale ? (info.error ? `AniList · cached, refresh failed: ${info.error}` : "AniList · refreshing") : "AniList"}<button type="button" className="link" onClick={onRefreshInfo}>Refresh info</button></span>
             </div>
           </section>

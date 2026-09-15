@@ -1,5 +1,5 @@
 import type { AnimeResult, AnimeSource, IdentityCandidate, LibraryEntry, ProviderName, Settings, Work } from "./contracts";
-import { bestCandidate, conflicting, factsOf, factsOfAll, isRef, likelyDuplicate, mergeKey, providerOf, refsOf, sourcesOf, titleKeys, unique, variantTitles } from "./identity";
+import { bestCandidate, conflicting, conflictingRefs, factsOf, factsOfAll, isRef, likelyDuplicate, mergeKey, providerOf, refsOf, sourcesOf, titleKeys, unique, variantTitles } from "./identity";
 
 export { likelyDuplicate, mergeKey };
 
@@ -141,8 +141,9 @@ export function unifyAnimeResults(results: AnimeResult[], links: string[][] = []
 /** How confidently a search hit on another provider names the same anime: by a shared reference or alias, or by title and season. */
 export function sourceMatch(anime: AnimeResult | LibraryEntry, candidate: AnimeResult): "exact" | "likely" | undefined {
   const own = new Set(refsOf(anime));
-  if (refsOf(candidate).some((value) => own.has(value))) return "exact";
+  if (conflictingRefs([...own], refsOf(candidate))) return undefined;
   if (conflicting(factsOfAll(animeSources(anime)), factsOfAll(animeSources(candidate)))) return undefined;
+  if (refsOf(candidate).some((value) => own.has(value))) return "exact";
   const keys = new Set(animeSources(anime).flatMap((source) => [...titleKeys(source)]));
   if (animeSources(candidate).some((source) => [...titleKeys(source)].some((key) => keys.has(key)))) return "exact";
   return likelyDuplicate(anime, candidate) ? "likely" : undefined;

@@ -30,8 +30,7 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
   Opening a series looks it up on every provider it is not yet known on (`CatalogService.resolve`), using the
   work's known titles; confident matches bind to the work and their episodes join the grouped list as they arrive.
   The series page shows the work's information (`electron/work-info-service.ts`, from AniList, cached indefinitely
-  and refreshed by age) under the facts strip: synopsis with a More toggle, related seasons as chips that start a
-  search, and the source line with a Refresh info link. Each source tag carries a split control; splitting records
+  and refreshed by age) under the facts strip: synopsis with a More toggle and the source line with a Refresh info link. Each source tag carries a split control; splitting records
   the pair so title matching never regroups it. Settings has an "Anime information" group with the AniList switch
   and the offline title index switch and download. "Forget links" in the Sources group resets every work. There is
   no manual merge for search rows any more; the library cards keep theirs for duplicates saved before grouping.

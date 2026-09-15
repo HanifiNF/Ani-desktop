@@ -557,12 +557,6 @@ function App() {
     setNotice(`${source.provider} split off`);
   }
 
-  // A related season opens as a fresh search so its own sources are found.
-  function searchTitle(title: string) {
-    changeQuery(title);
-    fieldRef.current?.focus();
-  }
-
   async function manuallyMergeEntry(entry: LibraryEntry) {
     const candidate = libraryMergeCandidate(entry);
     if (!candidate || !window.confirm(`Merge “${entry.title}” with “${candidate.title}” while keeping progress from both sources?`)) return;
@@ -874,7 +868,7 @@ function App() {
               void openAnime(selectedAnime, { refresh: true });
             }} onJump={jumpTo} onWatched={(episode) => void markWatched(episode)}
             onWatchedAll={() => void markAllWatched()} onDismissStatus={cancelPlay} reorder={reorder}
-            onRefreshInfo={() => workInfo.load(linkedAnime(selectedAnime), "selected", true)} onSplitSource={(sourceId) => void splitSource(sourceId)} onSearch={searchTitle} />
+            onRefreshInfo={() => workInfo.load(linkedAnime(selectedAnime), "selected", true)} onSplitSource={(sourceId) => void splitSource(sourceId)} />
         )}
 
         {screen === "settings" && (

@@ -137,6 +137,8 @@ export function parseMasterPlaylist(playlist: string, masterUrl: string, provide
 
 export function parseAniwaveSearch(html: string): AnimeResult[] {
   const results = new Map<string, AnimeResult>();
+  const cardStarts = [...html.matchAll(/<div\b[^>]*\bclass=["']([^"']*)["'][^>]*>/gi)]
+    .filter((match) => match[1].split(/\s+/).includes("item")).map((match) => match.index!);
   const anchors = /<a\b([^>]*\bclass=["'][^"']*\b(?:name|d-title)\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi;
   for (const match of html.matchAll(anchors)) {
     const href = match[1].match(/\bhref=["']\/watch\/([^"'/?#]+)["']/i)?.[1];
@@ -144,7 +146,9 @@ export function parseAniwaveSearch(html: string): AnimeResult[] {
     const displayed = match[2].replace(/<[^>]+>/g, "").trim();
     const title = displayed || romanized;
     if (!href || !title || !/-\d+$/.test(href)) continue;
-    const vicinity = html.slice(Math.max(0, match.index! - 900), match.index! + match[0].length);
+    const cardStart = cardStarts.filter((start) => start <= match.index!).at(-1);
+    // Facts belong to this card. A missing boundary supplies no neighboring facts.
+    const vicinity = cardStart === undefined ? match[0] : html.slice(cardStart, match.index! + match[0].length);
     const poster = vicinity.match(/<img[^>]+(?:data-src|src)=["']([^"']+)["']/i)?.[1];
     // The card states its format and total episode count beside the poster, before the title anchor.
     const type = vicinity.match(/<div class=["']right["']>\s*([A-Za-z ]+?)\s*<\/div>/)?.[1];

@@ -176,3 +176,16 @@ describe("live JoJo search responses", () => {
     expect(providersOf(egypt!)).toEqual(["aniwave", "hianime", "hianime"]);
   });
 });
+
+describe("identity contradictions", () => {
+  it("rejects same-title records carrying conflicting catalogue IDs", () => {
+    expect(sourceMatch(anime("aniwave:a-1", "Same", [], { refs: ["mal:1"] }), anime("hianime:b-2", "Same", [], { refs: ["mal:2"] }))).toBeUndefined();
+  });
+  it("rejects shared-ID records whose format differs", () => {
+    expect(sourceMatch(anime("aniwave:a-1", "Bundle", [], { refs: ["mal:1"], type: "OVA" }), anime("hianime:b-2", "Component", [], { refs: ["mal:1"], type: "MOVIE" }))).toBeUndefined();
+  });
+  it("allows an airing source's available count to differ from its planned total", () => {
+    const candidate: IdentityCandidate = { title: "Series", titles: ["Series"], refs: ["mal:1"], status: "ongoing", episodes: 12 };
+    expect(bestCandidate({ title: "Series", episodes: 3 }, [candidate])).toBe(candidate);
+  });
+});

@@ -31,6 +31,11 @@ export function refsOf(anime: AnimeResult | LibraryEntry): string[] {
 
 export const unique = <T>(values: Iterable<T>): T[] => [...new Set(values)];
 
+/** Different IDs from the same catalogue are a contradiction, even when titles agree. */
+export function conflictingRefs(left: string[], right: string[]): boolean {
+  return left.some((a) => right.some((b) => a.split(":")[0] === b.split(":")[0] && a !== b));
+}
+
 export function normalizedTitle(value: string): string {
   return value.normalize("NFKD").toLowerCase()
     .replace(/\b(\d+)(?:st|nd|rd|th)\b/g, "$1")
@@ -180,7 +185,7 @@ export function likelyDuplicate(left: AnimeResult | LibraryEntry, right: AnimeRe
 export function matchingCandidates(source: { title: string; aliases?: string[] } & Partial<Facts>, candidates: IdentityCandidate[]): IdentityCandidate[] {
   const keys = titleKeys(source);
   const facts = factsOf({ title: source.title, type: source.type, year: source.year, episodes: source.episodes });
-  return candidates.filter((candidate) => !conflicting(facts, candidate)
+  return candidates.filter((candidate) => !conflicting(candidate.status === "ongoing" || candidate.status === "upcoming" ? { ...facts, episodes: undefined } : facts, candidate)
     && candidate.titles.some((title) => { const key = normalizedTitle(title); return Boolean(key) && (keys.has(key) || keys.has(stripQualifiers(key))); }));
 }
 

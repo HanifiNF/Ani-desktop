@@ -430,9 +430,5 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .series .synopsis { margin: 0; color: var(--text); font-size: 14px; line-height: 1.55; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .series .synopsis.open { display: block; }
 .series .about-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; color: var(--muted); font-size: 12px; }
-.series .relations { display: flex; flex-wrap: wrap; gap: 4px; }
-.series .relations .tag { height: auto; padding: 3px 8px; color: var(--text); font-size: 12px; gap: 6px; }
-.series .relations .tag:hover { background: var(--raised2); }
-.series .relations .tag small { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
 .series .about-src { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .group .r .k small.err { color: var(--err, #d9534f); }

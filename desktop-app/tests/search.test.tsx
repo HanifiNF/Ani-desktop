@@ -417,7 +417,7 @@ describe("live catalog search", () => {
     expect(facts).toContain("Announced total14");
   });
 
-  it("shows series information from the work behind a series and searches for a related season", async () => {
+  it("shows series information from the work behind a series", async () => {
     vi.mocked(api.workInfo).mockImplementation(async (_anime, _request, update) => {
       const info = { refs: ["anilist:154587", "mal:52991"], title: "Frieren: Beyond Journey's End", titles: { romaji: "Sousou no Frieren", english: "Frieren: Beyond Journey's End" }, synonyms: [], type: "TV" as const, episodes: 28, year: 2023, season: "fall",
         status: "finished" as const, genres: ["Fantasy"], studios: ["madhouse"], score: 89, description: "An elf mage outlives her party.", cover: "https://img.test/cover.jpg",
@@ -433,11 +433,6 @@ describe("live catalog search", () => {
     expect([...container.querySelectorAll(".genre-bubbles span")].map((node) => node.textContent)).toEqual(["Fantasy"]);
     await click("Refresh info");
     expect(api.workInfo).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ refresh: true }), expect.any(Function));
-    await act(async () => { container.querySelector<HTMLButtonElement>('.relations button[title="Search for Frieren Season 2"]')!.click(); });
-    expect(container.querySelector(".page-home")).not.toBeNull();
-    expect(input().value).toBe("Frieren Season 2");
-    await advance();
-    expect(search).toHaveBeenLastCalledWith("Frieren Season 2", "auto", expect.any(Object), expect.any(Function));
   });
 
   it("splits a source off a grouped series after confirmation and reopens the rest", async () => {
