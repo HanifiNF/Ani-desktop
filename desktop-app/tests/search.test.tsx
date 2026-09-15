@@ -77,7 +77,8 @@ beforeEach(async () => {
       logDiagnostic: vi.fn(), saveStorage: vi.fn().mockResolvedValue(undefined), setFullscreen: vi.fn(async (fullscreen: boolean) => fullscreen),
       openExternal: vi.fn().mockResolvedValue(true), setActive: vi.fn().mockResolvedValue(undefined)
     },
-    search, resolveSources: vi.fn(async (anime) => anime), clearSourceLinks: vi.fn(), getState: vi.fn().mockResolvedValue(state), episodes: vi.fn().mockResolvedValue({ groups: [{ provider: "aniwave", episodes: [{ id: "ep-1", number: "1", provider: "aniwave" }] }] }),
+    search, resolveSources: vi.fn(async (anime) => anime), clearSourceLinks: vi.fn(), getState: vi.fn().mockResolvedValue(state),
+    workInfo: vi.fn().mockResolvedValue(undefined), identityIndexStatus: vi.fn().mockResolvedValue({ enabled: false, entries: 0, updating: false }), updateIdentityIndex: vi.fn(), splitSource: vi.fn(), episodes: vi.fn().mockResolvedValue({ groups: [{ provider: "aniwave", episodes: [{ id: "ep-1", number: "1", provider: "aniwave" }] }] }),
     seriesMetadata: vi.fn().mockResolvedValue({ sources: [], genres: [] }),
     episodeMetadata: vi.fn().mockResolvedValue(undefined), clearEpisodeMetadata: vi.fn().mockResolvedValue(undefined),
     sourceStatus: vi.fn().mockResolvedValue([]), checkSource: vi.fn().mockResolvedValue(undefined), fetchBookmarkMetadata: vi.fn(),

@@ -2,6 +2,8 @@ import type { PlayerDiagnosticEvent } from "../shared/player-diagnostics";
 import { CatalogService } from "./catalog-service";
 import { ScheduleService } from "./schedule-service";
 import { SeriesMetadataService } from "./series-metadata-service";
+import { WorkInfoService } from "./work-info-service";
+import { IdentityIndex } from "./identity-index";
 import { validateSeriesMetadataRequest } from "./series-metadata-validation";
 import { validateScheduleAnimeId, validateScheduleQuery } from "./schedule-validation";
 import { catalogScope, sourceSettingsKey } from "../shared/settings";
@@ -19,7 +21,8 @@ import { playerArguments } from "./player";
 import { assertPlayerSender, registerPlayerFullscreenEvents, setPlayerFullscreen } from "./player-window";
 import { isPlaybackRequest, validatePlayRequest, withMediaCors, withPlaybackReferrer } from "./playback-security";
 import { getAvailability, getStreams, providerOrigin, searchOne } from "./scraper";
-import { animeSources, expandWithLinks } from "../shared/catalog";
+import { animeSources, expandWithLinks, sourceIds } from "../shared/catalog";
+import { refsOf, unique } from "../shared/identity";
 import { StateStore } from "./state";
 import { installApplicationMenu } from "./menu";
 import { PlayerDiagnostics, sanitizeDiagnostic } from "./player-diagnostics";
@@ -53,6 +56,20 @@ const seriesMetadataService = new SeriesMetadataService(
   (sourceId, config) => catalogService.availableEpisodeCount(sourceId, config)
 );
 const scheduleService = new ScheduleService();
+const workInfoService = new WorkInfoService();
+let identityIndex: IdentityIndex;
+/** References the library depends on; the information cache never evicts them. */
+const libraryRefs = () => {
+  const state = store.snapshot();
+  return new Set([...state.bookmarks, ...state.history].flatMap((entry) => refsOf(store.withWork({ id: entry.animeId, title: entry.title, provider: animeSources(entry)[0].provider, sources: animeSources(entry) }))));
+};
+/** Candidate works for a search, from the local index first and the metadata service when it is on. */
+async function searchCandidates(query: string, resultTitles: () => string[]) {
+  const settings = store.snapshot().settings;
+  const local = settings.offlineIndex ? identityIndex.candidatesForSearch(query, resultTitles()) : [];
+  const remote = settings.animeInfo !== false ? await workInfoService.candidates(query, true) : [];
+  return unique([...local, ...remote].map((candidate) => JSON.stringify(candidate))).map((value) => JSON.parse(value));
+}
 const catalogConsumers = new Map<string, AbortController>();
 const catalogSenders = new WeakSet<Electron.WebContents>();
 function catalogCall<T>(event: Electron.IpcMainInvokeEvent, request: CatalogRequest | undefined, operation: (update: (value: unknown) => void) => Promise<T>): Promise<T> {
@@ -268,9 +285,13 @@ function registerIpc(): void {
     const validated = validateScheduleAnimeId(animeId);
     return catalogCall(event, request, () => scheduleService.getArtwork(validated, store.snapshot().settings));
   });
-  ipcMain.handle("catalog:search", (event, query: string, provider?: ProviderPreference, request?: CatalogRequest) => catalogCall(event, request, (update) => {
+  ipcMain.handle("catalog:search", (event, query: string, provider?: ProviderPreference, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
     const state = store.snapshot();
-    return catalogService.search(query, state.settings, provider ?? "auto", state.providerLinks, update);
+    const rows = await catalogService.search(query, state.settings, provider ?? "auto", [], update,
+      { works: state.works, dismissed: state.dismissedMergeKeys, candidates: (titles) => searchCandidates(query, titles) });
+    // Confident groupings become remembered works, so the next search and the library know them without matching again.
+    if (!catalogContext.getStore()?.signal.aborted) void store.recordBindings(rows).catch(() => undefined);
+    return rows;
   }));
   ipcMain.handle("catalog:episodes", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, (update) => catalogService.episodes(anime, store.snapshot().settings, update)));
   ipcMain.handle("catalog:series-metadata", (event, anime: AnimeResult, request?: CatalogRequest) => {
@@ -279,11 +300,37 @@ function registerIpc(): void {
   });
   ipcMain.handle("catalog:resolve", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
     const state = store.snapshot();
-    const linked = expandWithLinks(anime, state.providerLinks ?? []);
-    const { anime: resolved, confirmed } = await catalogService.resolve(linked, state.settings, update);
-    if (confirmed.length) await store.linkSources([...animeSources(linked).map((source) => source.id), ...confirmed], resolved.sources ?? []);
-    return resolved;
+    const linked = store.withWork(expandWithLinks(anime, state.providerLinks ?? []));
+    // Titles the metadata service knows for this work raise the hit rate on providers that list the Japanese name.
+    const known = workInfoService.cached(refsOf(linked));
+    const synonyms = known ? unique([known.titles.romaji, known.titles.english, ...known.synonyms].filter((value): value is string => Boolean(value))) : [];
+    const sources = animeSources(linked);
+    const queryable = synonyms.length ? { ...linked, sources: sources.map((source, index) => index === 0 ? { ...source, aliases: unique([...source.aliases, ...synonyms]) } : source) } : linked;
+    const { anime: resolved, confirmed, refs } = await catalogService.resolve(queryable, state.settings, update);
+    if (confirmed.length || refs.length) await store.bindWork({ ids: [...sourceIds(linked), ...confirmed], refs, title: resolved.title, sources: resolved.sources ?? [] });
+    return { ...resolved, sources: resolved.sources?.map((source) => sources.find((item) => item.id === source.id) ?? source) };
   }));
+  ipcMain.handle("catalog:work-info", (event, anime: AnimeResult, request?: CatalogRequest) => {
+    const validated = validateSeriesMetadataRequest(anime);
+    return catalogCall(event, request, async (update) => {
+      const settings = store.snapshot().settings;
+      const linked = store.withWork(validated);
+      const result = await workInfoService.info(linked, { enabled: settings.animeInfo !== false, refresh: request?.refresh, protectedRefs: libraryRefs }, update);
+      if (result.refs.length && !catalogContext.getStore()?.signal.aborted) {
+        await store.bindWork({ ids: sourceIds(linked), refs: result.refs, title: linked.title, sources: animeSources(linked), type: result.info?.type, year: result.info?.year, episodes: result.info?.episodes });
+      }
+      return result.info;
+    });
+  });
+  ipcMain.handle("identity:index-status", (event) => {
+    assertPlayerSender(mainWindow, event);
+    return identityIndex.status(store.snapshot().settings.offlineIndex === true);
+  });
+  ipcMain.handle("identity:index-update", async (event) => {
+    assertPlayerSender(mainWindow, event);
+    if (store.snapshot().settings.offlineIndex !== true) throw new Error("Turn on the offline title index and save settings first");
+    return identityIndex.update();
+  });
   ipcMain.handle("catalog:metadata", (event, episodeId: string) => {
     assertPlayerSender(mainWindow, event);
     if (typeof episodeId !== "string" || episodeId.length > 2048) throw new Error("Invalid episode identifier");
@@ -325,6 +372,7 @@ function registerIpc(): void {
     const previous = store.snapshot().settings;
     const state = await store.saveSettings(settings);
     if (sourceSettingsKey(previous) !== sourceSettingsKey(state.settings)) bookmarkMetadata.cancel();
+    if (state.settings.offlineIndex && !previous.offlineIndex && identityIndex.needsUpdate()) void identityIndex.update();
     const enabled = state.settings.playerDiagnostics === true;
     diagnostics.setEnabled(enabled);
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("player:diagnostics-change", enabled);
@@ -343,6 +391,7 @@ function registerIpc(): void {
   ipcMain.handle("state:history-remove", (_event, animeId: string) => store.removeHistory(String(animeId)));
   ipcMain.handle("state:history-clear", () => store.clearHistory());
   ipcMain.handle("state:link-sources", (_event, sourceIds: string[]) => store.linkSources(sourceIds));
+  ipcMain.handle("state:split-source", (_event, sourceId: string) => store.splitSource(String(sourceId)));
   ipcMain.handle("state:clear-links", () => store.clearSourceLinks());
   ipcMain.handle("state:merge-entries", (_event, firstAnimeId: string, secondAnimeId: string) => store.mergeEntries(firstAnimeId, secondAnimeId));
   ipcMain.handle("state:dismiss-merge", (_event, firstAnimeId: string, secondAnimeId: string) => store.dismissMerge(firstAnimeId, secondAnimeId));
@@ -397,6 +446,10 @@ app.whenReady().then(async () => {
   await store.load();
   await catalogService.load(join(app.getPath("userData"), "episode-lists.json"));
   await seriesMetadataService.load(join(app.getPath("userData"), "series-metadata.json"));
+  await workInfoService.load(join(app.getPath("userData"), "work-info.json"));
+  identityIndex = new IdentityIndex(join(app.getPath("userData"), "title-index.json"));
+  await identityIndex.load();
+  if (store.snapshot().settings.offlineIndex && identityIndex.needsUpdate()) void identityIndex.update();
   episodeMetadata = new EpisodeMetadataCache(join(app.getPath("userData"), "episode-metadata.json"));
   bookmarkMetadata = new BookmarkMetadataFetcher(catalogService, episodeMetadata);
   await episodeMetadata.load();
@@ -440,5 +493,5 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   bookmarkMetadata.cancel();
   const timeout = setTimeout(() => app.quit(), 2000);
-  void Promise.allSettled([diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
+  void Promise.allSettled([diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
 });

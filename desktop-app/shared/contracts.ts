@@ -15,12 +15,22 @@ export const clampMiniPlayerWidth = (value: unknown, max: number = MINI_PLAYER_W
   return typeof value === "number" && Number.isFinite(value) ? Math.round(Math.min(Math.max(value, MINI_PLAYER_WIDTH.min), ceiling)) : MINI_PLAYER_WIDTH.default;
 };
 
+/** Distribution format, normalised across providers and indexes. */
+export type MediaType = "TV" | "MOVIE" | "OVA" | "ONA" | "SPECIAL" | "MUSIC";
+export type WorkStatus = "finished" | "ongoing" | "upcoming" | "unknown";
+
 export interface AnimeSource {
   id: string;
   provider: ProviderName;
   title: string;
   aliases: string[];
   poster?: string;
+  /** Facts the provider states on its search card; used to veto or confirm identity matches. */
+  type?: MediaType;
+  episodes?: number;
+  year?: number;
+  /** External references the provider itself states, such as "mal:51367". */
+  refs?: string[];
 }
 
 export interface AnimeResult {
@@ -29,6 +39,76 @@ export interface AnimeResult {
   poster?: string;
   provider: ProviderName;
   sources?: AnimeSource[];
+  /** App-owned identity this row is bound to, when known. */
+  workId?: string;
+  /** External references known for the whole row, such as "mal:51367" or "anilist:146722". */
+  refs?: string[];
+  /** Set when provider records were grouped by title alone rather than a shared reference or alias. */
+  tentative?: boolean;
+}
+
+/**
+ * One anime as the app knows it, independent of any provider. Library entries and caches key on works; provider
+ * records are bound to them and can be replaced without losing history.
+ */
+export interface Work {
+  id: string;
+  title: string;
+  refs: string[];
+  /** Provider record ids bound to this work. Several records from one provider are variants of the same anime. */
+  records: string[];
+  type?: MediaType;
+  year?: number;
+  episodes?: number;
+  /** Bound by title matching only; a reference or a manual merge clears this. */
+  tentative?: boolean;
+  updatedAt: string;
+}
+
+/** A work as an index or metadata service describes it, used to bind provider records at search time. */
+export interface IdentityCandidate {
+  refs: string[];
+  title: string;
+  titles: string[];
+  type?: MediaType;
+  year?: number;
+  episodes?: number;
+  status?: WorkStatus;
+}
+
+export interface WorkRelation { relation: string; refs: string[]; title: string; type?: MediaType; }
+export interface WorkInfo {
+  refs: string[];
+  title: string;
+  titles: { romaji?: string; english?: string; native?: string };
+  synonyms: string[];
+  type?: MediaType;
+  episodes?: number;
+  year?: number;
+  season?: string;
+  status: WorkStatus;
+  genres: string[];
+  studios: string[];
+  /** Average score on a 0–100 scale. */
+  score?: number;
+  description?: string;
+  cover?: string;
+  banner?: string;
+  nextAiring?: { episode: number; airingAt: number };
+  relations: WorkRelation[];
+  fetchedAt: number;
+  source: "anilist";
+  /** Shown from cache while a refresh runs or after one fails. */
+  stale?: boolean;
+  error?: string;
+}
+
+export interface IdentityIndexStatus {
+  enabled: boolean;
+  entries: number;
+  updatedAt?: number;
+  updating: boolean;
+  error?: string;
 }
 
 export interface Episode {
@@ -188,6 +268,10 @@ export interface Settings {
   hianimeBaseUrl: string;
   /** Providers left out of search, lookup, and episode loading. Every provider is on unless listed here. */
   disabledSources?: ProviderName[];
+  /** Ask AniList for identity and series information. Off keeps every request to the streaming sources. */
+  animeInfo?: boolean;
+  /** Keep a local copy of the anime-offline-database for identity matching without network requests. */
+  offlineIndex?: boolean;
   theme: ThemePreset;
   customTheme: CustomTheme;
 }
@@ -196,7 +280,9 @@ export interface PersistedState {
   bookmarks: LibraryEntry[];
   history: LibraryEntry[];
   settings: Settings;
+  /** Provider records grouped by work; derived from `works` for older code paths. */
   providerLinks?: string[][];
+  works?: Work[];
   dismissedMergeKeys?: string[];
   playerPreferences?: PlayerPreferences;
   playbackPositions?: Record<string, PlaybackPosition>;
@@ -229,6 +315,10 @@ export interface AniDesktopApi {
   seriesMetadata(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: SeriesMetadataCatalog) => void): Promise<SeriesMetadataCatalog>;
   /** Look the anime up on every provider it is not yet known on, remembering confident matches. */
   resolveSources(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult>) => void): Promise<AnimeResult>;
+  /** Series information for the work behind an anime, from cache first and then a metadata service. */
+  workInfo(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (info: WorkInfo) => void): Promise<WorkInfo | undefined>;
+  identityIndexStatus(): Promise<IdentityIndexStatus>;
+  updateIdentityIndex(): Promise<IdentityIndexStatus>;
   streams(episodeId: string, mode: TranslationMode, request?: CatalogRequest): Promise<Stream[]>;
   availability(episodeId: string, request?: CatalogRequest): Promise<EpisodeAvailability>;
   episodeMetadata(episodeId: string): Promise<CachedEpisodeMetadata | undefined>;
@@ -255,6 +345,8 @@ export interface AniDesktopApi {
   /** Forget every remembered provider link, automatic and manual. */
   clearSourceLinks(): Promise<PersistedState>;
   linkSources(sourceIds: string[]): Promise<PersistedState>;
+  /** Take one provider record out of the work it was grouped with; the pair is not grouped automatically again. */
+  splitSource(sourceId: string): Promise<PersistedState>;
   mergeEntries(firstAnimeId: string, secondAnimeId: string): Promise<PersistedState>;
   dismissMerge(firstAnimeId: string, secondAnimeId: string): Promise<PersistedState>;
 }

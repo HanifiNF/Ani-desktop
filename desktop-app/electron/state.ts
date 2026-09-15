@@ -1,10 +1,19 @@
 import { DEFAULT_STATE } from "../shared/settings";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { MINI_PLAYER_CORNERS, clampMiniPlayerWidth, type AnimeSource, type CustomTheme, type LibraryEntry, type MiniPlayerCorner, type PersistedState, type ProviderName, type Settings, type PlayRequest } from "../shared/contracts";
+import { randomBytes } from "node:crypto";
+import { MINI_PLAYER_CORNERS, clampMiniPlayerWidth, type AnimeResult, type AnimeSource, type CustomTheme, type LibraryEntry, type MiniPlayerCorner, type PersistedState, type ProviderName, type Settings, type PlayRequest, type Work } from "../shared/contracts";
 import { playbackKey, validateStorageUpdate } from "../shared/playback";
 import { PROVIDER_NAMES, providerFromId, animeSources, isProviderName, mergeKey, overlaps, sourceIds } from "../shared/catalog";
+import { isRef, mediaTypeOf, positiveInteger, unique, yearOf } from "../shared/identity";
+
+const WORK_LIMIT = 5000;
+const newWorkId = () => `work:${randomBytes(8).toString("hex")}`;
+
 import { isHexColor, isThemePreset } from "../shared/theme";
+
+/** Bindings that should become or extend a remembered work. */
+export interface Binding { ids: string[]; refs?: string[]; title?: string; sources?: AnimeSource[]; tentative?: boolean; type?: unknown; year?: unknown; episodes?: unknown; }
 
 function normalizePoster(value: unknown): string | undefined {
   if (typeof value !== "string" || value.length > 2048) return undefined;
@@ -23,6 +32,18 @@ const HIANIME_SLUG = "[\\p{L}\\p{N}:!'().,_+~-]+(?:-[\\p{L}\\p{N}:!'().,_+~-]+)*
 const isProviderId = (id: unknown): id is string => typeof id === "string" && (
   id.length <= 512 && (/^(?:aniwave|anidb):[a-z0-9-]+-\d+$/i.test(id) || new RegExp(`^hianime:${HIANIME_SLUG}$`, "u").test(id))
 );
+
+function normalizeWork(value: unknown): Work | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as Record<string, unknown>;
+  if (typeof raw.id !== "string" || !/^work:[0-9a-f]{16}$/.test(raw.id) || typeof raw.title !== "string" || raw.title.length > 240) return undefined;
+  const records = Array.isArray(raw.records) ? unique(raw.records.filter(isProviderId)) : [];
+  const refs = Array.isArray(raw.refs) ? unique(raw.refs.filter(isRef)) : [];
+  if (!records.length && !refs.length) return undefined;
+  const type = mediaTypeOf(raw.type), year = yearOf(raw.year), episodes = positiveInteger(raw.episodes);
+  return { id: raw.id, title: raw.title, records, refs, updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : new Date(0).toISOString(),
+    ...(type ? { type } : {}), ...(year ? { year } : {}), ...(episodes ? { episodes } : {}), ...(raw.tentative === true ? { tentative: true } : {}) };
+}
 
 export function normalizeEntry(entry: LibraryEntry): LibraryEntry {
   if (!isProviderId(entry.animeId) && !/^[a-z0-9-]+-\d+$/i.test(entry.animeId)) throw new Error("Invalid anime identifier");
@@ -95,10 +116,22 @@ export class StateStore {
     try {
       const parsed = JSON.parse(await readFile(this.filePath, "utf8")) as Partial<PersistedState>;
       const settings = { ...DEFAULT_STATE.settings, ...(parsed.settings ?? {}) };
+      const works = Array.isArray(parsed.works) ? parsed.works.map(normalizeWork).filter((work): work is Work => Boolean(work)) : [];
+      // Older files remembered provider links as bare id groups; each becomes a work without references.
+      if (!Array.isArray(parsed.works) && Array.isArray(parsed.providerLinks)) {
+        for (const group of parsed.providerLinks) {
+          if (!Array.isArray(group)) continue;
+          const records = unique(group.filter(isProviderId));
+          if (records.length < 2) continue;
+          const entry = [...(Array.isArray(parsed.history) ? parsed.history : []), ...(Array.isArray(parsed.bookmarks) ? parsed.bookmarks : [])]
+            .find((item) => item && typeof item === "object" && records.includes((item as LibraryEntry).animeId));
+          works.push({ id: newWorkId(), title: (entry as LibraryEntry | undefined)?.title ?? records[0], refs: [], records, updatedAt: new Date(0).toISOString() });
+        }
+      }
       this.state = {
         bookmarks: Array.isArray(parsed.bookmarks) ? parsed.bookmarks.map(migrateEntry) : [],
         history: Array.isArray(parsed.history) ? parsed.history.map(migrateEntry) : [],
-        providerLinks: Array.isArray(parsed.providerLinks) ? parsed.providerLinks : [],
+        works,
         dismissedMergeKeys: Array.isArray(parsed.dismissedMergeKeys) ? parsed.dismissedMergeKeys : [],
         playerPreferences: parsed.playerPreferences ? validateStorageUpdate(parsed.playerPreferences) : {},
         playbackPositions: parsed.playbackPositions ?? {},
@@ -111,6 +144,8 @@ export class StateStore {
           miniPlayerWidth: clampMiniPlayerWidth(settings.miniPlayerWidth),
           playerDiagnostics: settings.playerDiagnostics === true,
           disabledSources: normalizeDisabledSources(settings.disabledSources),
+          animeInfo: settings.animeInfo !== false,
+          offlineIndex: settings.offlineIndex === true,
           theme: isThemePreset(settings.theme) ? settings.theme : "graphite",
           customTheme: normalizeTheme(settings.customTheme)
         }
@@ -120,8 +155,31 @@ export class StateStore {
     }
   }
 
+  /** The persisted state plus provider links derived from works, for code that still groups by id lists. */
   snapshot(): PersistedState {
-    return structuredClone(this.state);
+    const state = structuredClone(this.state);
+    state.providerLinks = (state.works ?? []).filter((work) => work.records.length > 1).map((work) => work.records);
+    return state;
+  }
+
+  /** The work a provider record is bound to, if any. */
+  workOf(recordId: string): Work | undefined {
+    return (this.state.works ?? []).find((work) => work.records.includes(recordId));
+  }
+
+  /** The anime with every record and reference its remembered work knows, for lookups and information requests. */
+  withWork(anime: AnimeResult): AnimeResult {
+    const sources = animeSources(anime);
+    const works = (this.state.works ?? []).filter((work) => sources.some((source) => work.records.includes(source.id)) || (anime.refs ?? []).some((value) => work.refs.includes(value)));
+    if (!works.length) return anime;
+    const refs = unique([...(anime.refs ?? []), ...sources.flatMap((source) => source.refs ?? []), ...works.flatMap((work) => work.refs)]);
+    const merged = [...sources];
+    for (const id of works.flatMap((work) => work.records)) {
+      if (merged.some((source) => source.id === id)) continue;
+      const provider = providerFromId(id);
+      if (!merged.some((source) => source.provider === provider)) merged.push({ id, provider, title: anime.title, aliases: [anime.title] });
+    }
+    return { ...anime, sources: merged, workId: works[0].id, ...(refs.length ? { refs } : {}) };
   }
 
   async savePlayerStorage(request: PlayRequest, value: unknown): Promise<void> {
@@ -173,6 +231,8 @@ export class StateStore {
       // A preferred source that is switched off would search nothing, so it falls back to auto.
       preferredProvider: isProviderName(settings.preferredProvider) && disabledSources.includes(settings.preferredProvider) ? "auto" : settings.preferredProvider,
       disabledSources,
+      animeInfo: settings.animeInfo !== false,
+      offlineIndex: settings.offlineIndex === true,
       aniwaveBaseUrl: normalizeSource(settings.aniwaveBaseUrl, "AniWave"),
       anidbBaseUrl: normalizeSource(settings.anidbBaseUrl, "AniDB"),
       hianimeBaseUrl: normalizeSource(settings.hianimeBaseUrl, "HiAnime"),
@@ -234,32 +294,100 @@ export class StateStore {
   }
 
   async clearSourceLinks(): Promise<PersistedState> {
-    this.state.providerLinks = [];
+    this.state.works = [];
     await this.persist();
     return this.snapshot();
   }
 
   async linkSources(ids: string[], sources: AnimeSource[] = []): Promise<PersistedState> {
-    const unique = [...new Set(ids.filter(isProviderId))];
-    if (unique.length < 2) return this.snapshot();
-    const links = this.state.providerLinks ?? [];
-    const touching = links.filter((group) => group.some((id) => unique.includes(id)));
-    const combined = [...new Set([...unique, ...touching.flat()])];
-    this.state.providerLinks = [...links.filter((group) => !touching.includes(group)), combined];
-    // Library entries for this anime learn the linked records too, so opening them later starts with every source.
+    return this.bindWork({ ids, sources });
+  }
+
+  /** Remember that these records, and these references, name one anime. A manual or referenced binding is never tentative. */
+  async bindWork(binding: Binding): Promise<PersistedState> {
+    if (this.applyBinding(binding)) await this.persist();
+    return this.snapshot();
+  }
+
+  /** Remember every confident grouping in a set of search rows at once. */
+  async recordBindings(rows: AnimeResult[]): Promise<boolean> {
+    let changed = false;
+    for (const row of rows) {
+      if (row.tentative) continue;
+      const sources = animeSources(row);
+      const refs = unique([...(row.refs ?? []), ...sources.flatMap((source) => source.refs ?? [])]);
+      if (sources.length < 2 && !refs.length) continue;
+      changed = this.applyBinding({ ids: sources.map((source) => source.id), refs, title: row.title, sources }) || changed;
+    }
+    if (changed) await this.persist();
+    return changed;
+  }
+
+  private applyBinding(binding: Binding): boolean {
+    const ids = unique(binding.ids.filter(isProviderId));
+    const refs = unique((binding.refs ?? []).filter(isRef));
+    if (ids.length < 2 && !refs.length) return false;
+    const works = this.state.works ?? [];
+    const touching = works.filter((work) => work.records.some((id) => ids.includes(id)) || work.refs.some((value) => refs.includes(value)));
+    const records = unique([...touching.flatMap((work) => work.records), ...ids]);
+    const combinedRefs = unique([...touching.flatMap((work) => work.refs), ...refs]);
+    const unchanged = touching.length === 1 && touching[0].records.length === records.length && touching[0].refs.length === combinedRefs.length
+      && (!touching[0].tentative || binding.tentative === true);
+    if (unchanged) return false;
+    const title = binding.title?.trim() || touching[0]?.title || binding.sources?.find((source) => ids.includes(source.id))?.title || ids[0];
+    const type = mediaTypeOf(binding.type) ?? touching.find((work) => work.type)?.type;
+    const year = yearOf(binding.year) ?? touching.find((work) => work.year)?.year;
+    const episodes = positiveInteger(binding.episodes) ?? touching.find((work) => work.episodes)?.episodes;
+    const tentative = binding.tentative === true && !combinedRefs.length && touching.every((work) => work.tentative);
+    const work: Work = { id: touching[0]?.id ?? newWorkId(), title: title.slice(0, 240), refs: combinedRefs, records, updatedAt: new Date().toISOString(),
+      ...(type ? { type } : {}), ...(year ? { year } : {}), ...(episodes ? { episodes } : {}), ...(tentative ? { tentative: true } : {}) };
+    this.state.works = [...works.filter((item) => !touching.includes(item)), work];
+    this.trimWorks();
+    // Library entries for this anime learn the bound records too, so opening them later starts with every source.
     const attach = (entry: LibraryEntry): LibraryEntry => {
       const known = animeSources(entry);
-      if (!known.some((source) => combined.includes(source.id))) return entry;
+      if (!known.some((source) => records.includes(source.id))) return entry;
       const merged = [...known];
-      for (const id of combined) {
+      for (const id of records) {
         if (merged.some((source) => source.id === id)) continue;
-        const source = sources.find((item) => item.id === id) ?? { id, provider: providerFromId(id), title: entry.title, aliases: [entry.title] };
+        const source = binding.sources?.find((item) => item.id === id) ?? { id, provider: providerFromId(id), title: entry.title, aliases: [entry.title] };
         if (!merged.some((item) => item.provider === source.provider)) merged.push(source);
       }
       return merged.length > known.length ? { ...entry, sources: merged } : entry;
     };
     this.state.bookmarks = this.state.bookmarks.map(attach);
     this.state.history = this.state.history.map(attach);
+    return true;
+  }
+
+  /** Keep the works table bounded; works the library refers to are never dropped. */
+  private trimWorks(): void {
+    const works = this.state.works ?? [];
+    if (works.length <= WORK_LIMIT) return;
+    const kept = new Set([...this.state.bookmarks, ...this.state.history].flatMap((entry) => sourceIds(entry)));
+    const disposable = works.filter((work) => !work.records.some((id) => kept.has(id))).sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+    const drop = new Set(disposable.slice(0, works.length - WORK_LIMIT));
+    this.state.works = works.filter((work) => !drop.has(work));
+  }
+
+  /** Take one record out of its work. The pair is remembered as split so search does not group it again by title. */
+  async splitSource(sourceId: string): Promise<PersistedState> {
+    if (!isProviderId(sourceId)) throw new Error("Invalid source identifier");
+    const works = this.state.works ?? [];
+    const work = works.find((item) => item.records.includes(sourceId));
+    if (!work) return this.snapshot();
+    const others = work.records.filter((id) => id !== sourceId);
+    const remaining: Work = { ...work, records: others, updatedAt: new Date().toISOString() };
+    this.state.works = [...works.filter((item) => item !== work), ...(others.length || remaining.refs.length ? [remaining] : [])];
+    this.state.dismissedMergeKeys = unique([...(this.state.dismissedMergeKeys ?? []), ...others.map((id) => mergeKey(sourceId, id))]);
+    const detach = (entry: LibraryEntry): LibraryEntry => {
+      const known = animeSources(entry);
+      if (!known.some((source) => source.id === sourceId) || known.length < 2) return entry;
+      const sources = entry.animeId === sourceId ? known.filter((source) => !others.includes(source.id)) : known.filter((source) => source.id !== sourceId);
+      return sources.length && sources.length < known.length ? { ...entry, sources } : entry;
+    };
+    this.state.bookmarks = this.state.bookmarks.map(detach);
+    this.state.history = this.state.history.map(detach);
     await this.persist();
     return this.snapshot();
   }

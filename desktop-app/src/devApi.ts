@@ -1,6 +1,6 @@
 // Dev-only stand-in for the preload API so the renderer can run in a plain browser (npx vite) for UI work.
 // Never bundled into production: main.tsx only imports it under import.meta.env.DEV when window.aniDesktop is absent.
-import type { AniDesktopApi, AniPlayerApi, AnimeResult, AnimeSource, Episode, LibraryEntry, PersistedState, PlayerSession } from "../shared/contracts";
+import type { AniDesktopApi, AniPlayerApi, AnimeResult, AnimeSource, Episode, LibraryEntry, PersistedState, PlayerSession, WorkInfo } from "../shared/contracts";
 import { animeSources, expandWithLinks, mergeKey, unifyAnimeResults, enabledProviders, providerFromId } from "../shared/catalog";
 import { DEFAULT_STATE } from "../shared/settings";
 
@@ -93,6 +93,18 @@ export function installDevApi(): void {
       state.providerLinks = [...(state.providerLinks ?? []), sources.map((source) => source.id)];
       return { ...anime, sources };
     },
+    async workInfo(anime, _request, update) {
+      await wait(250);
+      if (!state.settings.animeInfo || !/frieren/i.test(anime.title)) return undefined;
+      const info: WorkInfo = { refs: ["anilist:154587", "mal:52991"], title: "Frieren: Beyond Journey's End", titles: { romaji: "Sousou no Frieren", english: "Frieren: Beyond Journey's End" }, synonyms: [],
+        type: "TV", episodes: 28, year: 2023, season: "fall", status: "finished", genres: ["Adventure", "Drama", "Fantasy"], studios: ["madhouse"], score: 89,
+        description: "After the party of heroes defeated the Demon King, the elf mage Frieren sets out to understand the people she outlived.",
+        cover: posters.frieren, relations: [{ relation: "sequel", refs: ["anilist:182255"], title: "Frieren: Beyond Journey's End Season 2", type: "TV" }], fetchedAt: Date.now(), source: "anilist" };
+      update?.(info);
+      return info;
+    },
+    async identityIndexStatus() { return { enabled: state.settings.offlineIndex === true, entries: 0, updating: false }; },
+    async updateIdentityIndex() { await wait(600); return { enabled: state.settings.offlineIndex === true, entries: 41537, updatedAt: Date.now(), updating: false }; },
     async episodes(anime) {
       await wait(300);
       const enabled = enabledProviders(state.settings);
@@ -162,6 +174,12 @@ export function installDevApi(): void {
     async clearHistory() { state.history = []; return snapshot(); },
     async clearSourceLinks() { state.providerLinks = []; return snapshot(); },
     async linkSources(ids) { state.providerLinks = [...(state.providerLinks ?? []), [...new Set(ids)]]; return snapshot(); },
+    async splitSource(sourceId) {
+      state.providerLinks = (state.providerLinks ?? []).map((group) => group.filter((id) => id !== sourceId)).filter((group) => group.length > 1);
+      const detach = (entry: LibraryEntry) => entry.sources && entry.sources.length > 1 && entry.animeId !== sourceId ? { ...entry, sources: entry.sources.filter((source) => source.id !== sourceId) } : entry;
+      state.bookmarks = state.bookmarks.map(detach); state.history = state.history.map(detach);
+      return snapshot();
+    },
     async mergeEntries(firstId, secondId) {
       const all = [...state.bookmarks, ...state.history];
       const first = all.find((item) => item.animeId === firstId), second = all.find((item) => item.animeId === secondId);

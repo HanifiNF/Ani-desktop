@@ -1,4 +1,11 @@
-import type { AnimeResult, Episode, ProviderName, ScheduleArtwork, ScheduleEntry, Stream, TextTrackSource, TranslationMode } from "../shared/contracts";
+import type { AnimeResult, AnimeSource, Episode, ProviderName, ScheduleArtwork, ScheduleEntry, Stream, TextTrackSource, TranslationMode } from "../shared/contracts";
+import { mediaTypeOf, positiveInteger as wholeNumber, ref, yearOf } from "../shared/identity";
+
+/** Facts a search card states, added to a source only when present so parsed records stay compact. */
+function withFacts(source: AnimeSource, facts: { type?: unknown; episodes?: unknown; year?: unknown; mal?: unknown }): AnimeSource {
+  const type = mediaTypeOf(facts.type), episodes = wholeNumber(facts.episodes), year = yearOf(facts.year), mal = wholeNumber(facts.mal);
+  return { ...source, ...(type ? { type } : {}), ...(episodes ? { episodes } : {}), ...(year ? { year } : {}), ...(mal ? { refs: [ref("mal", mal)] } : {}) };
+}
 
 export interface SeriesMetadataFields { genres: string[]; availableEpisodes?: number; announcedEpisodes?: number; }
 
@@ -139,9 +146,13 @@ export function parseAniwaveSearch(html: string): AnimeResult[] {
     if (!href || !title || !/-\d+$/.test(href)) continue;
     const vicinity = html.slice(Math.max(0, match.index! - 900), match.index! + match[0].length);
     const poster = vicinity.match(/<img[^>]+(?:data-src|src)=["']([^"']+)["']/i)?.[1];
+    // The card states its format and total episode count beside the poster, before the title anchor.
+    const type = vicinity.match(/<div class=["']right["']>\s*([A-Za-z ]+?)\s*<\/div>/)?.[1];
+    const total = vicinity.match(/ep-status total["']>\s*<span>\s*(\d+)\s*<\/span>/)?.[1];
     const id = `aniwave:${href}`, decodedTitle = decodeEntities(title), decodedPoster = poster ? decodeEntities(poster) : undefined;
     const aliases = [...new Set([decodedTitle, romanized && decodeEntities(romanized)].filter((value): value is string => Boolean(value)))];
-    results.set(href, { id, title: decodedTitle, poster: decodedPoster, provider: "aniwave", sources: [{ id, provider: "aniwave", title: decodedTitle, aliases, poster: decodedPoster }] });
+    const source = withFacts({ id, provider: "aniwave", title: decodedTitle, aliases, poster: decodedPoster }, { type, episodes: total });
+    results.set(href, { id, title: decodedTitle, poster: decodedPoster, provider: "aniwave", sources: [source] });
   }
   return [...results.values()];
 }
@@ -284,7 +295,8 @@ export function parseHiAnimeSearch(payload: unknown): AnimeResult[] {
     const poster = stringValue(record, "image");
     const aliases = [...new Set([title, stringValue(record, "title"), stringValue(record, "Japanese"), stringValue(record, "alternateTitle")].filter((value): value is string => Boolean(value)))];
     const id = `hianime:${slug}`;
-    results.set(slug, { id, title, poster, provider: "hianime", sources: [{ id, title, aliases, poster, provider: "hianime" }] });
+    const source = withFacts({ id, title, aliases, poster, provider: "hianime" }, { type: record.Type, episodes: record.totalEpisodes, year: record.Aired ?? record.Premiered, mal: record.mal_id });
+    results.set(slug, { id, title, poster, provider: "hianime", sources: [source] });
   }
   return [...results.values()];
 }

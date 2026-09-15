@@ -1,12 +1,23 @@
 import { catalogScope } from "../shared/settings";
-import type { AnimeResult, CatalogProgress, Episode, EpisodeCatalog, EpisodeGroup, ProviderName, ProviderPreference } from "../shared/contracts";
+import type { AnimeResult, CatalogProgress, Episode, EpisodeCatalog, EpisodeGroup, IdentityCandidate, ProviderName, ProviderPreference, Work } from "../shared/contracts";
 import { animeSources, enabledProviders, unifyAnimeResults } from "../shared/catalog";
+import { refsOf } from "../shared/identity";
 import { catalogContext } from "./catalog-requests";
 import { getProviderEpisodes, resolveSource, searchOne, type SourceConfig } from "./scraper";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
+/** How long the final result waits for identity candidates once every provider has answered. */
+const CANDIDATE_GRACE_MS = 2500;
+
+/** Identity knowledge search consults while grouping provider records. */
+export interface SearchIdentity {
+  works?: Work[];
+  dismissed?: string[];
+  /** Candidates from a metadata service or the local index; may arrive after some providers. */
+  candidates?: (resultTitles: () => string[]) => Promise<IdentityCandidate[]>;
+}
 
 export class CatalogService {
   private episodesCache = new Map<string, { episodes: Episode[]; at: number }>();
@@ -75,7 +86,7 @@ export class CatalogService {
     await this.writes;
   }
 
-  async search(query: string, config: SourceConfig, provider: ProviderPreference = "auto", links: string[][] = [], update?: (value: CatalogProgress<AnimeResult[]>) => void) {
+  async search(query: string, config: SourceConfig, provider: ProviderPreference = "auto", links: string[][] = [], update?: (value: CatalogProgress<AnimeResult[]>) => void, identity: SearchIdentity = {}) {
     const cleaned = query.trim();
     if (!cleaned) return [];
     if (cleaned.length > 120) throw new Error("Search query is too long");
@@ -85,14 +96,25 @@ export class CatalogService {
     const pending = new Set(providers);
     const results = new Map<ProviderName, AnimeResult[]>();
     const errors: Partial<Record<ProviderName, string>> = {};
-    const combined = () => unifyAnimeResults(providers.flatMap((name) => results.get(name) ?? []), links);
+    let candidates: IdentityCandidate[] = [];
+    const hits = () => providers.flatMap((name) => results.get(name) ?? []);
+    const combined = () => unifyAnimeResults(hits(), links, { works: identity.works, dismissed: identity.dismissed, candidates });
+    const publish = () => update?.({ value: combined(), pending: [...pending], errors: { ...errors } });
+    const signal = catalogContext.getStore()?.signal;
+    // Candidates arrive on their own schedule; a failure there never blocks provider results.
+    const identityLookup = identity.candidates?.(() => hits().flatMap((hit) => animeSources(hit).flatMap((source) => [source.title, ...source.aliases]))).then((value) => {
+      candidates = value;
+      if (pending.size && !signal?.aborted) publish();
+    }, (error: unknown) => { if (signal?.aborted) throw error; });
     await Promise.all(providers.map(async (name) => {
       try { results.set(name, await searchOne(cleaned, name, config)); }
       catch (error) { errors[name] = message(error); }
-      finally { pending.delete(name); update?.({ value: combined(), pending: [...pending], errors: { ...errors } }); }
+      finally { pending.delete(name); publish(); }
     }));
-    catalogContext.getStore()?.signal.throwIfAborted();
+    signal?.throwIfAborted();
     if (!results.size) throw new Error(`All providers failed: ${Object.values(errors).join("; ")}`);
+    if (identityLookup) await Promise.race([identityLookup, new Promise<void>((resolve) => setTimeout(resolve, CANDIDATE_GRACE_MS))]);
+    signal?.throwIfAborted();
     return combined();
   }
 
@@ -130,7 +152,10 @@ export class CatalogService {
     const sources = [...known];
     const confirmed: string[] = [];
     const errors: Partial<Record<ProviderName, string>> = {};
-    const snapshot = (): AnimeResult => ({ ...anime, sources: [...sources] });
+    const snapshot = (): AnimeResult => {
+      const refs = [...new Set([...(anime.refs ?? []), ...sources.flatMap((source) => source.refs ?? [])])];
+      return { ...anime, sources: [...sources], ...(refs.length ? { refs } : {}) };
+    };
     // Also deliver remembered links immediately, before any missing-provider lookup.
     update?.({ value: snapshot(), pending: [...pending], errors: {} });
     await Promise.all([...pending].map(async (provider) => {
@@ -145,6 +170,7 @@ export class CatalogService {
       finally { pending.delete(provider); update?.({ value: snapshot(), pending: [...pending], errors: { ...errors } }); }
     }));
     catalogContext.getStore()?.signal.throwIfAborted();
-    return { anime: snapshot(), confirmed };
+    const resolved = snapshot();
+    return { anime: resolved, confirmed, refs: refsOf(resolved) };
   }
 }
