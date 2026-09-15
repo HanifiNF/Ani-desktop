@@ -150,6 +150,9 @@ export function installDevApi(): void {
     async getState() { return snapshot(); },
     async saveSettings(settings) { state.settings = settings; return snapshot(); },
     async openPlayerLogs() { throw new Error("Player logs are available in the desktop app"); },
+    async checkForUpdates() { return { currentVersion: "development", state: "development" }; },
+    async dismissUpdate() { return { currentVersion: "development", state: "development" }; },
+    async openLatestRelease() { window.open("https://github.com/HanifiNF/Ani-cli-aniwave/releases/latest", "_blank", "noopener"); },
     async setAppIcon() {},
     async toggleBookmark(entry) {
       const index = state.bookmarks.findIndex((item) => item.animeId === entry.animeId);
