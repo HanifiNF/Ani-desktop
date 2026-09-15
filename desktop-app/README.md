@@ -167,6 +167,8 @@ npm version 0.2.0 --no-git-tag-version
 
 The release version is applied to the package and lockfile in the build workspace. The workflow creates tags and releases using GitHub's built-in token; it creates no version-bump commits. The checked-in package version serves as the minimum version for future releases, so source checkouts can show an older version than downloaded packages.
 
+Packaged apps check the repository's latest stable GitHub Release shortly after startup and at most once every 24 hours. An available version appears in a dismissible banner and in Settings; **View release** opens GitHub so the user can choose the appropriate installer. Checks never download or install files automatically. Results and per-version dismissals are stored in `update-check.json` in the app's user-data directory. Automatic checks are disabled while running from source, and **Check now** bypasses the daily throttle.
+
 Release runs queue one at a time (up to GitHub's 100 pending-run limit). Failed checks or package builds prevent publication. Uploads stay in a draft until all files are attached. Retrying a tagged commit reuses its version and preserves an already published release. If a failed run's version was claimed by a later commit, choose **Re-run all jobs** to select a fresh version.
 
 To test packages from a branch, open **Actions → Desktop release → Run workflow** and select the branch. Manual runs execute the same checks and builds and save the packages as workflow artifacts. Publication happens on pushes to `master`. macOS packages currently use ad-hoc signing; Developer ID signing and notarization can be added later.

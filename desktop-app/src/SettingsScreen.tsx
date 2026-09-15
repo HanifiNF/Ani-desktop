@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { ProviderPreference, Settings } from "../shared/contracts";
+import type { ProviderPreference, Settings, UpdateStatus } from "../shared/contracts";
 import { enabledProviders } from "../shared/catalog";
 import { PLAYBACK_QUALITIES as QUALITIES } from "../shared/settings";
 import { THEME_NAMES, resolveTheme } from "../shared/theme";
@@ -9,17 +9,21 @@ import { isMac } from "./keys";
 import SourceStatusPanel from "./SourceStatusPanel";
 import BookmarkMetadataPanel from "./BookmarkMetadataPanel";
 import IdentityIndexPanel from "./IdentityIndexPanel";
+import { UpdatePanel } from "./UpdateUI";
 
 interface Props {
   draft: Settings; setDraft: Dispatch<SetStateAction<Settings>>; saved: Settings;
   bookmarkCount: number; linkCount: number; dirty: boolean;
   onSave: () => void; onCancel: () => void; onOpenLogs: () => void; onClearLinks: () => void;
+  updateStatus?: UpdateStatus; updateChecking: boolean; onCheckUpdates: () => void; onOpenUpdate: () => void;
 }
 
-export default function SettingsScreen({ draft, setDraft, saved, bookmarkCount, linkCount, dirty, onSave, onCancel, onOpenLogs, onClearLinks }: Props) {
+export default function SettingsScreen({ draft, setDraft, saved, bookmarkCount, linkCount, dirty, onSave, onCancel, onOpenLogs, onClearLinks,
+  updateStatus, updateChecking, onCheckUpdates, onOpenUpdate }: Props) {
   return (
     <form className="settings" onSubmit={(event) => { event.preventDefault(); onSave(); }}>
       <h1>Settings</h1>
+      <UpdatePanel status={updateStatus} checking={updateChecking} onCheck={onCheckUpdates} onOpen={onOpenUpdate} />
       <div className="group"><h3>Playback</h3><div className="box">
         <div className="r"><span className="k">Player<small>Built-in works without installing another player</small></span><Chips value={draft.playbackTarget} options={["builtin", "external"] as const} onChange={(playbackTarget) => setDraft({ ...draft, playbackTarget })} names={{ builtin: "built-in" }} /></div>
         <div className="r"><span className="k">Start fullscreen<small>Enter fullscreen as soon as an episode starts</small></span><Switch checked={draft.startPlayerFullscreen} label="Start fullscreen" onChange={(startPlayerFullscreen) => setDraft({ ...draft, startPlayerFullscreen })} /></div>

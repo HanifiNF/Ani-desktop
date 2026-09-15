@@ -25,7 +25,8 @@ import type {
   ProviderName,
   ProviderPreference,
   Settings,
-  TranslationMode
+  TranslationMode,
+  UpdateStatus
 } from "../shared/contracts";
 import { catalogRequestId } from "./catalog-request";
 import { useEpisodeMetadata } from "./useEpisodeMetadata";
@@ -37,6 +38,7 @@ import { animeSources, enabledProviders, expandWithLinks, likelyDuplicate, merge
 import { Icon } from "./icons";
 import { withTransition } from "./transition";
 import { SiteFooter, type FooterScreen } from "./SiteFooter";
+import { UpdateBanner } from "./UpdateUI";
 
 type Screen = "home" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
@@ -74,6 +76,8 @@ function App() {
   const [resolving, setResolving] = useState(false);
   const [sourceErrors, setSourceErrors] = useState<Partial<Record<ProviderName, string>>>({});
   const [pendingSources, setPendingSources] = useState<ProviderName[]>([]);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>();
+  const [updateChecking, setUpdateChecking] = useState(false);
 
   const catalogSearch = useAnimeSearch(query, "auto",
     [appState.settings.aniwaveBaseUrl, appState.settings.anidbBaseUrl, appState.settings.hianimeBaseUrl, enabledProviders(appState.settings).join(",")], screen === "home" && !composing);
@@ -98,6 +102,25 @@ function App() {
       setStateLoaded(true);
     }).catch((reason) => setError(messageFrom(reason)));
   }, []);
+
+  const checkForUpdates = useCallback((force = false) => {
+    if (force) setUpdateChecking(true);
+    void window.aniDesktop.checkForUpdates(force).then(setUpdateStatus, (reason) => {
+      if (force) setError(messageFrom(reason));
+    }).finally(() => { if (force) setUpdateChecking(false); });
+  }, []);
+  useEffect(() => {
+    const first = window.setTimeout(() => checkForUpdates(), 1_500);
+    const poll = window.setInterval(() => checkForUpdates(), 60 * 60 * 1_000);
+    return () => { window.clearTimeout(first); window.clearInterval(poll); };
+  }, [checkForUpdates]);
+  const openLatestRelease = useCallback(() => {
+    void window.aniDesktop.openLatestRelease().catch((reason) => setError(messageFrom(reason)));
+  }, []);
+  const dismissUpdate = useCallback(() => {
+    if (!updateStatus?.latestVersion) return;
+    void window.aniDesktop.dismissUpdate(updateStatus.latestVersion).then(setUpdateStatus, (reason) => setError(messageFrom(reason)));
+  }, [updateStatus?.latestVersion]);
 
   useEffect(() => {
     const refresh = () => { void window.aniDesktop.getState().then(setAppState).catch((reason) => setError(messageFrom(reason))); };
@@ -773,6 +796,7 @@ function App() {
       {paletteOpen && <div className="dim" onClick={() => { setQuery(""); catalogSearch.clear(); }} />}
 
       <div className="body">
+      {screen !== "player" && screen !== "opening" && updateStatus && <UpdateBanner status={updateStatus} onOpen={openLatestRelease} onDismiss={dismissUpdate} />}
       {session && (
         <Suspense fallback={<div className="player-message">loading player ···</div>}>
           <PlayerScreen
@@ -857,6 +881,7 @@ function App() {
           <SettingsScreen draft={settingsDraft} setDraft={setSettingsDraft} saved={appState.settings}
             bookmarkCount={appState.bookmarks.length} linkCount={(appState.providerLinks ?? []).length} dirty={settingsDirty}
             onSave={() => void saveSettings()} onCancel={goBack} onClearLinks={() => void clearSourceLinks()}
+            updateStatus={updateStatus} updateChecking={updateChecking} onCheckUpdates={() => checkForUpdates(true)} onOpenUpdate={openLatestRelease}
             onOpenLogs={() => { void run("opening player logs", () => window.aniDesktop.openPlayerLogs()); }} />
         )}
 
