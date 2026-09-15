@@ -202,6 +202,18 @@ export interface PersistedState {
   playbackPositions?: Record<string, PlaybackPosition>;
 }
 
+export type UpdateState = "development" | "current" | "available" | "error";
+
+export interface UpdateStatus {
+  currentVersion: string;
+  latestVersion?: string;
+  state: UpdateState;
+  checkedAt?: number;
+  stale?: boolean;
+  dismissed?: boolean;
+  error?: string;
+}
+
 export interface PlayRequest {
   url: string;
   title: string;
@@ -246,6 +258,9 @@ export interface AniDesktopApi {
   getState(): Promise<PersistedState>;
   saveSettings(settings: Settings): Promise<PersistedState>;
   openPlayerLogs(): Promise<void>;
+  checkForUpdates(force?: boolean): Promise<UpdateStatus>;
+  dismissUpdate(version: string): Promise<UpdateStatus>;
+  openLatestRelease(): Promise<void>;
   setAppIcon(pngDataUrl: string): Promise<void>;
   toggleBookmark(entry: LibraryEntry): Promise<PersistedState>;
   removeBookmark(animeId: string): Promise<PersistedState>;

@@ -88,6 +88,9 @@ beforeEach(async () => {
     streams: vi.fn().mockResolvedValue([]), play: vi.fn().mockResolvedValue(true),
     saveSettings: vi.fn(async (settings) => ({ ...state, settings })),
     openPlayerLogs: vi.fn().mockResolvedValue(undefined),
+    checkForUpdates: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
+    dismissUpdate: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
+    openLatestRelease: vi.fn().mockResolvedValue(undefined),
     setAppIcon: vi.fn().mockResolvedValue(undefined),
     toggleBookmark: vi.fn(), removeBookmark: vi.fn(), recordHistory: vi.fn(), removeHistory: vi.fn(), clearHistory: vi.fn(),
     linkSources: vi.fn(), mergeEntries: vi.fn(), dismissMerge: vi.fn()
@@ -115,6 +118,34 @@ describe("site footer navigation", () => {
     expect(container.querySelector(".search.as-button")?.textContent).toContain("Search anime");
     await click("Home");
     expect(container.querySelector(".page-home")).not.toBeNull();
+  });
+});
+
+describe("release update checks", () => {
+  const available = { currentVersion: "1.0.0", latestVersion: "1.1.0", state: "available" as const };
+
+  it("checks after startup, opens the release, and dismisses only that reminder", async () => {
+    vi.mocked(api.checkForUpdates).mockResolvedValue(available);
+    vi.mocked(api.dismissUpdate).mockResolvedValue({ ...available, dismissed: true });
+    await advance(1_500);
+    expect(api.checkForUpdates).toHaveBeenCalledWith(false);
+    expect(container.querySelector(".update-banner")?.textContent).toContain("v1.1.0");
+    await click("View release");
+    expect(api.openLatestRelease).toHaveBeenCalledOnce();
+    await click("Later");
+    expect(api.dismissUpdate).toHaveBeenCalledWith("1.1.0");
+    expect(container.querySelector(".update-banner")).toBeNull();
+  });
+
+  it("offers a forced Settings check and keeps the banner off the player screen", async () => {
+    vi.mocked(api.checkForUpdates).mockResolvedValue(available);
+    await advance(1_500);
+    await click("settings");
+    await click("check now");
+    expect(api.checkForUpdates).toHaveBeenLastCalledWith(true);
+    await act(async () => load({ id: "update-player", request: { url: "https://cdn.test/1.m3u8", title: "Episode 1" },
+      canOpenExternal: false, fullscreen: false, preferences: {} }));
+    expect(container.querySelector(".update-banner")).toBeNull();
   });
 });
 

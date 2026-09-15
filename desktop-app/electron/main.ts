@@ -27,12 +27,16 @@ import { playbackKey } from "../shared/playback";
 import { configureVideoRenderingPolicy } from "./video-rendering-policy";
 import { isHexColor, resolveTheme } from "../shared/theme";
 import { isAllowedExternalUrl } from "../shared/external-url";
+import { UpdateService } from "./update-service";
+import { LATEST_RELEASE_URL } from "../shared/update";
+import { validateUpdateCheck, validateUpdateVersion } from "./update-validation";
 
 // Preserve existing settings and library data across the display-name change.
 app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? "Ani Desktop" : "ani-desktop"));
 
 // Electron requires Chromium switches to be installed synchronously before app readiness.
 const videoRenderingPolicy = configureVideoRenderingPolicy(app.commandLine);
+const updateService = new UpdateService(join(app.getPath("userData"), "update-check.json"), app.getVersion(), app.isPackaged);
 
 let mainWindow: BrowserWindow | undefined;
 let activePlayback: PlayRequest | undefined;
@@ -240,6 +244,18 @@ function registerIpc(): void {
     if (icon.isEmpty() || size.width !== 1024 || size.height !== 1024) throw new Error("Invalid icon dimensions");
     if (process.platform === "darwin") app.dock?.setIcon(icon);
     else mainWindow.setIcon(icon);
+  });
+  ipcMain.handle("app:update-check", (event, force: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    return updateService.check(validateUpdateCheck(force));
+  });
+  ipcMain.handle("app:update-dismiss", (event, version: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    return updateService.dismiss(validateUpdateVersion(version));
+  });
+  ipcMain.handle("app:update-open", async (event) => {
+    assertPlayerSender(mainWindow, event);
+    await shell.openExternal(LATEST_RELEASE_URL);
   });
   ipcMain.on("catalog:cancel", (event, id: string) => {
     assertPlayerSender(mainWindow, event);
