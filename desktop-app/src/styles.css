@@ -401,3 +401,23 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
   .art img { transition: none; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none; }
 }
+
+/* ---- identity: source chips, series information ---------------------- */
+.hit .srcs { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.hit .srcs .tag { height: 16px; padding: 0 5px; font-size: 10px; }
+.hit .srcs .tag.quiet { background: none; color: var(--dim); padding: 0; }
+.series .meta .src-tag { display: inline-flex; align-items: center; gap: 4px; padding-right: 4px; }
+.series .meta .src-tag .split { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; color: var(--muted); opacity: 0; }
+.series .meta .src-tag:hover .split, .series .meta .src-tag .split:focus-visible { opacity: 1; }
+.series .meta .src-tag .split:hover { background: var(--raised2); color: var(--text); }
+.series .meta .src-tag .split .icon { width: 11px; height: 11px; }
+.series .about { margin-top: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+.series .synopsis { margin: 0; color: var(--text); font-size: 14px; line-height: 1.55; white-space: pre-line; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.series .synopsis.open { display: block; }
+.series .about-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; color: var(--muted); font-size: 12px; }
+.series .relations { display: flex; flex-wrap: wrap; gap: 4px; }
+.series .relations .tag { height: auto; padding: 3px 8px; color: var(--text); font-size: 12px; gap: 6px; }
+.series .relations .tag:hover { background: var(--raised2); }
+.series .relations .tag small { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.series .about-src { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+.group .r .k small.err { color: var(--err, #d9534f); }

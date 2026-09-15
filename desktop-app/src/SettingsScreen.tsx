@@ -8,6 +8,7 @@ import Switch from "./Switch";
 import { isMac } from "./keys";
 import SourceStatusPanel from "./SourceStatusPanel";
 import BookmarkMetadataPanel from "./BookmarkMetadataPanel";
+import IdentityIndexPanel from "./IdentityIndexPanel";
 
 interface Props {
   draft: Settings; setDraft: Dispatch<SetStateAction<Settings>>; saved: Settings;
@@ -56,9 +57,10 @@ export default function SettingsScreen({ draft, setDraft, saved, bookmarkCount, 
           </span></div>
         )}
       </div></div>
+      <IdentityIndexPanel saved={saved} draft={draft} onChange={setDraft} />
       <BookmarkMetadataPanel count={bookmarkCount} saved={saved} draft={draft} />
       <SourceStatusPanel saved={saved} draft={draft} onChange={setDraft}>
-        <div className="r"><span className="k">Source links<small>{linkCount} remembered {linkCount === 1 ? "match" : "matches"} between providers. Forget them if a series shows the wrong records together</small></span><button type="button" className="btn small" disabled={!linkCount} onClick={() => onClearLinks()}>forget links</button></div>
+        <div className="r"><span className="k">Source links<small>{linkCount} remembered {linkCount === 1 ? "anime" : "anime"} with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><button type="button" className="btn small" disabled={!linkCount} onClick={() => onClearLinks()}>forget links</button></div>
       </SourceStatusPanel>
       <div className="acts-row"><button type="button" className="btn" onClick={onCancel}>cancel</button><button type="submit" className="btn primary" disabled={!dirty}>save changes</button></div>
     </form>

@@ -31,8 +31,9 @@ import { catalogRequestId } from "./catalog-request";
 import { useEpisodeMetadata } from "./useEpisodeMetadata";
 import { useAnimeSearch } from "./useAnimeSearch";
 import { useSeriesMetadata } from "./useSeriesMetadata";
+import { useWorkInfo } from "./useWorkInfo";
 import { MINI_PLAYER_WIDTH, clampMiniPlayerWidth } from "../shared/contracts";
-import { animeSources, enabledProviders, expandWithLinks, likelyDuplicate, mergeKey, overlaps, sourceIds, unifyAnimeResults } from "../shared/catalog";
+import { animeSources, enabledProviders, expandWithLinks, likelyDuplicate, mergeKey, overlaps, unifyAnimeResults } from "../shared/catalog";
 import { Icon } from "./icons";
 import { withTransition } from "./transition";
 import { SiteFooter, type FooterScreen } from "./SiteFooter";
@@ -154,14 +155,15 @@ function App() {
   const sourceScope = catalogScope(appState.settings);
   const metadata = useEpisodeMetadata(listRef, screen === "series", episodeRows.map((row) => row.episode.id), episodeRows[selectedEpisodeIndex]?.episode.id, mode, sourceScope);
   const seriesMetadata = useSeriesMetadata(`${sourceScope}|${enabledProviders(appState.settings).join(",")}`);
+  const workInfo = useWorkInfo(`${sourceScope}|${appState.settings.animeInfo !== false}`);
   const linkedAnime = useCallback((anime: AnimeResult) => expandWithLinks(anime, appState.providerLinks ?? []), [appState.providerLinks]);
   const libraryMetadata = useCallback((entry: LibraryEntry) => seriesMetadata.get(linkedAnime(asAnime(entry))), [linkedAnime, seriesMetadata.get]);
   const loadLibraryMetadata = useCallback((entry: LibraryEntry) => seriesMetadata.load(linkedAnime(asAnime(entry)), "visible"), [linkedAnime, seriesMetadata.load]);
   const scheduleMetadata = useCallback((anime: AnimeResult) => seriesMetadata.get(linkedAnime(anime)), [linkedAnime, seriesMetadata.get]);
   const loadScheduleMetadata = useCallback((anime: AnimeResult) => seriesMetadata.load(linkedAnime(anime), "visible"), [linkedAnime, seriesMetadata.load]);
   useEffect(() => {
-    if (screen === "series" && selectedAnime) seriesMetadata.load(linkedAnime(selectedAnime), "selected");
-  }, [screen, selectedAnime, linkedAnime, seriesMetadata.load]);
+    if (screen === "series" && selectedAnime) { seriesMetadata.load(linkedAnime(selectedAnime), "selected"); workInfo.load(linkedAnime(selectedAnime), "selected"); }
+  }, [screen, selectedAnime, linkedAnime, seriesMetadata.load, workInfo.load]);
 
   // Anchor the first visible source row while asynchronous provider updates insert rows above it.
   const scrollAnchor = useRef<{ id: string; top: number } | undefined>(undefined);
@@ -512,21 +514,30 @@ function App() {
     if (state) setAppState(state);
   }
 
-  function mergeCandidate(anime: AnimeResult): AnimeResult | undefined {
-    return unifiedResults.find((candidate) => candidate.id !== anime.id && likelyDuplicate(anime, candidate));
-  }
-
   function libraryMergeCandidate(entry: LibraryEntry): LibraryEntry | undefined {
     const entries = [...appState.history, ...appState.bookmarks]
       .filter((candidate, index, all) => all.findIndex((item) => item.animeId === candidate.animeId) === index);
     return entries.find((candidate) => candidate.animeId !== entry.animeId && likelyDuplicate(entry, candidate));
   }
 
-  async function manuallyLink(anime: AnimeResult) {
-    const candidate = mergeCandidate(anime);
-    if (!candidate || !window.confirm(`Merge “${anime.title}” with “${candidate.title}” and remember that they are the same anime?`)) return;
-    const state = await run("linking provider records", () => window.aniDesktop.linkSources([...sourceIds(anime), ...sourceIds(candidate)]));
-    if (state) { setAppState(state); setNotice("provider records merged"); }
+  // Splitting takes one provider record out of the open series; the pair is remembered so search does not regroup it by title.
+  async function splitSource(sourceId: string) {
+    if (!selectedAnime) return;
+    const source = animeSources(selectedAnime).find((item) => item.id === sourceId);
+    if (!source || !window.confirm(`Split the ${source.provider} record “${source.title}” off “${selectedAnime.title}”? They will be treated as different anime.`)) return;
+    const state = await run("splitting source", () => window.aniDesktop.splitSource(sourceId));
+    if (!state) return;
+    setAppState(state);
+    const remaining = animeSources(selectedAnime).filter((item) => item.id !== sourceId);
+    const primary = remaining.find((item) => item.id === selectedAnime.id) ?? remaining[0];
+    if (primary) void openAnime({ ...selectedAnime, id: primary.id, provider: primary.provider, poster: selectedAnime.poster ?? primary.poster, sources: remaining, tentative: undefined }, { refresh: true });
+    setNotice(`${source.provider} split off`);
+  }
+
+  // A related season opens as a fresh search so its own sources are found.
+  function searchTitle(title: string) {
+    changeQuery(title);
+    fieldRef.current?.focus();
   }
 
   async function manuallyMergeEntry(entry: LibraryEntry) {
@@ -749,8 +760,7 @@ function App() {
             <SearchPalette results={unifiedResults} query={query} lastQuery={lastQuery} cursor={cursor}
               ready={catalogSearch.ready} pending={catalogSearch.pending} providerErrors={catalogSearch.providerErrors}
               message={searchMessage} error={searchError} onRetry={catalogSearch.retrySources}
-              onOpen={(anime) => void openAnime(anime)} onFocus={setCursor}
-              canMerge={(anime) => Boolean(mergeCandidate(anime))} onMerge={(anime) => void manuallyLink(anime)} />
+              onOpen={(anime) => void openAnime(anime)} onFocus={setCursor} />
           )}
         </div>
         <nav className="icons" aria-label="Sections">
@@ -830,7 +840,7 @@ function App() {
           <SeriesScreen anime={selectedAnime} progress={progress} isSaved={isSaved} player={player}
             mode={mode} quality={quality} lastQuery={lastQuery} busy={busy} resolving={resolving}
             pendingSources={pendingSources} sourceErrors={sourceErrors} episodeGroups={episodeGroups} episodeRows={episodeRows}
-            episodeCount={episodeCount} seriesMetadata={seriesMetadata.get(selectedAnime)} nextUp={nextUp} episodeFilter={episodeFilter}
+            episodeCount={episodeCount} seriesMetadata={seriesMetadata.get(selectedAnime)} info={workInfo.get(linkedAnime(selectedAnime))} nextUp={nextUp} episodeFilter={episodeFilter}
             episodeSort={episodeSort} jump={jump} playingId={playingId} status={status} metadata={metadata} listRef={listRef}
             onPlay={(episode) => void playEpisode(episode)} onBookmark={() => void toggleBookmark()} onBack={goBack}
             onMode={setMode} onQuality={setQuality} onCheckSources={() => void openAnime(selectedAnime, { refresh: true, checkNow: true })}
@@ -839,7 +849,8 @@ function App() {
               seriesMetadata.load(linkedAnime(selectedAnime), "selected", true);
               void openAnime(selectedAnime, { refresh: true });
             }} onJump={jumpTo} onWatched={(episode) => void markWatched(episode)}
-            onWatchedAll={() => void markAllWatched()} onDismissStatus={cancelPlay} reorder={reorder} />
+            onWatchedAll={() => void markAllWatched()} onDismissStatus={cancelPlay} reorder={reorder}
+            onRefreshInfo={() => workInfo.load(linkedAnime(selectedAnime), "selected", true)} onSplitSource={(sourceId) => void splitSource(sourceId)} onSearch={searchTitle} />
         )}
 
         {screen === "settings" && (

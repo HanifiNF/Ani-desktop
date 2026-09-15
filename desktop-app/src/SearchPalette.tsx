@@ -8,10 +8,9 @@ interface Props {
   results: AnimeResult[]; query: string; lastQuery: string; cursor: number;
   ready: boolean; pending: boolean; providerErrors: string[]; message?: string; error?: string;
   onRetry: () => void; onOpen: (anime: AnimeResult) => void; onFocus: (index: number) => void;
-  canMerge: (anime: AnimeResult) => boolean; onMerge: (anime: AnimeResult) => void;
 }
 
-export default function SearchPalette({ results, query, lastQuery, cursor, ready, pending, providerErrors, message, error, onRetry, onOpen, onFocus, canMerge, onMerge }: Props) {
+export default function SearchPalette({ results, query, lastQuery, cursor, ready, pending, providerErrors, message, error, onRetry, onOpen, onFocus }: Props) {
   return (
     <div className="palette" role="dialog" aria-label="Search results">
       <div className="found" id="results-heading" aria-live="polite">
@@ -21,9 +20,9 @@ export default function SearchPalette({ results, query, lastQuery, cursor, ready
       <div className="section-results" role="listbox" aria-label="Results">
         {results.map((anime, index) => {
           const sources = animeSources(anime);
-          const others = sources.filter((source) => source.id !== anime.id);
-          const alias = others.find((source) => source.title !== anime.title)?.title;
-          const merge = canMerge(anime);
+          const alias = sources.find((source) => source.title !== anime.title)?.title;
+          // One chip per provider; a provider with several copies of the anime still shows once.
+          const providers = [...new Set(sources.map((source) => source.provider))];
           return (
             <div key={anime.id} className={`hit-row ${index === cursor ? "cur" : ""}`} data-cursor={index === cursor} style={stagger(index, 8)}>
               <button type="button" className="hit" role="option" aria-selected={index === cursor} onClick={() => onOpen(anime)} onFocus={() => onFocus(index)}>
@@ -31,10 +30,13 @@ export default function SearchPalette({ results, query, lastQuery, cursor, ready
                 <span className="text">
                   <span className="t">{anime.title}</span>
                   {alias && <span className="s">{alias}</span>}
+                  <span className="srcs" aria-label={`Sources: ${providers.join(", ")}`}>
+                    {providers.map((provider) => <span className="tag" key={provider}>{provider}</span>)}
+                    {anime.tentative && <span className="tag quiet" title="Grouped by title. Open the series to split a source that does not belong.">grouped by title</span>}
+                  </span>
                 </span>
                 <Icon name="chevron" />
               </button>
-              {merge && <button type="button" className="mini-act" onClick={() => onMerge(anime)}>merge</button>}
             </div>
           );
         })}

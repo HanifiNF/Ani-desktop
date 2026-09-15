@@ -18,17 +18,23 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
   arrows (newest first by default). Episodes are grouped by number with one row per provider. Each row shows the best
   quality that source offers, resolved lazily as rows scroll into view and cached in the app’s metadata store; the checkbox
   records progress through that episode on that provider.
-- Sources are resolved together. Search unifies provider records that share an alias or clearly name the same season
-  of one franchise (`unifyAnimeResults`). Opening a series looks it up on every provider it is not yet known on
-  (`CatalogService.resolve` in `electron/catalog-service.ts`, searched by title and aliases) while the known sources load; confident
-  matches (a shared alias) are remembered as provider links and their episodes join the grouped list as they arrive.
-  A result never holds two records from one provider, even through a link, so links cannot chain seasons together.
-  Links also flow into the library: linking attaches the records to every saved or recent entry for that anime, and a
-  play request recorded from one source keeps the sources the entry already had, so continuing from the home page,
-  saved, recent, or the player's "episodes" action reopens the series with every known source before any lookup.
-  The search scope is every source enabled in Settings. Settings also offers "forget
-  source links" for when a series shows the wrong records together. The manual "merge" action remains for anything
-  the matcher misses.
+- Sources are resolved together around a *work*, the app's own identity for an anime (`Work` in `shared/contracts.ts`,
+  owned by `electron/state.ts`). Search groups provider records into one row per work (`unifyAnimeResults` in
+  `shared/catalog.ts`, matching rules in `shared/identity.ts`) in three tiers that each run to completion before the
+  next: a shared external reference (a MyAnimeList id HiAnime states, an AniList answer, the offline index, or a
+  remembered work), then a shared normalised title or alias, then the same season of the same title. Season markers
+  are compared strictly ("Part 2" is not "2nd Season", and "Part 6: Stone Ocean Part 2" is not "Part 6: Stone Ocean
+  Part 3"); a format, year, or episode count that disagrees vetoes a match. Two records from one provider share a
+  row only through a reference or a release qualifier such as "(Uncensored)". Rows show a chip per source and say
+  "grouped by title" when the weakest tier joined them. Confident rows are remembered as works after each search.
+  Opening a series looks it up on every provider it is not yet known on (`CatalogService.resolve`), using the
+  work's known titles; confident matches bind to the work and their episodes join the grouped list as they arrive.
+  The series page shows the work's information (`electron/work-info-service.ts`, from AniList, cached indefinitely
+  and refreshed by age) under the facts strip: synopsis with a More toggle, related seasons as chips that start a
+  search, and the source line with a Refresh info link. Each source tag carries a split control; splitting records
+  the pair so title matching never regroups it. Settings has an "Anime information" group with the AniList switch
+  and the offline title index switch and download. "Forget links" in the Sources group resets every work. There is
+  no manual merge for search rows any more; the library cards keep theirs for duplicates saved before grouping.
 - Saved and recent: full card grids filtered by the pill. Settings: grouped cards. The Sources group is one row per
   provider: a status dot with the name and a one-line state on the left, the address in a fixed middle column, and a
   single Check now / Retry button and an on/off switch on the right. A source that is off dims and is left out of search, lookup, and episode loading.

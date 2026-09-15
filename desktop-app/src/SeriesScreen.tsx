@@ -1,5 +1,5 @@
-import type { RefObject } from "react";
-import type { AnimeResult, Episode, EpisodeGroup, LibraryEntry, ProviderName, SeriesMetadataCatalog, TranslationMode } from "../shared/contracts";
+import { useState, type RefObject } from "react";
+import type { AnimeResult, Episode, EpisodeGroup, LibraryEntry, ProviderName, SeriesMetadataCatalog, TranslationMode, WorkInfo } from "../shared/contracts";
 import { animeSources, providerFromId } from "../shared/catalog";
 import { PLAYBACK_QUALITIES as QUALITIES } from "../shared/settings";
 import { episodeRowsOf, type EpisodeRow, type EpisodeFilter, type EpisodeSort } from "./episodes";
@@ -18,6 +18,7 @@ interface Props {
   pendingSources: ProviderName[]; sourceErrors: Partial<Record<ProviderName, string>>;
   episodeGroups: EpisodeGroup[]; episodeRows: EpisodeRow[]; episodeCount: number;
   seriesMetadata?: SeriesMetadataCatalog;
+  info?: WorkInfo;
   nextUp?: EpisodeRow; episodeFilter: EpisodeFilter; episodeSort: EpisodeSort; jump: string;
   playingId?: string; status?: PlayStatus; metadata: ReturnType<typeof useEpisodeMetadata>; listRef: RefObject<HTMLDivElement | null>;
   onPlay: (episode: Episode) => void; onBookmark: () => void; onBack: () => void;
@@ -25,13 +26,25 @@ interface Props {
   onCheckSources: () => void; onRefreshSources: () => void; onJump: (value: string) => void;
   onWatched: (episode: Episode) => void; onWatchedAll: () => void; onDismissStatus: () => void;
   reorder: (filter: EpisodeFilter, sort: EpisodeSort) => void;
+  onRefreshInfo: () => void; onSplitSource: (sourceId: string) => void; onSearch: (title: string) => void;
 }
 
+const STATUS_WORDS: Record<WorkInfo["status"], string> = { finished: "Finished", ongoing: "Airing", upcoming: "Upcoming", unknown: "Unknown" };
+const TYPE_WORDS: Record<NonNullable<WorkInfo["type"]>, string> = { TV: "TV", MOVIE: "Movie", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", MUSIC: "Music" };
+const RELATION_ORDER = ["prequel", "sequel", "parent", "side story", "alternative", "spin off", "summary", "other"];
+
 export default function SeriesScreen({ anime, progress, isSaved, player, mode, quality, lastQuery, busy, resolving,
-  pendingSources, sourceErrors, episodeGroups, episodeRows, seriesMetadata, nextUp, episodeFilter, episodeSort,
+  pendingSources, sourceErrors, episodeGroups, episodeRows, seriesMetadata, info, nextUp, episodeFilter, episodeSort,
   jump, playingId, status, metadata, listRef, onPlay, onBookmark, onBack, onMode, onQuality, onCheckSources, onRefreshSources,
-  onJump, onWatched, onWatchedAll, onDismissStatus, reorder }: Props) {
+  onJump, onWatched, onWatchedAll, onDismissStatus, reorder, onRefreshInfo, onSplitSource, onSearch }: Props) {
+  const [showAll, setShowAll] = useState(false);
   const hasEpisodes = episodeGroups.some((group) => group.episodes.length);
+  const sources = animeSources(anime);
+  const genres = [...new Map([...(seriesMetadata?.genres ?? []), ...(info?.genres ?? [])].map((genre) => [genre.toLocaleLowerCase(), genre])).values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  const relations = [...(info?.relations ?? [])].sort((a, b) => RELATION_ORDER.indexOf(a.relation) - RELATION_ORDER.indexOf(b.relation));
+  const format = info ? [info.type && TYPE_WORDS[info.type], info.year && `${info.season ? `${info.season[0].toUpperCase()}${info.season.slice(1)} ` : ""}${info.year}`].filter(Boolean).join(" · ") : "";
+  // The romaji title from the information service, or failing that another source's title, names the anime a second way.
+  const alias = info?.titles.romaji && info.titles.romaji !== anime.title ? info.titles.romaji : sources.find((source) => source.title !== anime.title)?.title;
   const allWatched = hasEpisodes && episodeRowsOf(episodeGroups, progress, "unwatched", "oldest").length === 0;
   const counts = (kind: "available" | "announced"): string => {
     const values = animeSources(anime).flatMap((source) => {
@@ -48,14 +61,14 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
   return (
     <div className="series">
       <aside className="side">
-        <Art src={anime.poster} className="poster" />
+        <Art src={anime.poster ?? info?.cover} className="poster" />
         <div className="stack">
           <button type="button" className="btn primary" disabled={!nextUp} onClick={() => nextUp && onPlay(nextUp.episode)}>Play Ep {nextUp?.number ?? "…"}<Icon name="play" /></button>
           <button type="button" className="btn" onClick={() => onBookmark()} aria-pressed={isSaved}>{isSaved ? "Saved" : "Save"}<Icon name="bookmark" className={isSaved ? "fill" : undefined} /></button>
           <button type="button" className="btn" disabled={!hasEpisodes || allWatched} onClick={() => onWatchedAll()} title="Record every episode on every source as watched">{allWatched ? "All watched" : "Mark all watched"}<Icon name="check" /></button>
         </div>
-        {seriesMetadata?.genres.length ? <div className="genre-bubbles" aria-label="Genres">
-          {seriesMetadata.genres.map((genre) => <span key={genre.toLocaleLowerCase()}>{genre}</span>)}
+        {genres.length ? <div className="genre-bubbles" aria-label="Genres">
+          {genres.map((genre) => <span key={genre.toLocaleLowerCase()}>{genre}</span>)}
         </div> : null}
         <div className="prefs">
           <Chips label="Audio" value={mode} options={["sub", "dub"] as const} onChange={onMode} />
@@ -66,17 +79,36 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
         <button type="button" className="crumb" onClick={onBack}><Icon name="back" />{lastQuery ? `Results for “${lastQuery}”` : "Home"}</button>
         <h1>{anime.title}</h1>
         <div className="meta">
-          {animeSources(anime).map((source) => <span className="tag" key={source.id}>{source.provider}</span>)}
+          {sources.map((source) => <span className="tag src-tag" key={source.id} title={source.title}>{source.provider}
+            {sources.length > 1 && <button type="button" className="split" aria-label={`Split ${source.provider} record “${source.title}” off this series`} title="Not the same anime? Split this source off" onClick={() => onSplitSource(source.id)}><Icon name="x" /></button>}
+          </span>)}
           {resolving && <span className="tag quiet" role="status">checking other sources{pendingSources.length ? `: ${pendingSources.join(", ")}` : ""}<span className="dots"> ···</span></span>}
-          {animeSources(anime).find((source) => source.title !== anime.title) && <span>{animeSources(anime).find((source) => source.title !== anime.title)!.title}</span>}
+          {anime.tentative && <span className="tag quiet" title="These sources were grouped by title alone. Split one off if it does not belong.">grouped by title</span>}
+          {alias && <span>{alias}</span>}
         </div>
         <div className="facts">
+          {format && <div><small>Format</small>{format}</div>}
+          {info && <div><small>Status</small>{STATUS_WORDS[info.status]}{info.nextAiring ? ` · ep ${info.nextAiring.episode} ${new Date(info.nextAiring.airingAt).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })}` : ""}</div>}
           <div><small>Available episodes</small>{counts("available")}</div>
-          <div><small>Announced total</small>{counts("announced")}</div>
+          <div><small>Announced total</small>{counts("announced") === "Unknown" && info?.episodes ? String(info.episodes) : counts("announced")}</div>
+          {info?.studios.length ? <div><small>Studio</small>{info.studios.join(", ")}</div> : null}
+          {info?.score ? <div><small>Score</small>{(info.score / 10).toFixed(1)}</div> : null}
           <div><small>Progress</small>{progress ? `${progress.completed === false ? "Started" : "Watched through"} ${progress.lastEpisode}` : "Not started"}</div>
           <div><small>Last source</small>{progress ? `${progress.lastProvider ?? providerFromId(progress.animeId)} · ${progress.mode}` : "—"}</div>
           <div><small>Plays in</small>{player}</div>
         </div>
+        {info && (
+          <section className="about" aria-label="About this series">
+            {info.description && <p className={`synopsis ${showAll ? "open" : ""}`}>{info.description}</p>}
+            <div className="about-row">
+              {info.description && info.description.length > 320 && <button type="button" className="link" onClick={() => setShowAll((value) => !value)}>{showAll ? "Less" : "More"}</button>}
+              {relations.length > 0 && <span className="relations" aria-label="Related">
+                {relations.map((relation) => <button type="button" className="tag" key={`${relation.relation}:${relation.refs[0]}`} title={`Search for ${relation.title}`} onClick={() => onSearch(relation.title)}><small>{relation.relation}</small>{relation.title}</button>)}
+              </span>}
+              <span className="about-src">{info.stale ? (info.error ? `AniList · cached, refresh failed: ${info.error}` : "AniList · refreshing") : "AniList"}<button type="button" className="link" onClick={onRefreshInfo}>Refresh info</button></span>
+            </div>
+          </section>
+        )}
         {Object.entries(sourceErrors).map(([name, error]) => <div className="notice" key={name}>{name}: {error} <button type="button" className="link" onClick={() => onCheckSources()}>Check now</button></div>)}
         {episodeGroups.some((group) => group.refreshing) && <div className="notice" role="status">Showing cached episodes · refreshing sources</div>}
         {episodeGroups.filter((group) => group.error).map((group) => (

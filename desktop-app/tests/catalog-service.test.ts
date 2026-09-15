@@ -56,6 +56,41 @@ describe("incremental catalog delivery", () => {
     slow.resolve([]); expect(await result).toHaveLength(1);
   });
 
+  it("groups search hits through identity candidates that arrive after the providers, without waiting on a slow lookup", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(searchOne).mockImplementation(async (_query, provider) => provider === "aniwave"
+        ? [{ id: "aniwave:frieren-1", title: "Frieren: Beyond Journey's End", provider, sources: [{ id: "aniwave:frieren-1", provider, title: "Frieren: Beyond Journey's End", aliases: ["Frieren: Beyond Journey's End"] }] }]
+        : provider === "hianime" ? [{ id: "hianime:frieren-x", title: "Sousou no Frieren", provider, sources: [{ id: "hianime:frieren-x", provider, title: "Sousou no Frieren", aliases: ["Sousou no Frieren"] }] }] : []);
+      const candidates = deferred<import("../shared/contracts").IdentityCandidate[]>();
+      const updates: CatalogProgress<AnimeResult[]>[] = [];
+      const seenTitles: string[][] = [];
+      const result = new CatalogService().search("frieren", config, "auto", [], (value) => updates.push(value), { candidates: (titles) => { seenTitles.push(titles()); return candidates.promise; } });
+      await tick();
+      expect(updates.at(-1)?.value).toHaveLength(2);
+      candidates.resolve([{ refs: ["mal:52991"], title: "Sousou no Frieren", titles: ["Sousou no Frieren", "Frieren: Beyond Journey's End"] }]);
+      const rows = await result;
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ refs: ["mal:52991"], sources: [expect.objectContaining({ id: "aniwave:frieren-1" }), expect.objectContaining({ id: "hianime:frieren-x" })] });
+      // A lookup that never answers only delays the final result by the grace period.
+      const slow = new CatalogService().search("frieren", config, "auto", [], undefined, { candidates: () => new Promise(() => undefined) });
+      await tick(); await vi.advanceTimersByTimeAsync(3000);
+      expect(await slow).toHaveLength(2);
+      const failing = await new CatalogService().search("frieren", config, "auto", [], undefined, { candidates: () => Promise.reject(new Error("offline")) });
+      expect(failing).toHaveLength(2);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it("honours splits and remembered works while grouping", async () => {
+    vi.mocked(searchOne).mockImplementation(async (_query, provider) => provider === "anidb" ? [] : [{ ...source(provider), title: "Frieren", aliases: ["Frieren"] }]);
+    const split = await new CatalogService().search("Frieren", config, "auto", [], undefined, { dismissed: ["aniwave:frieren-1|hianime:frieren-1"] });
+    expect(split).toHaveLength(2);
+    const work = { id: "work:0123456789abcdef", title: "Frieren", refs: ["mal:52991"], records: ["aniwave:frieren-1", "hianime:frieren-1"], updatedAt: "" };
+    const grouped = await new CatalogService().search("Frieren", config, "auto", [], undefined, { works: [work], dismissed: ["aniwave:frieren-1|hianime:frieren-1"] });
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]).toMatchObject({ workId: work.id, refs: ["mal:52991"] });
+  });
+
   it("leaves switched-off sources out of search, lookup, and episode loading", async () => {
     const off = { ...config, disabledSources: ["anidb" as const] };
     vi.mocked(searchOne).mockImplementation(async (_query, provider) => [{ ...source(provider) }]);
@@ -93,7 +128,10 @@ describe("incremental catalog delivery", () => {
     const result = new CatalogService().resolve({ ...anime, sources: [source("aniwave")] }, config, (value) => updates.push(value)); await tick();
     expect(updates.at(-1)?.value.sources?.map((item) => item.provider)).toEqual(["aniwave", "hianime"]);
     expect(updates.at(-1)?.pending).toEqual(["anidb"]);
-    slow.resolve(undefined); expect((await result).confirmed).toEqual(["hianime:frieren-1"]);
+    slow.resolve(undefined);
+    const outcome = await result;
+    expect(outcome.confirmed).toEqual(["hianime:frieren-1"]);
+    expect(outcome.refs).toEqual([]);
     expect(updates.at(-1)?.errors.anidb).toBe("503");
   });
 });
