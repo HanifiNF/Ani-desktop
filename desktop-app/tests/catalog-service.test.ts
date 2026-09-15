@@ -65,9 +65,10 @@ describe("incremental catalog delivery", () => {
       const candidates = deferred<import("../shared/contracts").IdentityCandidate[]>();
       const updates: CatalogProgress<AnimeResult[]>[] = [];
       const seenTitles: string[][] = [];
-      const result = new CatalogService().search("frieren", config, "auto", [], (value) => updates.push(value), { candidates: (titles) => { seenTitles.push(titles()); return candidates.promise; } });
+      const result = new CatalogService().search("frieren", config, "auto", [], (value) => updates.push(value), { candidates: () => candidates.promise, localCandidates: (_query, titles) => { seenTitles.push(titles); return []; } });
       await tick();
       expect(updates.at(-1)?.value).toHaveLength(2);
+      expect(seenTitles.at(-1)).toEqual(expect.arrayContaining(["Frieren: Beyond Journey's End", "Sousou no Frieren"]));
       candidates.resolve([{ refs: ["mal:52991"], title: "Sousou no Frieren", titles: ["Sousou no Frieren", "Frieren: Beyond Journey's End"] }]);
       const rows = await result;
       expect(rows).toHaveLength(1);

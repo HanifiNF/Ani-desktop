@@ -4,6 +4,7 @@ import { ScheduleService } from "./schedule-service";
 import { SeriesMetadataService } from "./series-metadata-service";
 import { WorkInfoService } from "./work-info-service";
 import { IdentityIndex } from "./identity-index";
+import { backfillLibraryIdentity } from "./identity-backfill";
 import { validateSeriesMetadataRequest } from "./series-metadata-validation";
 import { validateScheduleAnimeId, validateScheduleQuery } from "./schedule-validation";
 import { catalogScope, sourceSettingsKey } from "../shared/settings";
@@ -58,18 +59,15 @@ const seriesMetadataService = new SeriesMetadataService(
 const scheduleService = new ScheduleService();
 const workInfoService = new WorkInfoService();
 let identityIndex: IdentityIndex;
+const backfill = new AbortController();
 /** References the library depends on; the information cache never evicts them. */
 const libraryRefs = () => {
   const state = store.snapshot();
   return new Set([...state.bookmarks, ...state.history].flatMap((entry) => refsOf(store.withWork({ id: entry.animeId, title: entry.title, provider: animeSources(entry)[0].provider, sources: animeSources(entry) }))));
 };
-/** Candidate works for a search, from the local index first and the metadata service when it is on. */
-async function searchCandidates(query: string, resultTitles: () => string[]) {
-  const settings = store.snapshot().settings;
-  const local = settings.offlineIndex ? identityIndex.candidatesForSearch(query, resultTitles()) : [];
-  const remote = settings.animeInfo !== false ? await workInfoService.candidates(query, true) : [];
-  return unique([...local, ...remote].map((candidate) => JSON.stringify(candidate))).map((value) => JSON.parse(value));
-}
+/** Candidate works for a search from the metadata service, when it is on. The local index answers separately, per grouping pass. */
+const searchCandidates = (query: string) => store.snapshot().settings.animeInfo !== false ? workInfoService.candidates(query, true) : Promise.resolve([]);
+const localCandidates = (query: string, titles: string[]) => store.snapshot().settings.offlineIndex ? identityIndex.candidatesForSearch(query, titles) : [];
 const catalogConsumers = new Map<string, AbortController>();
 const catalogSenders = new WeakSet<Electron.WebContents>();
 function catalogCall<T>(event: Electron.IpcMainInvokeEvent, request: CatalogRequest | undefined, operation: (update: (value: unknown) => void) => Promise<T>): Promise<T> {
@@ -288,7 +286,7 @@ function registerIpc(): void {
   ipcMain.handle("catalog:search", (event, query: string, provider?: ProviderPreference, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
     const state = store.snapshot();
     const rows = await catalogService.search(query, state.settings, provider ?? "auto", [], update,
-      { works: state.works, dismissed: state.dismissedMergeKeys, candidates: (titles) => searchCandidates(query, titles) });
+      { works: state.works, dismissed: state.dismissedMergeKeys, candidates: () => searchCandidates(query), localCandidates });
     // Confident groupings become remembered works, so the next search and the library know them without matching again.
     if (!catalogContext.getStore()?.signal.aborted) void store.recordBindings(rows).catch(() => undefined);
     return rows;
@@ -474,6 +472,8 @@ app.whenReady().then(async () => {
     return;
   }
   createWindow();
+  // Library entries from before identity learn their references a little after start, well behind interactive work.
+  setTimeout(() => { void backfillLibraryIdentity(store, workInfoService, backfill.signal).catch(() => undefined); }, 20_000).unref();
   app.on("activate", () => {
     if (!mainWindow || mainWindow.isDestroyed()) createWindow();
   });
@@ -492,6 +492,7 @@ app.on("before-quit", (event) => {
   flushingDiagnostics = true;
   event.preventDefault();
   bookmarkMetadata.cancel();
+  backfill.abort();
   const timeout = setTimeout(() => app.quit(), 2000);
   void Promise.allSettled([diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
 });

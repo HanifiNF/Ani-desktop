@@ -15,8 +15,10 @@ const CANDIDATE_GRACE_MS = 2500;
 export interface SearchIdentity {
   works?: Work[];
   dismissed?: string[];
-  /** Candidates from a metadata service or the local index; may arrive after some providers. */
-  candidates?: (resultTitles: () => string[]) => Promise<IdentityCandidate[]>;
+  /** Candidates from a metadata service; may arrive after some providers. */
+  candidates?: () => Promise<IdentityCandidate[]>;
+  /** Candidates a local index names for the result titles, consulted every time rows are grouped. */
+  localCandidates?: (query: string, resultTitles: string[]) => IdentityCandidate[];
 }
 
 export class CatalogService {
@@ -98,11 +100,12 @@ export class CatalogService {
     const errors: Partial<Record<ProviderName, string>> = {};
     let candidates: IdentityCandidate[] = [];
     const hits = () => providers.flatMap((name) => results.get(name) ?? []);
-    const combined = () => unifyAnimeResults(hits(), links, { works: identity.works, dismissed: identity.dismissed, candidates });
+    const titles = () => hits().flatMap((hit) => animeSources(hit).flatMap((source) => [source.title, ...source.aliases]));
+    const combined = () => unifyAnimeResults(hits(), links, { works: identity.works, dismissed: identity.dismissed, candidates: [...(identity.localCandidates?.(cleaned, titles()) ?? []), ...candidates] });
     const publish = () => update?.({ value: combined(), pending: [...pending], errors: { ...errors } });
     const signal = catalogContext.getStore()?.signal;
     // Candidates arrive on their own schedule; a failure there never blocks provider results.
-    const identityLookup = identity.candidates?.(() => hits().flatMap((hit) => animeSources(hit).flatMap((source) => [source.title, ...source.aliases]))).then((value) => {
+    const identityLookup = identity.candidates?.().then((value) => {
       candidates = value;
       if (pending.size && !signal?.aborted) publish();
     }, (error: unknown) => { if (signal?.aborted) throw error; });
