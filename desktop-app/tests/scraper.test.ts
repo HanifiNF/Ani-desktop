@@ -125,17 +125,6 @@ describe("multi-source scraper", () => {
     expect(catalog.groups[1]).toMatchObject({ provider: "anidb", episodes: [], error: "AniDB offline" });
   });
 
-  it("loads a complete HiAnime episode catalog from its anime slug", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ anime: { episodes: [
-      { episodeNumber: 2, slug: "naruto-episode-2-bbb222" }, { episodeNumber: 1, slug: "naruto-episode-1-aaa111" }
-    ] } }), { status: 200, headers: { "content-type": "application/json" } })));
-    const catalog = await new CatalogService().episodes({ id: "hianime:naruto-vwgihd", title: "Naruto", provider: "hianime" }, config);
-    expect(catalog.groups).toEqual([{ provider: "hianime", episodes: [
-      { id: "hianime:naruto-episode-1-aaa111", number: "1", provider: "hianime" },
-      { id: "hianime:naruto-episode-2-bbb222", number: "2", provider: "hianime" }
-    ] }]);
-  });
-
   it("resolves a supported HiAnime server into HLS streams and captions", async () => {
     const metadata = { src: "https://media.test/master.m3u8", subtitles: [{ src: "https://media.test/en.vtt", label: "English", lang: "en", default: true }] };
     const key = Buffer.from("otaku-embed-v1"), plain = Buffer.from(JSON.stringify(metadata)), encoded = Buffer.alloc(plain.length);

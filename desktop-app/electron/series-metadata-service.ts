@@ -1,7 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { AnimeResult, ProviderSeriesMetadata, SeriesMetadataCatalog } from "../shared/contracts";
-import { animeSources, enabledProviders } from "../shared/catalog";
+import { animeSources, enabledProviders, isProviderName } from "../shared/catalog";
 import { catalogScope } from "../shared/settings";
 import { catalogContext } from "./catalog-requests";
 import { getProviderSeriesMetadata, type SourceConfig } from "./scraper";
@@ -29,8 +29,8 @@ export class SeriesMetadataService {
   private readonly retention = 30 * DAY;
 
   constructor(
-    private readonly cachedEpisodeCount: (sourceId: string, config: SourceConfig) => number | undefined = () => undefined,
-    private readonly loadEpisodeCount: (sourceId: string, config: SourceConfig) => Promise<number | undefined> = async () => undefined
+    private readonly cachedEpisodeCount: (sourceId: string, config: SourceConfig) => number | undefined,
+    private readonly loadEpisodeCount: (sourceId: string, config: SourceConfig) => Promise<number | undefined>
   ) {}
 
   async load(path: string): Promise<void> {
@@ -41,12 +41,13 @@ export class SeriesMetadataService {
       for (const row of data.entries.slice(-1000)) {
         if (!Array.isArray(row) || typeof row[0] !== "string" || row[0].length > 8192) continue;
         const value = row[1] as ProviderSeriesMetadata;
-        if (!value || typeof value.sourceId !== "string" || value.sourceId.length > 512 || !["aniwave", "anidb", "hianime"].includes(value.provider)
+        if (!value || typeof value.sourceId !== "string" || value.sourceId.length > 512 || !isProviderName(value.provider)
           || !Array.isArray(value.genres) || value.genres.length > 100 || value.genres.some((genre) => typeof genre !== "string" || genre.length > 80)
           || typeof value.checkedAt !== "number" || value.checkedAt > Date.now() || Date.now() - value.checkedAt >= this.retention) continue;
         const count = (input: unknown) => typeof input === "number" && Number.isSafeInteger(input) && input > 0 ? input : undefined;
+        // Availability is restored from the complete episode cache, never from old metadata previews.
         this.cache.set(row[0], { sourceId: value.sourceId, provider: value.provider, genres: value.genres,
-          availableEpisodes: count(value.availableEpisodes), announcedEpisodes: count(value.announcedEpisodes), checkedAt: value.checkedAt });
+          availableEpisodes: undefined, announcedEpisodes: count(value.announcedEpisodes), checkedAt: value.checkedAt });
       }
     } catch { /* Derived metadata is rebuilt if its cache is absent or damaged. */ }
   }
@@ -93,26 +94,30 @@ export class SeriesMetadataService {
     await Promise.all(sources.map(async (source) => {
       const key = `${scope}:${source.id}`;
       const cached = this.cache.get(key);
-      if (!refresh && cached && Date.now() - cached.checkedAt < this.freshFor) {
-        values.set(source.id, { ...cached, availableEpisodes: this.cachedEpisodeCount(source.id, config) ?? cached.availableEpisodes });
-        return;
-      }
+      let countAttempted = false;
+      let details = cached;
       try {
-        const fetched = await getProviderSeriesMetadata(source.id, config);
+        const fetched = !refresh && cached && Date.now() - cached.checkedAt < this.freshFor
+          ? cached : await getProviderSeriesMetadata(source.id, config);
+        // Provider metadata may contain a preview or a planned total. Only the episode loader proves availability.
+        details = { ...fetched, availableEpisodes: undefined };
         catalogContext.getStore()?.signal.throwIfAborted();
-        const availableEpisodes = this.cachedEpisodeCount(source.id, config) ?? fetched.availableEpisodes ?? await this.loadEpisodeCount(source.id, config);
-        const value = { ...fetched, availableEpisodes };
-        this.cache.delete(key); this.cache.set(key, fetched); this.scheduleFlush();
+        let availableEpisodes = refresh ? undefined : this.cachedEpisodeCount(source.id, config);
+        if (availableEpisodes === undefined) { countAttempted = true; availableEpisodes = await this.loadEpisodeCount(source.id, config); }
+        catalogContext.getStore()?.signal.throwIfAborted();
+        const value = { ...details, availableEpisodes };
+        this.cache.delete(key); this.cache.set(key, value); this.scheduleFlush();
         values.set(source.id, value);
       } catch (error) {
         if (catalogContext.getStore()?.signal.aborted) throw error;
         const prior = values.get(source.id);
         let availableEpisodes = this.cachedEpisodeCount(source.id, config) ?? prior?.availableEpisodes;
-        if (availableEpisodes === undefined) {
+        if (availableEpisodes === undefined && !countAttempted) {
           try { availableEpisodes = await this.loadEpisodeCount(source.id, config); }
           catch { /* Keep the metadata error; both independent lookups were unavailable. */ }
         }
-        values.set(source.id, prior ? { ...prior, availableEpisodes, stale: true, error: message(error) }
+        catalogContext.getStore()?.signal.throwIfAborted();
+        values.set(source.id, prior || details ? { ...(prior ?? details!), availableEpisodes, stale: true, error: message(error) }
           : { sourceId: source.id, provider: source.provider, genres: [], availableEpisodes, checkedAt: Date.now(), error: message(error) });
       }
       update?.(snapshot());
