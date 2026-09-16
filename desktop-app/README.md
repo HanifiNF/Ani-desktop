@@ -188,3 +188,11 @@ The main window uses `contextIsolation`, disables Node integration, and communic
 - Both TypeScript configurations reject unused locals and parameters. Unit tests cover the renderer and services; the player integration scripts exercise actual HLS playback in an isolated profile.
 
 Current UI decisions and instructions for capturing the live renderer are in [design/README.md](design/README.md). Generated design screenshots are ignored by Git and excluded from application packages.
+
+## Episode provider contract
+
+Every episode list goes through `getProviderEpisodes` and the shared `collectEpisodePages` collector. Register each provider in the exhaustive `episodeLoaders` map in `electron/scraper.ts`. A loader yields all available pages and throws on a failed or malformed page. Follow the provider's pagination protocol until completion; embedded previews and announced totals alone do not establish availability. AniWave and AniDB currently return their lists in one response; HiAnime requires its internal anime ID and episode ranges of 100.
+
+The shared collector validates, deduplicates, and sorts the combined episodes. Cancellation, failed pages, and exceeded limits fail the whole load. Only successful complete lists enter `CatalogService`'s episode cache; a failed refresh preserves the previous complete list with an error. Episode counts, including library and schedule metadata, come from that cache or the same loader. Provider metadata supplies genres and announced totals. Playback and continuation consume the resulting catalog.
+
+When adding or changing a provider, extend `tests/episode-loading.test.ts` with its actual response and pagination shape. Cover later-page failure, cancellation, duplicate records, empty catalogs, and the metadata count path. Verify the endpoint against a series with more than one page. Bump the episode cache version if the change invalidates previously cached completeness assumptions.

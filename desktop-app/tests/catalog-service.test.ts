@@ -15,6 +15,19 @@ const tick = async () => { for (let i = 0; i < 10; i++) await Promise.resolve();
 beforeEach(() => vi.resetAllMocks());
 
 describe("incremental catalog delivery", () => {
+  it("rebuilds legacy episode caches whose lists may be incomplete", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "legacy-episode-lists-"));
+    const path = join(directory, "lists.json"), service = new CatalogService();
+    try {
+      const key = `${JSON.stringify([config.aniwaveBaseUrl, config.anidbBaseUrl, config.hianimeBaseUrl])}:${source("hianime").id}`;
+      await writeFile(path, JSON.stringify({ version: 1, entries: [[key, { at: Date.now(), episodes: [{ id: "hianime:ep-1", number: "1", provider: "hianime" }] }]] }));
+      await service.load(path);
+      expect(service.cachedEpisodeCount(source("hianime").id, config)).toBeUndefined();
+      vi.mocked(getProviderEpisodes).mockResolvedValue([1, 2, 3].map(number => ({ id: `hianime:ep-${number}`, number: String(number), provider: "hianime" })));
+      expect(await service.availableEpisodeCount(source("hianime").id, config)).toBe(3);
+    } finally { await service.flush(); await rm(directory, { recursive: true, force: true }); }
+  });
+
   it("restores episode IDs from disk before refreshing their provider", async () => {
     const directory = await mkdtemp(join(tmpdir(), "episode-lists-"));
     const path = join(directory, "lists.json");
@@ -38,7 +51,7 @@ describe("incremental catalog delivery", () => {
     const directory = await mkdtemp(join(tmpdir(), "episode-lists-"));
     const path = join(directory, "lists.json"), service = new CatalogService();
     try {
-      await writeFile(path, JSON.stringify({ version: 1, entries: [[`${JSON.stringify([config.aniwaveBaseUrl, config.anidbBaseUrl, config.hianimeBaseUrl])}:${source("aniwave").id}`, { at: Date.now() - 8 * 86400000, episodes: [{ id: "aniwave:1:2", number: "2", provider: "aniwave" }] }], [null, {}]] }));
+      await writeFile(path, JSON.stringify({ version: 2, entries: [[`${JSON.stringify([config.aniwaveBaseUrl, config.anidbBaseUrl, config.hianimeBaseUrl])}:${source("aniwave").id}`, { at: Date.now() - 8 * 86400000, episodes: [{ id: "aniwave:1:2", number: "2", provider: "aniwave" }] }], [null, {}]] }));
       await service.load(path);
       vi.mocked(getProviderEpisodes).mockResolvedValue([]);
       const updates: EpisodeCatalog[] = [];

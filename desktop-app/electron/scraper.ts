@@ -1,6 +1,8 @@
 import { catalogContext, catalogRequests, CatalogNetworkError } from "./catalog-requests";
 import type { AnimeResult, Episode, EpisodeAvailability, ProviderName, ProviderSeriesMetadata, ScheduleArtwork, ScheduleQuery, ScheduleResult, Settings, Stream, TranslationMode } from "../shared/contracts";
-import { animeSources, sourceMatch } from "../shared/catalog";
+import { animeSources, isProviderName, sourceMatch } from "../shared/catalog";
+import { positiveInteger } from "../shared/identity";
+import { collectEpisodePages, MAX_EPISODES } from "./episode-loader";
 import { findEmbedUrl, hiAnimeEmbedUrls, parseAniDbSeriesMetadata, parseAniwaveEpisodes, parseAniwavePoster, parseAniwaveSchedule, parseAniwaveSearch, parseAniwaveSeriesMetadata, parseAniwaveTooltip, parseAniwaveVidplayId, parseEpisodes, parseHiAnimeEmbed, parseHiAnimeEpisodes, parseHiAnimeSearch, parseHiAnimeSeriesMetadata, parseMasterPlaylist, parseMasterUrl, parseResultUrl, parseSearchPage, parseVidplaySource } from "./parsers";
 
 const RETRY_DELAY_MS = 750;
@@ -68,9 +70,12 @@ const fetchJson = async (url: string, label: string, referrer?: string): Promise
 const postJson = async (url: string, body: unknown, label: string, referrer?: string): Promise<unknown> => JSON.parse(await responseBody(url, label, "application/json", referrer, body));
 
 function splitId(id: string): { provider: ProviderName; value: string } {
-  if (id.startsWith("aniwave:")) return { provider: "aniwave", value: id.slice(8) };
-  if (id.startsWith("anidb:")) return { provider: "anidb", value: id.slice(6) };
-  if (id.startsWith("hianime:")) return { provider: "hianime", value: id.slice(8) };
+  const separator = id.indexOf(":");
+  if (separator >= 0) {
+    const provider = id.slice(0, separator);
+    if (!isProviderName(provider)) throw new Error("Unknown source provider");
+    return { provider, value: id.slice(separator + 1) };
+  }
   return { provider: "anidb", value: id };
 }
 
@@ -153,20 +158,54 @@ export async function resolveSource(anime: AnimeResult, provider: ProviderName, 
   return likely ? { hit: likely, exact: false } : undefined;
 }
 
-export async function getProviderEpisodes(animeId: string, config: SourceConfig): Promise<Episode[]> {
-  const { provider, value } = splitId(animeId);
-  if (provider === "aniwave") {
+// Exhaustive registration makes every new provider implement the complete-page contract.
+const episodeLoaders: Record<ProviderName, (value: string, config: SourceConfig) => AsyncGenerator<Episode[]>> = {
+  async *aniwave(value, config) {
     if (!/^[a-z0-9-]+-\d+$/i.test(value)) throw new Error("Invalid AniWave anime identifier");
     const numeric = value.slice(value.lastIndexOf("-") + 1);
-    return parseAniwaveEpisodes(await fetchJson(`${sourceBase(config.aniwaveBaseUrl)}/ajax/episode/list/${numeric}?vrf=`, "AniWave episode lookup"), numeric);
-  }
-  if (provider === "hianime") {
+    yield parseAniwaveEpisodes(await fetchJson(`${sourceBase(config.aniwaveBaseUrl)}/ajax/episode/list/${numeric}?vrf=`, "AniWave episode lookup"), numeric);
+  },
+  async *hianime(value, config) {
     if (!/^[\p{L}\p{N}:!'().,_+~-]+(?:-[\p{L}\p{N}:!'().,_+~-]+)*$/u.test(value)) throw new Error("Invalid HiAnime anime identifier");
-    return parseHiAnimeEpisodes(await fetchJson(`${HIANIME_API_BASE}/anime/${encodeURIComponent(value)}`, "HiAnime episode lookup", `${sourceBase(config.hianimeBaseUrl)}/`));
+    const referrer = `${sourceBase(config.hianimeBaseUrl)}/`;
+    const payload = await fetchJson(`${HIANIME_API_BASE}/anime/${encodeURIComponent(value)}`, "HiAnime episode lookup", referrer);
+    const anime = payload && typeof payload === "object" && "anime" in payload ? payload.anime : undefined;
+    if (!anime || typeof anime !== "object") throw new Error("HiAnime episode metadata response has changed");
+    const record = anime as Record<string, unknown>;
+    const total = positiveInteger(record.totalEpisodes);
+    if (total && total > MAX_EPISODES) throw new Error("HiAnime episode catalog exceeded its limit");
+    // The anime response may embed only episode 1. The website loads the catalog in ranges of 100.
+    if (typeof record._id !== "string" || !/^[a-f\d]{24}$/i.test(record._id)) {
+      throw new Error("HiAnime episode metadata is missing its catalog identifier");
+    }
+    for (let start = 1; start <= (total ?? MAX_EPISODES); start += 100) {
+      catalogContext.getStore()?.signal.throwIfAborted();
+      const end = Math.min(start + 99, total ?? MAX_EPISODES);
+      const page = await fetchJson(`${HIANIME_API_BASE}/episodes/${record._id}?start=${start}&end=${end}`, "HiAnime episode lookup", referrer);
+      if (!page || typeof page !== "object" || !("episodes" in page) || !Array.isArray(page.episodes)) {
+        throw new Error(`HiAnime episode range ${start}-${end} response has changed`);
+      }
+      const episodes = parseHiAnimeEpisodes({ anime: { episodes: page.episodes } });
+      if (page.episodes.some((item) => parseHiAnimeEpisodes({ anime: { episodes: [item] } }).length !== 1)) {
+        throw new Error(`HiAnime episode range ${start}-${end} contains an unreadable episode`);
+      }
+      yield episodes;
+      // Unknown totals are discovered by walking ranges until the endpoint returns an empty range.
+      if (!total && !page.episodes.length) return;
+    }
+    if (!total) throw new Error("HiAnime episode pagination exceeded its limit");
+  },
+  async *anidb(value, config) {
+    if (!/^[a-z0-9-]+-\d+$/i.test(value)) throw new Error("Invalid AniDB anime identifier");
+    const numeric = value.slice(value.lastIndexOf("-") + 1);
+    yield parseEpisodes(await fetchJson(`${sourceBase(config.anidbBaseUrl)}/api/frontend/anime/${numeric}/episodes`, "AniDB episode lookup"));
   }
-  if (!/^[a-z0-9-]+-\d+$/i.test(value)) throw new Error("Invalid AniDB anime identifier");
-  const numeric = value.slice(value.lastIndexOf("-") + 1);
-  return parseEpisodes(await fetchJson(`${sourceBase(config.anidbBaseUrl)}/api/frontend/anime/${numeric}/episodes`, "AniDB episode lookup"));
+};
+
+/** The only episode-list entry point: callers receive a complete catalog or a failure, never a successful prefix. */
+export async function getProviderEpisodes(animeId: string, config: SourceConfig): Promise<Episode[]> {
+  const { provider, value } = splitId(animeId);
+  return collectEpisodePages(provider, episodeLoaders[provider](value, config), catalogContext.getStore()?.signal);
 }
 
 async function getEpisodeServers(episodeId: string, config: SourceConfig): Promise<unknown> {

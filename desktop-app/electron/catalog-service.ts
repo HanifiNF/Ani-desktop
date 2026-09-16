@@ -1,11 +1,12 @@
 import { catalogScope } from "../shared/settings";
 import type { AnimeResult, CatalogProgress, Episode, EpisodeCatalog, EpisodeGroup, IdentityCandidate, ProviderName, ProviderPreference, Work } from "../shared/contracts";
-import { animeSources, enabledProviders, unifyAnimeResults } from "../shared/catalog";
+import { animeSources, enabledProviders, isProviderName, unifyAnimeResults } from "../shared/catalog";
 import { refsOf } from "../shared/identity";
 import { catalogContext } from "./catalog-requests";
 import { getProviderEpisodes, resolveSource, searchOne, type SourceConfig } from "./scraper";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { MAX_EPISODES } from "./episode-loader";
 
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);
 /** How long the final result waits for identity candidates once every provider has answered. */
@@ -36,29 +37,31 @@ export class CatalogService {
 
   async availableEpisodeCount(sourceId: string, config: SourceConfig): Promise<number | undefined> {
     const cached = this.cachedEpisodeCount(sourceId, config);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined && !catalogContext.getStore()?.refresh) return cached;
     const episodes = await getProviderEpisodes(sourceId, config);
     catalogContext.getStore()?.signal.throwIfAborted();
     const key = `${catalogScope(config)}:${sourceId}`;
     this.episodesCache.delete(key); this.episodesCache.set(key, { episodes, at: Date.now() });
     this.trim(); this.dirty = true;
     if (this.cachePath && !this.timer) this.timer = setTimeout(() => { void this.flush(); }, 250);
-    return episodes.length || undefined;
+    return episodes.length;
   }
 
   async load(path: string): Promise<void> {
     this.cachePath = path;
     try {
       const data = JSON.parse(await readFile(path, "utf8"));
-      if (data.version !== 1 || !Array.isArray(data.entries)) return;
+      // Version 1 could contain HiAnime's embedded preview instead of its complete catalog.
+      if (data.version !== 2 || !Array.isArray(data.entries)) return;
       for (const row of data.entries.slice(-200)) {
         if (!Array.isArray(row) || typeof row[0] !== "string" || row[0].length > 8192) continue;
         const value = row[1];
-        if (!value || typeof value.at !== "number" || value.at > Date.now() || Date.now() - value.at >= this.retention || !Array.isArray(value.episodes) || value.episodes.length > 5000) continue;
-        const episodes: Episode[] = value.episodes.filter((episode: Episode) => episode && ["aniwave", "anidb", "hianime"].includes(episode.provider)
+        if (!value || typeof value.at !== "number" || value.at > Date.now() || Date.now() - value.at >= this.retention || !Array.isArray(value.episodes) || value.episodes.length > MAX_EPISODES) continue;
+        const episodes: Episode[] = value.episodes.filter((episode: Episode) => episode && isProviderName(episode.provider)
           && typeof episode.id === "string" && episode.id.length <= 512 && episode.id.startsWith(`${episode.provider}:`)
           && typeof episode.number === "string" && /^\d+(?:\.\d+)?$/.test(episode.number))
           .map(({ id, number, provider }: Episode) => ({ id, number, provider }));
+        if (episodes.length !== value.episodes.length) continue;
         this.episodesCache.set(row[0], { at: value.at, episodes });
       }
       this.trim();
@@ -79,7 +82,7 @@ export class CatalogService {
     const path = this.cachePath;
     if (path && this.dirty) {
       this.dirty = false;
-      const body = JSON.stringify({ version: 1, entries: [...this.episodesCache] });
+      const body = JSON.stringify({ version: 2, entries: [...this.episodesCache] });
       this.writes = this.writes.then(async () => {
         await mkdir(dirname(path), { recursive: true });
         await writeFile(`${path}.new`, body, "utf8"); await rename(`${path}.new`, path);
