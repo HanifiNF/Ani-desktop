@@ -159,14 +159,14 @@ app.whenReady().then(async () => {
   console.log('PASS: bundled HLS startup with production CSP inside the app window');
   await waitFor("!document.querySelector('video').paused", 'autoplay');
   // HLS initially reports a partial duration. Vidstack stops updating hidden time labels,
-  // so wait for the media duration, then reveal the controls before checking their text.
+  // so pause after autoplay to keep the controls visible throughout the duration assertion.
+  // A single wake-up key lets them idle again before a slow renderer updates the text.
   await waitFor("!document.querySelector('[data-media-player]').hasAttribute('data-controls')", 'controls idle before duration check');
   await waitFor("document.querySelector('video').duration >= 32 && document.querySelector('video').duration < 33", 'full media duration');
   await evaluate("document.querySelector('[data-media-player]').focus()");
-  await key('Shift');
+  await key('k'); await waitFor("document.querySelector('video').paused", 'K before click');
   await waitFor("document.querySelector('[data-media-player]').hasAttribute('data-controls')", 'visible player controls');
   await waitFor("document.querySelector('.vds-time[data-type=duration]')?.textContent.trim() === '0:32'", 'full fixture duration');
-  await key('k'); await waitFor("document.querySelector('video').paused", 'K before click');
   await key(' '); await waitFor("!document.querySelector('video').paused", 'Space before click');
   await key('k'); await waitFor("document.querySelector('video').paused", 'pause');
   const before=(await info()).time;
