@@ -1,0 +1,62 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { lookupAniList, plainDescription, resetAniListRateLimit, searchAniList, toCandidate, toWorkInfo } from "../electron/anilist";
+
+const media = {
+  id: 146722, idMal: 51367, title: { romaji: "JoJo no Kimyou na Bouken: Stone Ocean Part 2", english: "JoJo's Bizarre Adventure: STONE OCEAN Part 2", native: "ジョジョの奇妙な冒険 ストーンオーシャン 2クール" },
+  synonyms: ["JoJo's Bizarre Adventure Part 6 (Part 2)", ""], format: "ONA", episodes: 26, seasonYear: 2022, season: "FALL", startDate: { year: 2022 }, status: "FINISHED",
+  genres: ["Action", "Adventure"], studios: { nodes: [{ name: "david production" }] }, averageScore: 82,
+  description: "The legacy continues.<br><br><i>(Source: Netflix)</i>", coverImage: { extraLarge: "https://img.test/xl.jpg", large: "https://img.test/l.jpg" }, bannerImage: "https://img.test/b.jpg",
+  nextAiringEpisode: null,
+  relations: { edges: [{ relationType: "PREQUEL", node: { id: 131942, idMal: 48661, type: "ANIME", title: { romaji: "JoJo no Kimyou na Bouken: Stone Ocean", english: "JoJo's Bizarre Adventure: STONE OCEAN" }, format: "ONA" } },
+    { relationType: "SOURCE", node: { id: 1, idMal: 2, type: "MANGA", title: { romaji: "Manga" }, format: "MANGA" } }] }
+};
+
+function response(body: unknown, headers: Record<string, string> = {}, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "x-ratelimit-remaining": "29", ...headers } });
+}
+
+describe("AniList client", () => {
+  beforeEach(() => { resetAniListRateLimit(); vi.useFakeTimers(); });
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it("turns media into candidates and information with both references", () => {
+    expect(toCandidate(media)).toEqual({ refs: ["anilist:146722", "mal:51367"], title: "JoJo's Bizarre Adventure: STONE OCEAN Part 2",
+      titles: ["JoJo no Kimyou na Bouken: Stone Ocean Part 2", "JoJo's Bizarre Adventure: STONE OCEAN Part 2", "ジョジョの奇妙な冒険 ストーンオーシャン 2クール", "JoJo's Bizarre Adventure Part 6 (Part 2)"],
+      status: "finished", type: "ONA", year: 2022, episodes: 26 });
+    const info = toWorkInfo(media)!;
+    expect(info).toMatchObject({ refs: ["anilist:146722", "mal:51367"], type: "ONA", year: 2022, season: "fall", status: "finished", genres: ["Action", "Adventure"], studios: ["david production"], score: 82,
+      description: "The legacy continues.\n\n(Source: Netflix)", cover: "https://img.test/xl.jpg", banner: "https://img.test/b.jpg", source: "anilist" });
+    expect(info.relations).toEqual([{ relation: "prequel", refs: ["anilist:131942", "mal:48661"], title: "JoJo's Bizarre Adventure: STONE OCEAN", type: "ONA" }]);
+    expect(info.synonyms).toEqual(["JoJo's Bizarre Adventure Part 6 (Part 2)"]);
+    expect(plainDescription("a &amp; b<br/>c")).toBe("a & b\nc");
+    expect(toCandidate({ id: 5 })).toBeUndefined();
+  });
+
+  it("searches by term and looks up by MyAnimeList id, honouring the rate limit headers", async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(response({ data: { Page: { media: [media] } } }))
+      .mockResolvedValueOnce(response({ data: { Media: media } }, { "x-ratelimit-remaining": "1", "x-ratelimit-reset": String(Math.floor(Date.now() / 1000) + 30) }))
+      .mockResolvedValueOnce(response({ data: { Media: null }, errors: [{ message: "Not Found.", status: 404 }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await searchAniList("stone ocean part 2")).map((candidate) => candidate.refs)).toEqual([["anilist:146722", "mal:51367"]]);
+    expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string).variables).toEqual({ search: "stone ocean part 2" });
+    expect((await lookupAniList(["mal:51367"]))?.title).toBe("JoJo's Bizarre Adventure: STONE OCEAN Part 2");
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string).variables).toEqual({ idMal: 51367 });
+    // The second response left one request before the limit, so the next call waits for the stated reset.
+    const pending = lookupAniList(["anilist:99"]);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(await pending).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(fetchMock.mock.calls[2][1]!.body as string).variables).toEqual({ id: 99 });
+  });
+
+  it("treats 429 as a network pause and other failures as errors", async () => {
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValueOnce(response({}, { "retry-after": "120" }, 429)).mockResolvedValueOnce(response({ errors: [{ message: "bad query" }] }, {}, 200)));
+    await expect(searchAniList("x")).rejects.toMatchObject({ name: "CatalogNetworkError", retryAfterMs: 120_000 });
+    resetAniListRateLimit();
+    await expect(searchAniList("y")).rejects.toThrow(/bad query/);
+    expect(await lookupAniList(["kitsu:1"])).toBeUndefined();
+  });
+});

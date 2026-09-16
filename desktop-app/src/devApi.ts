@@ -1,8 +1,9 @@
 // Dev-only stand-in for the preload API so the renderer can run in a plain browser (npx vite) for UI work.
 // Never bundled into production: main.tsx only imports it under import.meta.env.DEV when window.aniDesktop is absent.
-import type { AniDesktopApi, AniPlayerApi, AnimeResult, AnimeSource, Episode, LibraryEntry, PersistedState, PlayerSession } from "../shared/contracts";
+import type { AniDesktopApi, AniPlayerApi, AnimeResult, AnimeSource, Episode, LibraryEntry, PersistedState, PlayerSession, WorkInfo } from "../shared/contracts";
 import { animeSources, expandWithLinks, mergeKey, unifyAnimeResults, enabledProviders, providerFromId } from "../shared/catalog";
 import { DEFAULT_STATE } from "../shared/settings";
+import { BACKDROP_POOL } from "../shared/backdrops";
 
 const svg = (bg: string, shapes: string) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300"><rect width="200" height="300" fill="${bg}"/>${shapes}</svg>`)}`;
 const posters = {
@@ -40,6 +41,39 @@ const results: AnimeResult[] = [
 const elsewhere: Record<string, AnimeSource[]> = {
   "aniwave:frieren-1": [{ id: "hianime:sousou-no-frieren-xyz", provider: "hianime", title: "Sousou no Frieren", aliases: ["Sousou no Frieren", "Frieren: Beyond Journey's End"] }],
   "anidb:dandadan-3": [{ id: "aniwave:dandadan-7", provider: "aniwave", title: "Dandadan", aliases: ["Dandadan"] }, { id: "hianime:dandadan-abc", provider: "hianime", title: "Dandadan", aliases: ["Dandadan"] }]
+};
+
+// Direct CDN addresses for the pool, because the id lookup has no CORS header and cannot be called from a page; the desktop app resolves ids in the main process.
+const DEV_BACKDROPS: Record<number, { url: string; sourceUrl?: string; artist?: string; light?: boolean }> = {
+  8879: { url: "https://cdn.nekosapi.com/nekos-api/images/original/50133f72-fc17-4949-839d-f045f44135f2.webp", artist: "xilmo", light: true },
+  20268: { url: "https://cdn.nekosapi.com/nekos-api/images/original/d4dab856-2751-4507-814a-d250cd784a2b.webp", light: true },
+  3295: { url: "https://cdn.nekosapi.com/nekos-api/images/original/e892a847-cf33-446b-8e55-2537caf8c570.webp", sourceUrl: "https://danbooru.donmai.us/post/show/5464083", light: true },
+  9002: { url: "https://cdn.nekosapi.com/nekos-api/images/original/d9ccabde-9236-4ef7-980a-ec9d1bd0d440.webp", artist: "ヒトこもる" },
+  11649: { url: "https://cdn.nekosapi.com/nekos-api/images/original/77de447c-6e40-4440-b8e0-cd04b92fd6ad.webp" },
+  17201: { url: "https://cdn.nekosapi.com/nekos-api/images/original/517d1d16-a6c2-4979-93d0-71ba9ce966d8.webp", light: true },
+  1876: { url: "https://cdn.nekosapi.com/nekos-api/images/original/4fda5ff9-c8fe-4889-b314-7aa424adb0e2.webp", sourceUrl: "https://danbooru.donmai.us/post/show/6088096", light: true },
+  41078: { url: "https://cdn.nekosapi.com/nekos-api/images/original/ee11efb3-23db-4aa0-91c1-5f4ed6c1b4db.webp", light: true },
+  32082: { url: "https://cdn.nekosapi.com/nekos-api/images/original/4c4a2ccf-d0a0-4420-b58a-eefe928dd712.webp", light: true },
+  19118: { url: "https://cdn.nekosapi.com/nekos-api/images/original/5557c62c-f135-4318-a8b5-31d983471e28.webp", light: true },
+  6708: { url: "https://cdn.nekosapi.com/nekos-api/images/original/8290cedc-763b-4bda-998a-bfe54a70cd06.webp" },
+  2524: { url: "https://cdn.nekosapi.com/nekos-api/images/original/efb31ad2-9832-49ff-b61f-d1bdf3e56786.webp", sourceUrl: "https://danbooru.donmai.us/post/show/5891346", light: true },
+  15502: { url: "https://cdn.nekosapi.com/nekos-api/images/original/32296cf7-0115-48bc-954c-f3c1b856d208.webp", light: true },
+  3754: { url: "https://cdn.nekosapi.com/nekos-api/images/original/dc45ef57-0c25-4c6f-b234-62e68d4ed67c.webp", light: true },
+  5834: { url: "https://cdn.nekosapi.com/nekos-api/images/original/c035a692-f80e-4cdc-9e4c-48fe0d63864a.webp" },
+  17128: { url: "https://cdn.nekosapi.com/nekos-api/images/original/c13aae6e-8d8a-460c-bf36-21c15aca53cc.webp", light: true },
+  30444: { url: "https://cdn.nekosapi.com/nekos-api/images/original/89240e12-51ff-4636-a41d-72a070810286.webp", light: true },
+  7579: { url: "https://cdn.nekosapi.com/nekos-api/images/original/9834efcd-d711-4fbf-8dc3-0c2ff8172bb1.webp" },
+  1868: { url: "https://cdn.nekosapi.com/nekos-api/images/original/99b83f96-2498-4c45-b6c6-446c2dd6aab9.webp", light: true },
+  25265: { url: "https://cdn.nekosapi.com/nekos-api/images/original/19df3895-2003-4f44-bd6c-90b7cf74f2bf.webp", light: true },
+  18542: { url: "https://cdn.nekosapi.com/nekos-api/images/original/0e45ed81-bc6f-4ac4-9648-79a278cc0edb.webp", light: true },
+  16065: { url: "https://cdn.nekosapi.com/nekos-api/images/original/40d175ef-2261-48b8-a554-f3a871cdfaaf.webp", sourceUrl: "https://twitter.com/i/web/status/894739092893687808" },
+  9929: { url: "https://cdn.nekosapi.com/nekos-api/images/original/a0f067e7-ca4a-406c-a3d2-ba938b868a7a.webp" },
+  4816: { url: "https://cdn.nekosapi.com/nekos-api/images/original/80fcd2da-ca0b-43dc-a1ba-d20b2dd62625.webp", sourceUrl: "https://danbooru.donmai.us/post/show/5900527" },
+  5048: { url: "https://cdn.nekosapi.com/nekos-api/images/original/94781515-8e5e-422f-84fb-233841e16157.webp" },
+  10759: { url: "https://cdn.nekosapi.com/nekos-api/images/original/d58f6b86-4cac-49eb-b02c-1e157bb6992e.webp", light: true },
+  1236: { url: "https://cdn.nekosapi.com/nekos-api/images/original/77e8ba65-fabb-484d-9c19-20d42c8e2d47.webp", sourceUrl: "https://danbooru.donmai.us/post/show/4922653", light: true },
+  16820: { url: "https://cdn.nekosapi.com/nekos-api/images/original/f979d449-5eec-4e72-b44a-a19e3b98b72d.webp", light: true },
+  7470: { url: "https://cdn.nekosapi.com/nekos-api/images/original/15580b2e-9d0b-4d95-8899-050829e10964.webp" }
 };
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -93,6 +127,18 @@ export function installDevApi(): void {
       state.providerLinks = [...(state.providerLinks ?? []), sources.map((source) => source.id)];
       return { ...anime, sources };
     },
+    async workInfo(anime, _request, update) {
+      await wait(250);
+      if (!state.settings.animeInfo || !/frieren/i.test(anime.title)) return undefined;
+      const info: WorkInfo = { refs: ["anilist:154587", "mal:52991"], title: "Frieren: Beyond Journey's End", titles: { romaji: "Sousou no Frieren", english: "Frieren: Beyond Journey's End" }, synonyms: [],
+        type: "TV", episodes: 28, year: 2023, season: "fall", status: "finished", genres: ["Adventure", "Drama", "Fantasy"], studios: ["madhouse"], score: 89,
+        description: "After the party of heroes defeated the Demon King, the elf mage Frieren sets out to understand the people she outlived.",
+        cover: posters.frieren, relations: [{ relation: "sequel", refs: ["anilist:182255"], title: "Frieren: Beyond Journey's End Season 2", type: "TV" }], fetchedAt: Date.now(), source: "anilist" };
+      update?.(info);
+      return info;
+    },
+    async identityIndexStatus() { return { enabled: state.settings.offlineIndex === true, entries: 0, updating: false }; },
+    async updateIdentityIndex() { await wait(600); return { enabled: state.settings.offlineIndex === true, entries: 41537, updatedAt: Date.now(), updating: false }; },
     async episodes(anime) {
       await wait(300);
       const enabled = enabledProviders(state.settings);
@@ -131,6 +177,15 @@ export function installDevApi(): void {
       return { provider: "aniwave", requestedDate: query.date, supportedDates: [], entries, refreshedAt: new Date().toISOString(), status: "fresh" };
     },
     async scheduleArtwork(animeId) { return { animeId, aliases: [] }; },
+    // The browser loads the image straight from the CDN here; the desktop app caches a copy on disk.
+    async backdropArt(kind) {
+      if (state.settings.emptyBackdrop === false) return undefined;
+      const entries = BACKDROP_POOL.filter((entry) => entry.kind === kind && entry.id in DEV_BACKDROPS);
+      const entry = entries[Math.floor(Math.random() * entries.length)];
+      if (!entry) return undefined;
+      await wait(150);
+      return { id: entry.id, kind, ...DEV_BACKDROPS[entry.id], src: DEV_BACKDROPS[entry.id].url };
+    },
     cancelCatalog() {},
     async availability() { await wait(150); return { sub: true, dub: true, checkedAt: Date.now() }; },
     async streams(episodeId, mode) {
@@ -165,6 +220,12 @@ export function installDevApi(): void {
     async clearHistory() { state.history = []; return snapshot(); },
     async clearSourceLinks() { state.providerLinks = []; return snapshot(); },
     async linkSources(ids) { state.providerLinks = [...(state.providerLinks ?? []), [...new Set(ids)]]; return snapshot(); },
+    async splitSource(sourceId) {
+      state.providerLinks = (state.providerLinks ?? []).map((group) => group.filter((id) => id !== sourceId)).filter((group) => group.length > 1);
+      const detach = (entry: LibraryEntry) => entry.sources && entry.sources.length > 1 && entry.animeId !== sourceId ? { ...entry, sources: entry.sources.filter((source) => source.id !== sourceId) } : entry;
+      state.bookmarks = state.bookmarks.map(detach); state.history = state.history.map(detach);
+      return snapshot();
+    },
     async mergeEntries(firstId, secondId) {
       const all = [...state.bookmarks, ...state.history];
       const first = all.find((item) => item.animeId === firstId), second = all.find((item) => item.animeId === secondId);

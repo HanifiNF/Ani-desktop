@@ -77,12 +77,14 @@ beforeEach(async () => {
       logDiagnostic: vi.fn(), saveStorage: vi.fn().mockResolvedValue(undefined), setFullscreen: vi.fn(async (fullscreen: boolean) => fullscreen),
       openExternal: vi.fn().mockResolvedValue(true), setActive: vi.fn().mockResolvedValue(undefined)
     },
-    search, resolveSources: vi.fn(async (anime) => anime), clearSourceLinks: vi.fn(), getState: vi.fn().mockResolvedValue(state), episodes: vi.fn().mockResolvedValue({ groups: [{ provider: "aniwave", episodes: [{ id: "ep-1", number: "1", provider: "aniwave" }] }] }),
+    search, resolveSources: vi.fn(async (anime) => anime), clearSourceLinks: vi.fn(), getState: vi.fn().mockResolvedValue(state),
+    workInfo: vi.fn().mockResolvedValue(undefined), identityIndexStatus: vi.fn().mockResolvedValue({ enabled: false, entries: 0, updating: false }), updateIdentityIndex: vi.fn(), splitSource: vi.fn(), episodes: vi.fn().mockResolvedValue({ groups: [{ provider: "aniwave", episodes: [{ id: "ep-1", number: "1", provider: "aniwave" }] }] }),
     seriesMetadata: vi.fn().mockResolvedValue({ sources: [], genres: [] }),
     episodeMetadata: vi.fn().mockResolvedValue(undefined), clearEpisodeMetadata: vi.fn().mockResolvedValue(undefined),
     sourceStatus: vi.fn().mockResolvedValue([]), checkSource: vi.fn().mockResolvedValue(undefined), fetchBookmarkMetadata: vi.fn(),
     schedule: vi.fn<AniDesktopApi["schedule"]>(async (query) => ({ provider: "aniwave", requestedDate: query.date, supportedDates: [], entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" })),
     scheduleArtwork: vi.fn(async (animeId) => ({ animeId, aliases: [] })),
+    backdropArt: vi.fn(async () => undefined),
     bookmarkMetadataStatus: vi.fn().mockResolvedValue(undefined), cancelBookmarkMetadata: vi.fn(),
     availability: vi.fn().mockResolvedValue({ sub: true, dub: true, checkedAt: Date.now() }), cancelCatalog: vi.fn(),
     streams: vi.fn().mockResolvedValue([]), play: vi.fn().mockResolvedValue(true),
@@ -414,6 +416,64 @@ describe("live catalog search", () => {
     const facts = container.querySelector(".facts")?.textContent;
     expect(facts).toContain("Available episodes11");
     expect(facts).toContain("Announced total14");
+  });
+
+  it("shows series information from the work behind a series", async () => {
+    vi.mocked(api.workInfo).mockImplementation(async (_anime, _request, update) => {
+      const info = { refs: ["anilist:154587", "mal:52991"], title: "Frieren: Beyond Journey's End", titles: { romaji: "Sousou no Frieren", english: "Frieren: Beyond Journey's End" }, synonyms: [], type: "TV" as const, episodes: 28, year: 2023, season: "fall",
+        status: "finished" as const, genres: ["Fantasy"], studios: ["madhouse"], score: 89, description: "An elf mage outlives her party.", cover: "https://img.test/cover.jpg",
+        relations: [{ relation: "sequel", refs: ["anilist:182255"], title: "Frieren Season 2", type: "TV" as const }], fetchedAt: Date.now(), source: "anilist" as const };
+      update?.(info); return info;
+    });
+    await type("frieren"); await advance(); await enter();
+    expect(api.workInfo).toHaveBeenCalledWith(expect.objectContaining({ id: "aniwave:frieren-1" }), expect.objectContaining({ priority: "selected" }), expect.any(Function));
+    expect(container.querySelector(".synopsis")?.textContent).toBe("An elf mage outlives her party.");
+    const facts = [...container.querySelectorAll(".facts div")].map((node) => node.textContent);
+    expect(facts).toEqual(expect.arrayContaining(["FormatTV · Fall 2023", "StatusFinished", "Studiomadhouse", "Score8.9", "Announced total28"]));
+    expect(container.querySelector(".series .meta > span:not(.tag)")?.textContent).toBe("Sousou no Frieren");
+    expect([...container.querySelectorAll(".genre-bubbles span")].map((node) => node.textContent)).toEqual(["Fantasy"]);
+    await click("Refresh info");
+    expect(api.workInfo).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ refresh: true }), expect.any(Function));
+  });
+
+  it("splits a source off a grouped series after confirmation and reopens the rest", async () => {
+    const grouped: AnimeResult = { id: "aniwave:frieren-1", title: "frieren", provider: "aniwave", tentative: true, sources: [
+      { id: "aniwave:frieren-1", provider: "aniwave", title: "frieren", aliases: ["frieren"] }, { id: "hianime:frieren-x", provider: "hianime", title: "Frieren (Uncensored)", aliases: ["Frieren (Uncensored)"] }
+    ] };
+    search.mockResolvedValue([grouped]);
+    const confirm = vi.fn(() => true); vi.stubGlobal("confirm", confirm);
+    vi.mocked(api.splitSource).mockResolvedValue({ ...state, dismissedMergeKeys: ["aniwave:frieren-1|hianime:frieren-x"] });
+    await type("frieren"); await advance();
+    expect(container.querySelector(".section-results .tag.quiet")?.textContent).toBe("grouped by title");
+    await enter();
+    expect([...container.querySelectorAll(".series .meta .src-tag")].map((node) => node.firstChild?.textContent)).toEqual(["aniwave", "hianime"]);
+    await act(async () => { container.querySelector<HTMLButtonElement>('.src-tag .split[aria-label^="Split hianime"]')!.click(); });
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("Frieren (Uncensored)"));
+    expect(api.splitSource).toHaveBeenCalledWith("hianime:frieren-x");
+    expect([...container.querySelectorAll(".series .meta .src-tag")].map((node) => node.firstChild?.textContent)).toEqual(["aniwave"]);
+    expect(vi.mocked(api.episodes).mock.calls.at(-1)?.[0].sources?.map((source) => source.id)).toEqual(["aniwave:frieren-1"]);
+    expect(container.querySelector(".src-tag .split")).toBeNull();
+  });
+
+  it("offers the anime information settings and gates the index download on a saved setting", async () => {
+    await click("settings");
+    const group = [...container.querySelectorAll(".group")].find((node) => node.querySelector("h3")?.textContent === "Anime information")!;
+    expect(group.querySelector('[role="switch"][aria-label="Series details from AniList"]')?.getAttribute("aria-checked")).toBe("true");
+    const button = group.querySelector<HTMLButtonElement>(".btn")!;
+    expect(button.disabled).toBe(true);
+    await act(async () => { group.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Offline title index"]')!.click(); });
+    expect(group.textContent).toContain("Save changes to apply the index setting.");
+    vi.mocked(api.saveSettings).mockImplementation(async (settings) => { state = { ...state, settings }; return state; });
+    vi.mocked(api.identityIndexStatus).mockResolvedValue({ enabled: true, entries: 0, updating: false });
+    await click("save changes");
+    expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ offlineIndex: true }));
+    await click("settings"); await advance(100);
+    const again = [...container.querySelectorAll(".group")].find((node) => node.querySelector("h3")?.textContent === "Anime information")!;
+    expect(again.textContent).toContain("Not downloaded yet.");
+    vi.mocked(api.updateIdentityIndex).mockResolvedValue({ enabled: true, entries: 41537, updatedAt: Date.now(), updating: false });
+    await act(async () => { again.querySelector<HTMLButtonElement>(".btn")!.click(); });
+    expect(api.updateIdentityIndex).toHaveBeenCalledOnce();
+    expect(again.textContent).toContain("41,537 titles");
   });
 
   it("looks the series up on the other providers and merges their episodes into the grouped list", async () => {
@@ -762,8 +822,9 @@ describe("progressive catalog navigation", () => {
     await type("frieren"); await advance();
     await act(async () => { search.mock.calls[0][3]!({ value: [result("frieren")[0], { id: "hianime:frieren-x", title: "frieren", provider: "hianime" }], pending: ["anidb"], errors: {} }); });
     expect(titles()).toEqual(["frieren"]);
-    expect(container.querySelector(".section-results")?.textContent).toBe("frieren");
-    expect(container.querySelector(".section-results .badge")).toBeNull();
+    // One row for both providers, with a chip per source and no merge affordance.
+    expect([...container.querySelectorAll(".section-results .srcs .tag")].map((node) => node.textContent)).toEqual(["aniwave", "hianime"]);
+    expect(container.querySelector(".section-results .mini-act")).toBeNull();
     await act(async () => { search.mock.calls[0][3]!({ value: [result("frieren")[0], { id: "hianime:frieren-x", title: "frieren", provider: "hianime" }], pending: [], errors: { anidb: "AniDB search failed (503)" } }); });
     expect(container.querySelector('.palette [role="status"]')?.textContent).toContain("Some results may be missing.");
     await enter(); expect(container.querySelector("h1")?.textContent).toBe("frieren");

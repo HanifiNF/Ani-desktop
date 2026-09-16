@@ -91,6 +91,9 @@ const api: AniDesktopApi = {
   player,
   search: (query, provider, request, update) => catalogInvoke("catalog:search", [query, provider], request, update),
   resolveSources: (anime, request, update) => catalogInvoke("catalog:resolve", [anime], request, update),
+  workInfo: (anime, request, update) => catalogInvoke("catalog:work-info", [anime], request, update),
+  identityIndexStatus: () => ipcRenderer.invoke("identity:index-status"),
+  updateIdentityIndex: () => ipcRenderer.invoke("identity:index-update"),
   episodes: (anime, request, update) => catalogInvoke("catalog:episodes", [anime], request, update),
   seriesMetadata: (anime, request, update) => catalogInvoke("catalog:series-metadata", [anime], request, update),
   streams: (episodeId, mode, request) => catalogInvoke("catalog:streams", [episodeId, mode], request),
@@ -104,6 +107,7 @@ const api: AniDesktopApi = {
   checkSource: (provider, request) => catalogInvoke("catalog:source-check", [provider], request),
   schedule: (query, request) => catalogInvoke("catalog:schedule", [query], request),
   scheduleArtwork: (animeId, request) => catalogInvoke("catalog:schedule-artwork", [animeId], request),
+  backdropArt: (kind) => ipcRenderer.invoke("app:backdrop", kind),
   cancelCatalog: (id) => ipcRenderer.send("catalog:cancel", id),
   play: (request: PlayRequest) => ipcRenderer.invoke("player:play", request),
   getState: () => ipcRenderer.invoke("state:get"),
@@ -120,6 +124,7 @@ const api: AniDesktopApi = {
   clearHistory: () => ipcRenderer.invoke("state:history-clear"),
   clearSourceLinks: () => ipcRenderer.invoke("state:clear-links"),
   linkSources: (sourceIds) => ipcRenderer.invoke("state:link-sources", sourceIds),
+  splitSource: (sourceId) => ipcRenderer.invoke("state:split-source", sourceId),
   mergeEntries: (firstAnimeId, secondAnimeId) => ipcRenderer.invoke("state:merge-entries", firstAnimeId, secondAnimeId),
   dismissMerge: (firstAnimeId, secondAnimeId) => ipcRenderer.invoke("state:dismiss-merge", firstAnimeId, secondAnimeId)
 };

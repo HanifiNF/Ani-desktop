@@ -1,0 +1,544 @@
+<!doctype html><meta charset="utf-8"><title>Empty state · variants</title>
+<style>
+:root {
+  --bg:#1F2023; --text:#EDEDEE; --cursor:#EDEDEE; --cursor-text: var(--bg);
+  --raised: color-mix(in oklab, var(--bg), var(--text) 6%);
+  --raised2: color-mix(in oklab, var(--bg), var(--text) 10%);
+  --rule: color-mix(in oklab, var(--bg), var(--text) 12%);
+  --dim: color-mix(in oklab, var(--bg), var(--text) 36%);
+  --muted: color-mix(in oklab, var(--bg), var(--text) 60%);
+  --radius: 10px; --gutter: 60px; --cols: 8;
+}
+* { box-sizing: border-box; }
+body { margin:0; background:#111; color:var(--text); font: 400 14px/1.45 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing:-.005em; padding: 40px; }
+button, a { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: none; text-align: left; }
+kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); padding: 5px 7px; border-radius: 6px; background: var(--bg); border: 1px solid var(--rule); }
+.icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.caption { margin: 48px 0 10px; color: #777; font-size: 12px; }
+.caption:first-child { margin-top: 0; }
+.caption b { color: #bbb; font-weight: 600; }
+
+/* ---- window frame ---- */
+.frame { width: 1240px; height: 800px; overflow: hidden; background: var(--bg); display: flex; flex-direction: column; }
+.bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 68px; padding: 0 var(--gutter); flex: none; }
+.logo { font-weight: 700; font-size: 19px; letter-spacing: .06em; color: var(--text); }
+.logo em { font-style: normal; color: var(--muted); font-weight: 500; }
+.searchbox { width: 420px; }
+.search { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px 0 16px; border-radius: 12px; background: var(--raised); color: var(--muted); }
+.search span { flex: 1; font-size: 15px; color: var(--dim); }
+.icons { display: flex; justify-content: flex-end; gap: 4px; }
+.icons > button { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--muted); }
+.icons > button.on { color: var(--text); background: var(--raised); }
+.page { flex: 1; min-height: 0; overflow: hidden; padding: 8px var(--gutter) 40px; display: flex; flex-direction: column; }
+.section { margin-top: 24px; }
+.section:first-child { margin-top: 12px; }
+.section-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+.section-head h2 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.section-head .count { color: var(--muted); font-size: 13px; }
+.cards { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 18px 16px; }
+.card { position: relative; min-width: 0; }
+.poster { position: relative; aspect-ratio: 2 / 3; border-radius: var(--radius); background: var(--raised); overflow: hidden; box-shadow: 0 1px 0 color-mix(in oklab, var(--text) 8%, transparent) inset; }
+.poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.badges { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 4px; }
+.badge { font-size: 11px; font-weight: 600; line-height: 1; padding: 5px 7px; border-radius: 6px; background: color-mix(in oklab, #000 62%, transparent); color: #fff; }
+.card .t { display: block; min-height: calc(2 * 1.3em); margin-top: 10px; font-size: 14px; font-weight: 500; line-height: 1.3; }
+.card .s { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.upcoming .poster { filter: brightness(.5) saturate(.55); }
+.upcoming .t { color: var(--muted); }
+.tags { display: flex; gap: 4px; margin-top: 6px; }
+.tag { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; background: var(--raised); color: var(--muted); font-size: 10.5px; }
+.tag.more { color: var(--text); }
+.schedule-sub { color: var(--muted); font-size: 13px; }
+.schedule-days { display: flex; gap: 16px; margin-left: auto; }
+.schedule-days button { position: relative; padding: 2px 0; color: var(--muted); font-size: 14px; }
+.schedule-days button.on { color: var(--text); font-weight: 500; }
+.schedule-days button.today::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--text); }
+.schedule-audio { display: flex; gap: 12px; margin-left: 22px; padding-left: 22px; border-left: 1px solid var(--rule); }
+.schedule-audio button { color: var(--muted); font-size: 13px; font-weight: 500; }
+.schedule-audio button.on { color: var(--text); }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 500; background: var(--raised); color: var(--text); }
+.btn.primary { background: var(--cursor); color: var(--cursor-text); }
+.btn.primary kbd { background: color-mix(in oklab, var(--cursor), #000 10%); border-color: color-mix(in oklab, var(--cursor), #000 18%); color: var(--cursor-text); }
+.btn.small { height: 30px; padding: 0 12px; font-size: 13px; }
+.btn .icon { width: 16px; height: 16px; }
+.linkish { color: var(--muted); font-size: 13px; display: inline-flex; align-items: center; gap: 6px; }
+.linkish .icon { width: 14px; height: 14px; }
+.site-footer { margin-top: auto; padding: 32px 36px 24px; border-radius: 16px; background: var(--raised); flex: none; }
+.page > :has(+ .site-footer) { margin-bottom: 48px; }
+.footer-columns { display: grid; grid-template-columns: 1.4fr 1fr 1.4fr; gap: 40px; }
+.footer-about p { margin: 12px 0 0; max-width: 320px; color: var(--muted); line-height: 1.55; }
+.footer-about p a { color: var(--text); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+.footer-group h4 { margin: 0 0 12px; color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.footer-link { display: flex; align-items: center; gap: 12px; padding: 7px 0; color: var(--muted); }
+.footer-link .icon { width: 17px; height: 17px; }
+.footer-link.on { color: var(--text); }
+.creator { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
+.creator-portrait { width: 36px; height: 36px; border-radius: 50%; background: var(--raised2); display: grid; place-items: center; color: var(--muted); font-weight: 600; }
+.creator b { display: block; font-weight: 500; }
+.creator-socials { display: flex; gap: 8px; margin-top: 3px; color: var(--muted); }
+.creator-socials .icon { width: 15px; height: 15px; }
+
+/* ---- current ---- */
+.empty { padding: 40px 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
+.empty b { display: block; color: var(--text); font-weight: 600; font-size: 15px; margin-bottom: 4px; }
+
+/* ---- A · ghost row: the empty library keeps the shape of a full one ---- */
+.ghosts { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 18px 16px; }
+.ghost { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: var(--radius); background: var(--raised); }
+.ghost-row { -webkit-mask-image: linear-gradient(90deg, #000 30%, transparent 96%); mask-image: linear-gradient(90deg, #000 30%, transparent 96%); }
+.start-tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; aspect-ratio: 2 / 3; border-radius: var(--radius); background: var(--raised); color: var(--muted); border: 1px dashed color-mix(in oklab, var(--bg), var(--text) 22%); }
+.start-tile:hover { color: var(--text); background: var(--raised2); }
+.start-tile .icon { width: 22px; height: 22px; }
+.start-tile span { font-size: 13px; font-weight: 500; }
+.start-tile.on { border-style: solid; border-color: transparent; }
+.ghost-note { margin-top: 16px; color: var(--muted); font-size: 13px; }
+.ghost-note b { color: var(--text); font-weight: 600; margin-right: 8px; }
+
+/* ---- B · centred ---- */
+.centre { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 64px 0 56px; }
+.centre .ring { width: 44px; height: 44px; border-radius: 50%; background: var(--raised); display: grid; place-items: center; color: var(--muted); margin-bottom: 16px; }
+.centre .ring .icon { width: 20px; height: 20px; }
+.centre h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.centre p { margin: 6px 0 0; color: var(--muted); max-width: 44ch; }
+.centre .acts { display: flex; align-items: center; gap: 18px; margin-top: 22px; }
+.centre .acts .linkish { color: var(--muted); }
+.centre.tall { padding: 96px 0 80px; }
+
+/* ---- C · strip ---- */
+.strip { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 16px 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); color: var(--muted); }
+.strip b { color: var(--text); font-weight: 600; }
+.strip .sep { color: var(--dim); }
+.strip .btn { margin-left: auto; }
+.strip.soft { border: 0; padding: 14px 18px; border-radius: 12px; background: var(--raised); }
+.strip.soft .btn { background: var(--raised2); }
+.strip.soft kbd { background: var(--raised); }
+.strip .icon { width: 16px; height: 16px; color: var(--dim); }
+
+/* ---- D · schedule first ---- */
+.lead { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font-size: 13px; }
+.lead kbd { font-size: 10px; padding: 3px 5px; }
+.lead .icon { width: 15px; height: 15px; color: var(--dim); }
+
+/* ---- E · steps panel ---- */
+.steps { margin-top: 12px; padding: 26px 30px 24px; border-radius: 16px; background: var(--raised); }
+.steps-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.steps-head h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+.steps-head span { color: var(--muted); font-size: 13px; }
+.steps ol { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.steps li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; align-items: start; }
+.steps .n { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--raised2); color: var(--muted); font-size: 12px; font-weight: 600; }
+.steps b { display: block; font-weight: 600; font-size: 14px; }
+.steps p { margin: 3px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.steps .btn { background: var(--raised2); }
+.steps .btn kbd { background: var(--raised); }
+
+/* ---- F · big search ---- */
+.hero { display: flex; flex-direction: column; align-items: center; padding: 60px 0 48px; }
+.hero h3 { margin: 0 0 18px; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+.hero .field { display: flex; align-items: center; gap: 14px; width: 560px; height: 52px; padding: 0 14px 0 18px; border-radius: 14px; background: var(--raised); color: var(--muted); box-shadow: 0 0 0 1px var(--rule); }
+.hero .field span { flex: 1; font-size: 16px; color: var(--dim); }
+.hero .field .icon { width: 20px; height: 20px; }
+.hero .foot { margin-top: 14px; color: var(--dim); font-size: 12px; }
+.hero .foot b { color: var(--muted); font-weight: 500; }
+.hero.bare .field { box-shadow: none; }
+.bar.quiet .searchbox { visibility: hidden; }
+
+/* ---- fun takes on the ghost row ---- */
+.ghosts .gcard { min-width: 0; }
+.gcard > .start-tile { width: 100%; }
+.gcard .ghost { position: relative; }
+.gcard .gt { display: block; margin-top: 10px; font-size: 14px; font-weight: 500; line-height: 1.3; color: var(--dim); min-height: calc(2 * 1.3em); }
+.gcard .gs { display: block; margin-top: 3px; font-size: 12px; color: color-mix(in oklab, var(--bg), var(--text) 26%); }
+.gbadge { position: absolute; left: 8px; bottom: 8px; font-size: 11px; font-weight: 600; line-height: 1; padding: 5px 7px; border-radius: 6px; background: var(--raised2); color: var(--dim); }
+/* terminal tile */
+.term-tile { align-items: flex-start; justify-content: flex-start; padding: 14px; font: 500 17px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; gap: 6px; }
+.term-tile .prompt { color: var(--muted); }
+.term-tile .cursor { display: inline-block; width: .6em; height: 1.05em; vertical-align: text-bottom; background: var(--muted); }
+@keyframes blink { to { visibility: hidden; } }
+.term-tile .hint { margin-top: auto; font: 500 12px/1.4 Inter, system-ui, sans-serif; color: var(--dim); }
+.term-tile .hint b { color: var(--muted); font-weight: 500; }
+/* faint poster-like shapes */
+.shape { position: absolute; inset: 0; color: color-mix(in oklab, var(--bg), var(--text) 13%); }
+.shape svg { width: 100%; height: 100%; }
+/* tilted deal */
+.deal .ghost { transform-origin: 30% 120%; }
+.deal > :nth-child(2) .ghost { transform: rotate(-1.4deg); }
+.deal > :nth-child(3) .ghost { transform: rotate(-2.8deg); }
+.deal > :nth-child(4) .ghost { transform: rotate(-4.2deg); }
+.deal > :nth-child(5) .ghost { transform: rotate(-5.6deg); }
+.deal > :nth-child(6) .ghost { transform: rotate(-7.0deg); }
+.deal > :nth-child(7) .ghost { transform: rotate(-8.4deg); }
+.deal > :nth-child(8) .ghost { transform: rotate(-9.8deg); }
+/* doodles */
+.doodle { position: absolute; inset: 0; display: grid; place-items: center; color: color-mix(in oklab, var(--bg), var(--text) 30%); }
+.doodle svg { width: 44px; height: 44px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.fun-note { margin-top: 16px; color: var(--muted); font-size: 13px; }
+.fun-note b { color: var(--text); font-weight: 600; margin-right: 8px; }
+.wink { color: var(--dim); }
+/* peek: blurred schedule art */
+.peek img { width: 100%; height: 100%; object-fit: cover; display: block; filter: blur(14px) brightness(.35) saturate(.6); transform: scale(1.15); }
+.peek .glabel { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; font-size: 11px; color: var(--dim); }
+
+/* ---- art tiles: images from nekosapi.com (design/shots/nekos, downloaded, not committed) ---- */
+.art-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.art-row.dimmed .art-tile img { filter: brightness(.55) saturate(.7); }
+.art-row.shy .art-tile img { filter: grayscale(1) brightness(.5) contrast(.9); }
+.art-row.shy .art-tile.hover img { filter: none; }
+.art-row.shy .art-tile.hover { box-shadow: 0 0 0 2px var(--rule); }
+.art-credit { color: var(--dim); font-size: 11px; margin-left: auto; }
+.fun-note.with-credit { display: flex; align-items: baseline; gap: 6px; }
+.start-tile.art { position: relative; border: 0; overflow: hidden; padding: 0; justify-content: flex-end; align-items: stretch; }
+.start-tile.art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(.8); }
+.start-tile.art .lab { position: relative; display: flex; align-items: center; gap: 8px; padding: 12px 12px 12px; background: linear-gradient(transparent, rgb(0 0 0 / 75%)); color: #fff; font-size: 13px; font-weight: 500; padding-top: 40px; }
+.start-tile.art .lab .icon { width: 16px; height: 16px; }
+.companion .gt { color: var(--text); }
+.companion .gs { color: var(--muted); white-space: normal; }
+
+/* ---- backdrop art: the tiles stay ghostly, the art sits behind at low opacity ---- */
+.frame { position: relative; }
+.frame > .bar, .frame > .page { position: relative; z-index: 1; }
+.backdrop { position: absolute; z-index: 0; pointer-events: none; overflow: hidden; }
+.backdrop img { display: block; width: 100%; height: 100%; object-fit: cover; }
+/* B1: a wash across the top section, fading down before the schedule */
+.backdrop.wash { left: 0; right: 0; top: 0; height: 520px; opacity: .14; -webkit-mask-image: linear-gradient(#000 40%, transparent 100%); mask-image: linear-gradient(#000 40%, transparent 100%); }
+.backdrop.wash img { filter: saturate(.8); object-position: center 30%; }
+/* B2: a character peeking from the top-right corner, behind the fading end of the ghost row */
+.backdrop.corner { right: 0; top: 0; width: 520px; height: 620px; opacity: .55; -webkit-mask-image: radial-gradient(ellipse 70% 70% at 85% 30%, #000 20%, transparent 70%); mask-image: radial-gradient(ellipse 70% 70% at 85% 30%, #000 20%, transparent 70%); }
+.backdrop.corner img { filter: brightness(.7) saturate(.85); object-position: center top; }
+/* B3: a blurred colour wash, no readable art */
+.backdrop.glow { left: -80px; right: -80px; top: -80px; height: 620px; opacity: .32; filter: blur(70px) saturate(1.2); -webkit-mask-image: linear-gradient(#000 50%, transparent 100%); mask-image: linear-gradient(#000 50%, transparent 100%); }
+/* B4: window tiles; the art shows only through the outlined ghost tiles */
+.windows .ghost { background: none; border: 1px solid color-mix(in oklab, var(--bg), var(--text) 14%); }
+.windows .ghost::before { content: ""; position: absolute; inset: 0; background-image: var(--art); background-size: 1120px auto; background-position: var(--x) 30%; opacity: .28; filter: saturate(.85); }
+/* B5: a wallpaper in the window's bottom-right corner, behind everything */
+.backdrop.wallpaper { right: 0; bottom: 0; width: 640px; height: 640px; opacity: .12; -webkit-mask-image: radial-gradient(ellipse 80% 80% at 100% 100%, #000 30%, transparent 75%); mask-image: radial-gradient(ellipse 80% 80% at 100% 100%, #000 30%, transparent 75%); }
+.backdrop.wallpaper img { object-position: center 20%; }
+.backdrop-credit { position: absolute; right: var(--gutter); bottom: 12px; z-index: 1; color: var(--dim); font-size: 11px; }
+
+/* ---- credit placements ---- */
+.foot-line { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 18px; border-top: 1px solid color-mix(in oklab, var(--raised), var(--text) 8%); color: var(--dim); font-size: 12px; }
+.foot-line a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in oklab, var(--dim), transparent 50%); text-underline-offset: 2px; }
+.credit-caption { position: absolute; right: var(--gutter); top: 74px; z-index: 2; color: var(--dim); font-size: 11px; }
+.credit-caption a, .credit-pin a, .footer-about .credit a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in oklab, var(--dim), transparent 50%); text-underline-offset: 2px; }
+.credit-pin { position: absolute; right: 14px; bottom: 10px; z-index: 2; color: var(--dim); font-size: 11px; opacity: .8; }
+.footer-about .credit { color: var(--dim); font-size: 12px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/></symbol>
+  <symbol id="bookmark" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4z"/></symbol>
+  <symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></symbol>
+  <symbol id="github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3.3-.4 6.8-1.6 6.8-7.4A5.8 5.8 0 0 0 19.3 3 5.4 5.4 0 0 0 19.1-.1S17.9-.5 15 1.5a13.4 13.4 0 0 0-6 0C6.1-.5 4.9-.1 4.9-.1A5.4 5.4 0 0 0 4.7 3a5.8 5.8 0 0 0-1.5 4.1c0 5.8 3.5 7 6.8 7.4A4.8 4.8 0 0 0 9 18v4"/><path d="M9 19c-3 .9-3-1.5-4.2-2"/></symbol>
+  <symbol id="mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></symbol>
+</svg>
+
+<div id="out"></div>
+
+<script>
+const svgPoster = (bg, shapes) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300"><rect width="200" height="300" fill="${bg}"/>${shapes}</svg>`)}`;
+const posters = {
+  frieren: svgPoster("#DCE9F2", '<circle cx="120" cy="80" r="70" fill="#4F7BA6" opacity=".9"/><path d="M0 160 L200 110 L200 300 L0 300Z" fill="#1E2B3A"/>'),
+  dandadan: svgPoster("#F5E64A", '<circle cx="70" cy="90" r="45" fill="#E23A3A"/><rect x="40" y="150" width="120" height="30" fill="#111"/>'),
+  apothecary: svgPoster("#F3E4E8", '<rect x="20" y="40" width="110" height="120" fill="#B8556E"/><rect x="90" y="120" width="90" height="90" fill="#3B6B58" opacity=".85"/>')
+};
+const ic = (name) => `<svg class="icon"><use href="#${name}"/></svg>`;
+const K = `<kbd>⌘K</kbd>`;
+
+const bar = (on, placeholder = "Search anime", extra = "") => `
+<header class="bar ${extra}">
+  <div class="brand"><span class="logo">ANI<em>desktop</em></span></div>
+  <div class="searchbox"><div class="search">${ic("search")}<span>${placeholder}</span>${K}</div></div>
+  <nav class="icons">
+    <button class="${on === "home" ? "on" : ""}">${ic("home")}</button>
+    <button class="${on === "saved" ? "on" : ""}">${ic("bookmark")}</button>
+    <button class="${on === "recent" ? "on" : ""}">${ic("clock")}</button>
+    <button>${ic("gear")}</button>
+  </nav>
+</header>`;
+
+const card = (poster, title, when, ep) => `
+<div class="card upcoming">
+  <div class="poster"><img src="${poster}"><div class="badges"><span class="badge">EP ${ep}</span></div></div>
+  <span class="t">${title}</span><span class="s">${when}</span>
+  <div class="tags"><span class="tag">Adventure</span><span class="tag more">+2</span></div>
+</div>`;
+
+const schedule = `
+<section class="section section-schedule">
+  <div class="section-head"><h2>Schedule</h2><span class="schedule-sub">Summer 2026 · estimated release times · GMT+10</span>
+    <div class="schedule-days">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => `<button class="${d === "Wed" ? "on today" : ""}">${d}</button>`).join("")}</div>
+    <div class="schedule-audio"><button class="on">SUB</button><button>DUB</button></div>
+  </div>
+  <div class="cards">
+    ${card(posters.frieren, "Frieren: Beyond Journey's End", "16:30 · in 10h", 13)}
+    ${card(posters.dandadan, "Dandadan", "19:00 · in 13h", 4)}
+    ${card(posters.apothecary, "The Apothecary Diaries", "21:15 · in 15h", 8)}
+  </div>
+</section>`;
+
+const footer = (on) => `
+<footer class="site-footer"><div class="footer-columns">
+  <div class="footer-about"><span class="logo">ANI<em>desktop</em></span>
+    <p>Browse and watch anime from several providers in one place, and keep track of what comes next.</p>
+    <p>Built on <a>ani-cli</a> by <a>pystardust</a> and its contributors, whose work is the foundation of this app.</p>
+    <p>Source on <a>GitHub</a>.</p></div>
+  <div class="footer-group"><h4>App</h4>
+    <a class="footer-link ${on === "home" ? "on" : ""}">${ic("home")}Home</a><a class="footer-link ${on === "saved" ? "on" : ""}">${ic("bookmark")}Saved</a>
+    <a class="footer-link ${on === "recent" ? "on" : ""}">${ic("clock")}Recent</a><a class="footer-link">${ic("gear")}Settings</a></div>
+  <div class="footer-group"><h4>Made by</h4>
+    <div class="creator"><span class="creator-portrait">H</span><div><b>Hanifi</b><div class="creator-socials">${ic("github")}${ic("mail")}</div></div></div>
+    <div class="creator"><span class="creator-portrait">P</span><div><b>Pascal</b><div class="creator-socials">${ic("github")}${ic("mail")}</div></div></div></div>
+</div></footer>`;
+
+const frame = (name, caption, body, on = "home", placeholder, barExtra) => `
+<div class="caption"><b>${name}</b> · ${caption}</div>
+<div class="frame" data-variant="${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}">${bar(on, placeholder, barExtra)}<div class="page">${body}</div></div>`;
+
+const ghostRow = (tileIcon, tileLabel, tileOn = false) => `
+<div class="ghosts ghost-row">
+  <button class="start-tile ${tileOn ? "on" : ""}">${ic(tileIcon)}<span>${tileLabel}</span></button>
+  ${"<div class=\"ghost\"></div>".repeat(7)}
+</div>`;
+
+const out = [];
+
+// Current, for comparison.
+out.push(frame("Current", "what ships today", `
+<div class="empty"><b>Nothing here yet</b>Search for a title with ${K}. Titles you watch and save appear here.</div>${schedule}`));
+
+// A · ghost row
+out.push(frame("A1 · Ghost row", "the empty library keeps the shape of a full one; the first tile is the search action, the rest fade out", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2></div>
+${ghostRow("search", "Search anime")}
+<div class="ghost-note"><b>Nothing here yet</b>Titles you watch and save appear here.</div></section>${schedule}`));
+
+out.push(frame("A2 · Ghost row, tile only", "same, without the dashed border and the note: one raised tile and a fading row", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet</span></div>
+${ghostRow("search", "Search anime", true)}</section>${schedule}`));
+
+// B · centred
+out.push(frame("B1 · Centred", "a small centred block with an icon, one line, and the search button; the schedule follows", `
+<div class="centre"><span class="ring">${ic("search")}</span><h3>Nothing here yet</h3><p>Titles you watch and save appear here.</p>
+<div class="acts"><button class="btn">${ic("search")}Search anime ${K}</button><span class="linkish">${ic("down")}See what is airing this week</span></div></div>${schedule}`));
+
+out.push(frame("B2 · Centred, primary", "same block with the highlight button, and without the icon", `
+<div class="centre"><h3>Nothing here yet</h3><p>Search for a title to get started. Titles you watch and save appear here.</p>
+<div class="acts"><button class="btn primary">Search anime ${K}</button></div></div>${schedule}`));
+
+// C · strip
+out.push(frame("C1 · Strip", "one hairline row: the message on the left, the action on the right; the schedule rises to the top", `
+<div class="strip"><b>Nothing here yet</b><span>Titles you watch and save appear here.</span><button class="btn small">Search anime ${K}</button></div>${schedule}`));
+
+out.push(frame("C2 · Strip, raised", "the same row as a soft panel, like the update banner", `
+<div class="strip soft">${ic("search")}<b>Nothing here yet</b><span>Titles you watch and save appear here.</span><button class="btn small">Search anime ${K}</button></div>${schedule}`));
+
+// D · schedule first
+out.push(frame("D · Schedule first", "the schedule becomes the page; a single muted line above it explains the empty library", `
+<div class="lead">${ic("search")}Nothing watched or saved yet. Press ${K} to search, or start with something airing this week.</div>${schedule}`));
+
+// E · steps
+out.push(frame("E · Steps panel", "a raised panel with three short steps and the search button, like the footer", `
+<div class="steps"><div class="steps-head"><h3>Nothing here yet</h3><button class="btn small">Search anime ${K}</button></div>
+<ol>
+  <li><span class="n">1</span><div><b>Search a title</b><p>Press ${K} or type in the bar. Results come from every source at once.</p></div></li>
+  <li><span class="n">2</span><div><b>Open the series</b><p>Pick sub or dub and a quality, then play any episode.</p></div></li>
+  <li><span class="n">3</span><div><b>Come back here</b><p>What you watch shows under Continue watching. Save a series to keep it.</p></div></li>
+</ol></div>${schedule}`));
+
+// F · big search
+out.push(frame("F · Big search", "the page opens with a large search field, like a landing page; the bar's pill stays", `
+<div class="hero"><h3>What do you want to watch?</h3><div class="field">${ic("search")}<span>Search anime</span>${K}</div>
+<div class="foot">Titles you watch and save appear here. <b>Or scroll for this week's schedule.</b></div></div>${schedule}`));
+
+// Saved and Recent in three of the treatments.
+out.push(frame("Saved A · Ghost row", "the ghost row on the Saved page", `
+<section class="section"><div class="section-head"><h2>Saved</h2></div>
+${ghostRow("bookmark", "Save a series")}
+<div class="ghost-note"><b>Nothing saved yet</b>Open a series and choose Save. Saved titles keep their place here.</div></section>${footer("saved")}`, "saved", "Filter saved titles"));
+
+out.push(frame("Saved B · Centred", "the centred block on the Saved page", `
+<section class="section"><div class="section-head"><h2>Saved</h2></div>
+<div class="centre tall"><span class="ring">${ic("bookmark")}</span><h3>Nothing saved yet</h3><p>Open a series and choose Save. Saved titles keep their place here.</p>
+<div class="acts"><button class="btn">${ic("search")}Search anime ${K}</button></div></div></section>${footer("saved")}`, "saved", "Filter saved titles"));
+
+out.push(frame("Recent C · Strip", "the hairline strip on the Recent page", `
+<section class="section"><div class="section-head"><h2>Recent</h2></div>
+<div class="strip"><b>Nothing watched yet</b><span>Every episode you open is listed here.</span><button class="btn small">Search anime ${K}</button></div></section>${footer("recent")}`, "recent", "Filter recent titles"));
+
+
+// ---- fun takes ----
+const doodles = {
+  star: '<path d="M12 3.5l2.6 5.6 6.1.7-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.8l6.1-.7z"/>',
+  onigiri: '<path d="M12 4c3 0 8 5.5 8 11.5 0 2-1 3.5-3 3.5H7c-2 0-3-1.5-3-3.5C4 9.5 9 4 12 4z"/><path d="M9.5 19v-4.5h5V19"/>',
+  cat: '<path d="M6 10 5 4l4.5 3h5L19 4l-1 6a7 7 0 1 1-12 0z"/><path d="M9.5 13.5h.01M14.5 13.5h.01M11 16.5l1 .8 1-.8"/>',
+  sparkle: '<path d="M12 3v6M12 15v6M3 12h6M15 12h6"/><path d="M7.5 7.5l2 2M14.5 14.5l2 2M16.5 7.5l-2 2M9.5 14.5l-2 2"/>',
+  popcorn: '<path d="M6 9h12l-1.5 11h-9z"/><path d="M6 9a2.5 2.5 0 0 1 1-4.5 3 3 0 0 1 5-1.5 3 3 0 0 1 5 1.5A2.5 2.5 0 0 1 18 9M10 9l.7 11M14 9l-.7 11"/>',
+  moon: '<path d="M15 4a8 8 0 1 0 5 13 7 7 0 0 1-5-13z"/>',
+  tv: '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 3l4 4 4-4M9 21h6"/>',
+  play: '<circle cx="12" cy="12" r="8.5"/><path d="M10 8.5v7l5.5-3.5z"/>'
+};
+const shapes = [
+  '<svg viewBox="0 0 200 300"><circle cx="120" cy="90" r="60" fill="currentColor"/><path d="M0 200 200 150v150H0z" fill="currentColor" opacity=".6"/></svg>',
+  '<svg viewBox="0 0 200 300"><rect x="30" y="50" width="100" height="120" fill="currentColor"/><circle cx="140" cy="200" r="45" fill="currentColor" opacity=".6"/></svg>',
+  '<svg viewBox="0 0 200 300"><path d="M0 120 200 60v240H0z" fill="currentColor"/><circle cx="100" cy="190" r="40" fill="currentColor" opacity=".5"/></svg>',
+  '<svg viewBox="0 0 200 300"><circle cx="70" cy="90" r="45" fill="currentColor"/><rect x="40" y="170" width="120" height="28" fill="currentColor" opacity=".6"/></svg>',
+  '<svg viewBox="0 0 200 300"><rect x="20" y="40" width="110" height="120" fill="currentColor"/><rect x="90" y="120" width="90" height="90" fill="currentColor" opacity=".5"/></svg>',
+  '<svg viewBox="0 0 200 300"><path d="M0 0h200v140L0 220z" fill="currentColor"/></svg>',
+  '<svg viewBox="0 0 200 300"><circle cx="100" cy="150" r="70" fill="currentColor"/></svg>'
+];
+const namedGhost = (title, sub, i) => `<div class="gcard"><div class="ghost">${sub ? `<span class="gbadge">${sub}</span>` : ""}</div><span class="gt">${title}</span></div>`;
+const homeNames = ["Your first pick", "A friend's recommendation", "The one everyone is talking about", "A comfort rewatch", "That 1,000-episode commitment", "Something airing this week", "A hidden gem"];
+const savedNames = ["The one to finish", "For a rainy day", "Waiting for season 2", "A friend swears by it", "Started, paused, promised", "Saving the best for last", "A hidden gem"];
+const recentNames = ["Last night", "The weekend binge", "One episode before bed", "Okay, three episodes", "The rewatch", "The lunch-break one", "A hidden gem"];
+
+out.push(frame("Fun 1 · Named ghosts", "the ghost cards carry playful placeholder titles and an EP 1 badge, as if the row is already reserved", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet, no pressure</span></div>
+<div class="ghosts ghost-row"><div class="gcard"><button class="start-tile on">${ic("search")}<span>Search anime</span></button></div>
+${homeNames.map((n, i) => namedGhost(i < 6 ? n : "", i < 5 ? "EP 1" : "", i)).join("")}</div></section>${schedule}`));
+
+out.push(frame("Fun 2 · Terminal tile", "a nod to ani-cli: the first tile is a prompt with a blinking cursor; the ghosts hold faint poster shapes", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">waiting for input</span></div>
+<div class="ghosts ghost-row"><button class="start-tile on term-tile"><span><span class="prompt">&gt; </span><span class="cursor"></span></span><span class="hint">Type to search<br><b>⌘K</b> or <b>/</b></span></button>
+${shapes.map((sh) => `<div class="ghost"><div class="shape">${sh}</div></div>`).join("")}</div>
+<div class="fun-note"><b>Nothing here yet</b>Titles you watch and save appear here. <span class="wink">The row is reserved.</span></div></section>${schedule}`));
+
+out.push(frame("Fun 3 · Dealt hand", "the ghost posters fan out like cards being dealt; the search tile stays upright", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">deal yourself something</span></div>
+<div class="ghosts ghost-row deal"><button class="start-tile on">${ic("search")}<span>Search anime</span></button>${"<div><div class=\"ghost\"></div></div>".repeat(7)}</div></section>${schedule}`));
+
+out.push(frame("Fun 4 · Doodles", "each ghost carries one faint line doodle; the note ends with a wink", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row"><button class="start-tile on">${ic("search")}<span>Search anime</span></button>
+${["popcorn","star","onigiri","cat","moon","sparkle","tv"].map((d) => `<div class="ghost"><div class="doodle"><svg viewBox="0 0 24 24">${doodles[d]}</svg></div></div>`).join("")}</div>
+<div class="fun-note"><b>Nothing here yet</b>Titles you watch and save appear here. <span class="wink">Fill it with good stuff.</span></div></section>${schedule}`));
+
+out.push(frame("Fun 5 · Sneak peek", "the ghosts hold this week's schedule posters, blurred and dimmed; a hover would sharpen one", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row"><button class="start-tile on">${ic("search")}<span>Search anime</span></button>
+${[posters.frieren, posters.dandadan, posters.apothecary, posters.frieren, posters.dandadan, posters.apothecary, posters.frieren].map((p, i) => `<div class="ghost peek"><img src="${p}">${i === 0 ? '<span class="glabel">airing today</span>' : ""}</div>`).join("")}</div>
+<div class="fun-note"><b>Nothing here yet</b>Titles you watch and save appear here. <span class="wink">Something from the schedule, maybe?</span></div></section>${schedule}`));
+
+out.push(frame("Fun 6 · Saved, named ghosts", "Fun 1 applied to Saved", `
+<section class="section"><div class="section-head"><h2>Saved</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row"><div class="gcard"><button class="start-tile">${ic("bookmark")}<span>Save a series</span></button></div>
+${savedNames.map((n, i) => namedGhost(i < 6 ? n : "", "", i)).join("")}</div>
+<div class="fun-note"><b>Nothing saved yet</b>Open a series and choose Save. <span class="wink">The shelf is ready.</span></div></section>${footer("saved")}`, "saved", "Filter saved titles"));
+
+out.push(frame("Fun 7 · Recent, doodles", "Fun 4 applied to Recent", `
+<section class="section"><div class="section-head"><h2>Recent</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row"><button class="start-tile">${ic("play")}<span>Play something</span></button>
+${["popcorn","tv","moon","star","cat","sparkle","onigiri"].map((d) => `<div class="ghost"><div class="doodle"><svg viewBox="0 0 24 24">${doodles[d]}</svg></div></div>`).join("")}</div>
+<div class="fun-note"><b>Nothing watched yet</b>Every episode you open is listed here. <span class="wink">No judgement on the count.</span></div></section>${footer("recent")}`, "recent", "Filter recent titles"));
+
+out.push(frame("Fun 8 · Recent, named ghosts", "Fun 1 applied to Recent", `
+<section class="section"><div class="section-head"><h2>Recent</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row"><div class="gcard"><button class="start-tile">${ic("play")}<span>Play something</span></button></div>
+${recentNames.map((n, i) => namedGhost(i < 6 ? n : "", i < 4 ? "EP 1" : "", i)).join("")}</div></section>${footer("recent")}`, "recent", "Filter recent titles"));
+
+
+// ---- art tiles ----
+const art = (id) => `../shots/nekos/${id}.webp`;
+const homeArt = [32082, 1876, 17201, 41078, 11649, 19118, 7579];
+const savedArt = [30444, 6708, 2524, 15502, 3754, 5834, 17128];
+const recentArt = [1868, 25265, 18542, 17128, 2524, 11649, 7579];
+const artTiles = (ids, hover = -1) => ids.map((id, i) => `<div class="ghost art-tile ${i === hover ? "hover" : ""}"><img src="${art(id)}"></div>`).join("");
+const artCards = (ids, names) => ids.map((id, i) => `<div class="gcard"><div class="ghost art-tile"><img src="${art(id)}"></div><span class="gt">${names[i] ?? ""}</span></div>`).join("");
+const credit = `<span class="art-credit">art via nekosapi.com</span>`;
+
+out.push(frame("Nekos 1 · Art row, dimmed", "the ghost slots hold artwork, dimmed like the schedule's unaired posters so it reads as background; a small credit sits on the note line", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row art-row dimmed"><button class="start-tile on">${ic("search")}<span>Search anime</span></button>${artTiles(homeArt)}</div>
+<div class="fun-note with-credit"><b>Nothing here yet</b>Titles you watch and save appear here.${credit}</div></section>${schedule}`));
+
+out.push(frame("Nekos 2 · Art row, full colour with names", "full-colour artwork with the playful placeholder titles from Fun 1", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet, no pressure</span></div>
+<div class="ghosts ghost-row art-row"><div class="gcard"><button class="start-tile on">${ic("search")}<span>Search anime</span></button></div>${artCards(homeArt, homeNames.slice(0, 6))}</div>
+<div class="fun-note with-credit"><b>Nothing here yet</b>Titles you watch and save appear here.${credit}</div></section>${schedule}`));
+
+out.push(frame("Nekos 3 · One companion", "a single artwork tile next to the search tile carries the message as its title; the rest stay plain ghosts", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row"><div class="gcard"><button class="start-tile on">${ic("search")}<span>Search anime</span></button></div>
+<div class="gcard companion"><div class="ghost art-tile"><img src="${art(1876)}"></div><span class="gt">Nothing here yet</span><span class="gs">Titles you watch and save appear here.</span></div>
+${"<div class=\"ghost\"></div>".repeat(6)}</div>
+<div class="fun-note with-credit"><span></span>${credit}</div></section>${schedule}`));
+
+out.push(frame("Nekos 4 · Art in the search tile", "the artwork lives inside the search tile itself, behind a dark gradient and the label; the row stays plain ghosts", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row"><button class="start-tile on art"><img src="${art(41078)}"><span class="lab">${ic("search")}Search anime</span></button>${"<div class=\"ghost\"></div>".repeat(7)}</div>
+<div class="fun-note with-credit"><b>Nothing here yet</b>Titles you watch and save appear here.${credit}</div></section>${schedule}`));
+
+out.push(frame("Nekos 5 · Shy row", "greyscale artwork at low contrast; hovering a tile brings its colour back (the third tile shows the hover state)", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row art-row shy"><button class="start-tile on">${ic("search")}<span>Search anime</span></button>${artTiles(homeArt, 2)}</div>
+<div class="fun-note with-credit"><b>Nothing here yet</b>Titles you watch and save appear here.${credit}</div></section>${schedule}`));
+
+out.push(frame("Nekos 6 · Saved, dimmed row", "Nekos 1 on the Saved page with a different set of images", `
+<section class="section"><div class="section-head"><h2>Saved</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row art-row dimmed"><button class="start-tile">${ic("bookmark")}<span>Save a series</span></button>${artTiles(savedArt)}</div>
+<div class="fun-note with-credit"><b>Nothing saved yet</b>Open a series and choose Save. Saved titles keep their place here.${credit}</div></section>${footer("saved")}`, "saved", "Filter saved titles"));
+
+out.push(frame("Nekos 7 · Recent, one companion", "Nekos 3 on the Recent page", `
+<section class="section"><div class="section-head"><h2>Recent</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row"><div class="gcard"><button class="start-tile">${ic("play")}<span>Play something</span></button></div>
+<div class="gcard companion"><div class="ghost art-tile"><img src="${art(1868)}"></div><span class="gt">Nothing watched yet</span><span class="gs">Every episode you open is listed here.</span></div>
+${"<div class=\"ghost\"></div>".repeat(6)}</div>
+<div class="fun-note with-credit"><span></span>${credit}</div></section>${footer("recent")}`, "recent", "Filter recent titles"));
+
+out.push(frame("Nekos 8 · Recent, full colour with names", "Nekos 2 on the Recent page", `
+<section class="section"><div class="section-head"><h2>Recent</h2><span class="count">nothing yet</span></div>
+<div class="ghosts ghost-row art-row"><div class="gcard"><button class="start-tile">${ic("play")}<span>Play something</span></button></div>${artCards(recentArt, recentNames.slice(0, 6))}</div>
+<div class="fun-note with-credit"><b>Nothing watched yet</b>Every episode you open is listed here.${credit}</div></section>${footer("recent")}`, "recent", "Filter recent titles"));
+
+
+// ---- backdrop art ----
+const plainRow = (icon, label, on = true) => `<div class="ghosts ghost-row"><button class="start-tile ${on ? "on" : ""}">${ic(icon)}<span>${label}</span></button>${"<div class=\"ghost\"></div>".repeat(7)}</div>`;
+const windowRow = (icon, label, id, on = true) => `<div class="ghosts ghost-row windows" style="--art:url('${art(id)}')"><button class="start-tile ${on ? "on" : ""}">${ic(icon)}<span>${label}</span></button>${[1,2,3,4,5,6,7].map((i) => `<div class="ghost" style="--x:${-i * 142}px"></div>`).join("")}</div>`;
+const bd = (kind, id) => `<div class="backdrop ${kind}"><img src="${art(id)}"></div>`;
+const bdFrame = (name, caption, kind, id, body, on = "home", placeholder) => {
+  const f = frame(name, caption, body, on, placeholder);
+  return f.replace('<div class="page">', `${bd(kind, id)}<div class="page">`).replace(/<\/div>$/, `<span class="backdrop-credit">art via nekosapi.com</span></div>`);
+};
+const homeSection = (sub = "nothing yet") => `<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">${sub}</span></div>${plainRow("search", "Search anime")}</section>`;
+
+out.push(bdFrame("Backdrop 1 · Section wash", "one wide artwork behind the top section at 14% opacity, fading out before the schedule; the ghost row is untouched", "wash", 8879, `${homeSection()}${schedule}`));
+out.push(bdFrame("Backdrop 2 · Corner peek", "a character peeks from the top-right corner behind the fading end of the ghost row, masked to a soft ellipse", "corner", 11649, `${homeSection()}${schedule}`));
+out.push(bdFrame("Backdrop 3 · Colour glow", "the artwork is blurred into a colour wash behind the section: warmth without a readable picture", "glow", 3295, `${homeSection()}${schedule}`));
+out.push(frame("Backdrop 4 · Window tiles", "the ghost tiles become outlined windows and the art shows through them at 28%, hidden in the gaps", `
+<section class="section"><div class="section-head"><h2>Continue watching</h2><span class="count">nothing yet</span></div>${windowRow("search", "Search anime", 20268)}
+<div class="fun-note with-credit"><b>Nothing here yet</b>Titles you watch and save appear here.${credit}</div></section>${schedule}`));
+out.push(bdFrame("Backdrop 5 · Wallpaper", "a wallpaper in the window's bottom-right corner at 12% opacity, behind everything including the schedule", "wallpaper", 9002, `${homeSection()}${schedule}`));
+
+out.push(bdFrame("Backdrop 6 · Saved, section wash", "Backdrop 1 on Saved", "wash", 20268, `
+<section class="section"><div class="section-head"><h2>Saved</h2><span class="count">nothing yet</span></div>${plainRow("bookmark", "Save a series", false)}
+<div class="fun-note"><b>Nothing saved yet</b>Open a series and choose Save. Saved titles keep their place here.</div></section>${footer("saved")}`, "saved", "Filter saved titles"));
+out.push(bdFrame("Backdrop 7 · Saved, corner peek", "Backdrop 2 on Saved", "corner", 17201, `
+<section class="section"><div class="section-head"><h2>Saved</h2><span class="count">nothing yet</span></div>${plainRow("bookmark", "Save a series", false)}
+<div class="fun-note"><b>Nothing saved yet</b>Open a series and choose Save. Saved titles keep their place here.</div></section>${footer("saved")}`, "saved", "Filter saved titles"));
+out.push(frame("Backdrop 8 · Recent, window tiles", "Backdrop 4 on Recent", `
+<section class="section"><div class="section-head"><h2>Recent</h2><span class="count">nothing yet</span></div>${windowRow("play", "Play something", 8879, false)}
+<div class="fun-note with-credit"><b>Nothing watched yet</b>Every episode you open is listed here.${credit}</div></section>${footer("recent")}`, "recent", "Filter recent titles"));
+
+
+// ---- credit placements ----
+const savedBody = `<section class="section"><div class="section-head"><h2>Saved</h2><span class="count">nothing yet</span></div>${plainRow("bookmark", "Save a series", false)}
+<div class="fun-note"><b>Nothing saved yet</b>Open a series and choose Save. Saved titles keep their place here.</div></section>`;
+const creditText = `art via <a>nekosapi.com</a> · <a>source</a>`;
+const footerWith = (foot) => footer("saved").replace("</div></footer>", `</div>${foot}</footer>`);
+const footerLine = `<div class="foot-line"><span>ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span><span>${creditText}</span></div>`;
+const footerAbout = footer("saved").replace("<p>Source on <a>GitHub</a>.</p>", `<p>Source on <a>GitHub</a>.</p><p class="credit">Backdrop ${creditText}.</p>`).replace("</div></footer>", `</div><div class="foot-line"><span>ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span></div></footer>`);
+const bdFrame2 = (name, caption, kind, id, body, extra = "") => {
+  const f = frame(name, caption, body, "saved", "Filter saved titles");
+  return f.replace('<div class="page">', `${bd(kind, id)}<div class="page">`).replace(/<\/div>$/, `${extra}</div>`);
+};
+out.push(bdFrame2("Credit 1 · Footer foot line", "the credit joins the footer's dim foot line, at its right end; the page column stays clean", "wash", 20268, `${savedBody}${footerWith(footerLine)}`));
+out.push(bdFrame2("Credit 2 · Footer about column", "one more dim line in the footer's about column, under 'Source on GitHub'", "wash", 20268, `${savedBody}${footerAbout}`));
+out.push(bdFrame2("Credit 3 · Caption under the bar", "a photo-style caption at the top-right, just under the bar, sitting on the art itself", "wash", 20268, `${savedBody}${footerWith(`<div class="foot-line"><span>ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span></div>`)}`, `<span class="credit-caption">${creditText}</span>`));
+out.push(bdFrame2("Credit 4 · Pinned corner", "pinned to the window's bottom-right corner like a watermark, outside the page column and the footer", "wash", 20268, `${savedBody}${footerWith(`<div class="foot-line"><span>ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span></div>`)}`, `<span class="credit-pin">${creditText}</span>`));
+out.push(bdFrame2("Credit 3b · Caption, corner art", "the caption under the bar with the corner figure", "corner", 17201, `${savedBody}${footerWith(`<div class="foot-line"><span>ANIdesktop does not host streamed media. Titles and playback availability depend on their providers.</span></div>`)}`, `<span class="credit-caption">${creditText}</span>`));
+
+document.getElementById("out").innerHTML = out.join("");
+</script>

@@ -108,3 +108,11 @@ describe("source parsers", () => {
     expect(parseHiAnimeEmbed(`<script>window.__P="${encoded.toString("base64")}"</script>`)).toEqual(source);
   });
 });
+
+describe("AniWave search cards", () => {
+  it("keeps facts and artwork inside each AniWave search card", () => {
+    const card = (slug: string, title: string, type: string, episodes: number) => `<div class="item"><img src="https://img.test/${slug}.jpg"><div class="right">${type}</div><div class="ep-status total"><span>${episodes}</span></div><a class="name" href="/watch/${slug}">${title}</a></div>`;
+    const rows = parseAniwaveSearch(card("movie-1", "Movie", "Movie", 1) + card("series-2", "Series", "TV", 12));
+    expect(rows[1].sources?.[0]).toMatchObject({ type: "TV", episodes: 12, poster: "https://img.test/series-2.jpg" });
+  });
+});

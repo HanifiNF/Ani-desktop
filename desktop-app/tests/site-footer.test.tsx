@@ -22,6 +22,16 @@ afterEach(async () => {
 });
 
 describe("site footer", () => {
+  it("credits the backdrop art at the end of the foot line when a page has one", async () => {
+    const art = { id: 1, kind: "wide" as const, src: "data:image/webp;base64,", sourceUrl: "https://danbooru.donmai.us/post/show/1", artist: "xilmo" };
+    await act(async () => root.render(<SiteFooter current="saved" onNavigate={() => undefined} backdrop={art} />));
+    const credit = container.querySelector(".footer-foot .backdrop-credit");
+    expect(credit?.textContent).toContain("art via nekosapi.com");
+    expect(credit?.textContent).toContain("xilmo");
+    expect(credit?.querySelector<HTMLAnchorElement>(`a[href="${art.sourceUrl}"]`)?.target).toBe("_blank");
+    await act(async () => root.render(<SiteFooter current="settings" onNavigate={() => undefined} />));
+    expect(container.querySelector(".backdrop-credit")).toBeNull();
+  });
   it("describes the app, credits ani-cli, and links the source", async () => {
     await act(async () => root.render(<SiteFooter current="home" onNavigate={() => undefined} />));
     expect(container.textContent).toContain("Browse and watch anime");

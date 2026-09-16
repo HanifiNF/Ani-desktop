@@ -20,6 +20,14 @@ beforeEach(async () => {
 afterEach(() => rm(directory, { recursive: true, force: true }));
 
 describe("StateStore", () => {
+  it("keeps backdrop art on until it is switched off, and remembers the choice", async () => {
+    expect(store.snapshot().settings.emptyBackdrop).toBe(true);
+    await store.saveSettings({ ...store.snapshot().settings, emptyBackdrop: false });
+    await store.load();
+    expect(store.snapshot().settings.emptyBackdrop).toBe(false);
+    await store.saveSettings({ ...store.snapshot().settings, emptyBackdrop: undefined });
+    expect(store.snapshot().settings.emptyBackdrop).toBe(true);
+  });
   it("preserves exact episode IDs across history writes and restarts", async () => {
     const progress = { lastEpisode: "12", lastEpisodeId: "aniwave:1:12", mode: "dub" as const, updatedAt: "", completed: false };
     await store.recordHistory(entry({ animeId: "aniwave:frieren-1", lastProvider: "aniwave", completed: false, progressByProvider: { aniwave: progress } }));
@@ -163,6 +171,51 @@ describe("StateStore", () => {
     expect(merged.history).toHaveLength(1);
     expect(merged.history[0].progressByProvider).toMatchObject({ aniwave: { lastEpisode: "15" }, anidb: { lastEpisode: "81" } });
     expect(merged.providerLinks).toEqual([["aniwave:rezero-1", "anidb:rezero-2"]]);
+  });
+
+  it("migrates legacy provider links into works and derives links from works", async () => {
+    await writeFile(join(directory, "state.json"), JSON.stringify({ history: [entry({ animeId: "aniwave:frieren-1", title: "Frieren" })], providerLinks: [["aniwave:frieren-1", "anidb:frieren-2"], ["aniwave:solo-1"]] }));
+    const fresh = new StateStore(join(directory, "state.json"));
+    await fresh.load();
+    expect(fresh.snapshot().works).toEqual([expect.objectContaining({ title: "Frieren", refs: [], records: ["aniwave:frieren-1", "anidb:frieren-2"] })]);
+    expect(fresh.snapshot().providerLinks).toEqual([["aniwave:frieren-1", "anidb:frieren-2"]]);
+    expect(fresh.workOf("anidb:frieren-2")?.id).toMatch(/^work:[0-9a-f]{16}$/);
+    expect(fresh.withWork({ id: "aniwave:frieren-1", title: "Frieren", provider: "aniwave" }).sources?.map((source) => source.id)).toEqual(["aniwave:frieren-1", "anidb:frieren-2"]);
+  });
+
+  it("binds records and references into one work, merging works that touch, and never persists tentative title groups", async () => {
+    await store.recordHistory(entry({ animeId: "aniwave:frieren-1" }));
+    await store.bindWork({ ids: ["aniwave:frieren-1"], refs: ["mal:52991"], title: "Frieren", type: "TV", year: 2023 });
+    await store.bindWork({ ids: ["hianime:frieren-x", "anidb:frieren-2"], refs: ["anilist:154587", "mal:52991"] });
+    const [work] = store.snapshot().works!;
+    expect(store.snapshot().works).toHaveLength(1);
+    expect(work).toMatchObject({ title: "Frieren", type: "TV", year: 2023, records: ["aniwave:frieren-1", "hianime:frieren-x", "anidb:frieren-2"], refs: ["mal:52991", "anilist:154587"] });
+    expect(store.snapshot().history[0].sources?.map((source) => source.id)).toEqual(["aniwave:frieren-1", "hianime:frieren-x", "anidb:frieren-2"]);
+    expect(store.withWork({ id: "hianime:frieren-x", title: "Sousou no Frieren", provider: "hianime" })).toMatchObject({ workId: work.id, refs: ["mal:52991", "anilist:154587"] });
+    const changed = await store.recordBindings([
+      { id: "aniwave:a-1", title: "A", provider: "aniwave", tentative: true, sources: [{ id: "aniwave:a-1", provider: "aniwave", title: "A", aliases: ["A"] }, { id: "hianime:a", provider: "hianime", title: "A", aliases: ["A"] }] },
+      { id: "aniwave:b-1", title: "B", provider: "aniwave", refs: ["mal:7"], sources: [{ id: "aniwave:b-1", provider: "aniwave", title: "B", aliases: ["B"] }] },
+      { id: "aniwave:c-1", title: "C", provider: "aniwave" }
+    ]);
+    expect(changed).toBe(true);
+    expect(store.snapshot().works?.map((item) => item.records)).toEqual([["aniwave:frieren-1", "hianime:frieren-x", "anidb:frieren-2"], ["aniwave:b-1"]]);
+    expect(await store.recordBindings([{ id: "aniwave:b-1", title: "B", provider: "aniwave", refs: ["mal:7"] }])).toBe(false);
+    const reloaded = new StateStore(join(directory, "state.json")); await reloaded.load();
+    expect(reloaded.snapshot().works).toHaveLength(2);
+  });
+
+  it("splits a record off its work, remembers the split, and detaches it from library entries", async () => {
+    await store.recordHistory(entry({ animeId: "aniwave:frieren-1" }));
+    await store.bindWork({ ids: ["aniwave:frieren-1", "anidb:wrong-2", "hianime:frieren-3"], refs: ["mal:52991"] });
+    await store.splitSource("anidb:wrong-2");
+    const state = store.snapshot();
+    expect(state.works).toEqual([expect.objectContaining({ records: ["aniwave:frieren-1", "hianime:frieren-3"], refs: ["mal:52991"] })]);
+    expect(state.dismissedMergeKeys).toEqual(["anidb:wrong-2|aniwave:frieren-1", "anidb:wrong-2|hianime:frieren-3"]);
+    expect(state.history[0].sources?.map((source) => source.id)).toEqual(["aniwave:frieren-1", "hianime:frieren-3"]);
+    await expect(store.splitSource("nonsense")).rejects.toThrow(/identifier/);
+    await store.clearSourceLinks();
+    expect(store.snapshot().works).toEqual([]);
+    expect(store.snapshot().providerLinks).toEqual([]);
   });
 
   it("copies all known provider progress into a newly saved title", async () => {

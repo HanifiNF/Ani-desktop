@@ -6,6 +6,7 @@ export const DEFAULT_STATE: PersistedState = {
   bookmarks: [],
   history: [],
   providerLinks: [],
+  works: [],
   dismissedMergeKeys: [],
   settings: {
     playerPath: "",
@@ -21,6 +22,9 @@ export const DEFAULT_STATE: PersistedState = {
     aniwaveBaseUrl: "https://aniwaves.ru",
     anidbBaseUrl: "https://anidb.app",
     hianimeBaseUrl: "https://hianimes.se",
+    animeInfo: true,
+    offlineIndex: false,
+    emptyBackdrop: true,
     theme: "graphite",
     customTheme: { ...THEME_PRESETS.graphite }
   }
