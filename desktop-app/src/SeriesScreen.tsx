@@ -105,7 +105,6 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
           </section>
         )}
         {Object.entries(sourceErrors).map(([name, error]) => <div className="notice" key={name}>{name}: {error} <button type="button" className="link" onClick={() => onCheckSources()}>Check now</button></div>)}
-        {episodeGroups.some((group) => group.refreshing) && <div className="notice" role="status">Showing cached episodes · refreshing sources</div>}
         {episodeGroups.filter((group) => group.error).map((group) => (
           <div className="msg err" role="alert" key={group.provider}><b>{group.provider}</b> {group.error} <button type="button" className="link" onClick={() => onCheckSources()}>Check now</button></div>
         ))}
@@ -113,7 +112,7 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
           <h2>Episodes</h2>
           <button type="button" className="btn small" onClick={onRefreshSources}>Refresh sources</button>
           <Chips value={episodeFilter} options={["all", "unwatched", "watched"] as const} onChange={(value) => reorder(value, episodeSort)} names={{ all: "All", unwatched: "Unwatched", watched: "Watched" }} />
-          <label className="jump"><Icon name="search" /><input value={jump} onChange={(event) => onJump(event.target.value)} placeholder="Jump to" aria-label="Jump to episode" inputMode="numeric" /></label>
+          <label className="jump"><Icon name="search" /><input value={jump} onChange={(event) => onJump(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") onJump(event.currentTarget.value); }} placeholder="Jump to" aria-label="Jump to episode" inputMode="numeric" /></label>
           <span className="sort" role="radiogroup" aria-label="Sort">
             <button type="button" role="radio" aria-checked={episodeSort === "oldest"} className={episodeSort === "oldest" ? "on" : ""} title="Oldest first" onClick={() => reorder(episodeFilter, "oldest")}><Icon name="up" /></button>
             <button type="button" role="radio" aria-checked={episodeSort === "newest"} className={episodeSort === "newest" ? "on" : ""} title="Newest first" onClick={() => reorder(episodeFilter, "newest")}><Icon name="down" /></button>
@@ -132,7 +131,7 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
             return (
               <div key={row.episode.id} className={`src-wrap ${row.first ? "first" : ""}`} style={stagger(index, 14)}>
                 {row.first && <h4 className="grp-head">Ep {row.number}{nextUp?.number === row.number && <span className="up">Next up</span>}</h4>}
-                <div className={`src ${row.watched ? "w" : ""} ${playingId === row.episode.id ? "playing" : ""}`} data-episode={row.episode.id}>
+                <div className={`src ${row.watched ? "w" : ""} ${playingId === row.episode.id ? "playing" : ""}`} data-episode={row.episode.id} data-episode-number={row.number}>
                   <button type="button" className="src-hit"
                     onClick={() => onPlay(row.episode)} aria-label={`play episode ${row.number} from ${row.episode.provider}`}>
                     <span className="t">Episode {row.number}<small>{row.episode.provider}</small>{playingId === row.episode.id && <em>playing</em>}</span>

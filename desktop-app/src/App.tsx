@@ -1,6 +1,7 @@
 import { usePlayerSession } from "./usePlayerSession";
 import SearchPalette from "./SearchPalette";
 import SeriesScreen from "./SeriesScreen";
+import { useSeriesScroll } from "./useSeriesScroll";
 import type { PlayStatus, NowPlaying } from "./playback";
 import SettingsScreen from "./SettingsScreen";
 import LibrarySection from "./LibrarySection";
@@ -57,6 +58,7 @@ function App() {
   const [composing, setComposing] = useState(false);
   const [selectedAnime, setSelectedAnime] = useState<AnimeResult>();
   const [episodeGroups, setEpisodeGroups] = useState<EpisodeGroup[]>([]);
+  const [episodesLoading, setEpisodesLoading] = useState(false);
   const [episodeFilter, setEpisodeFilter] = useState<EpisodeFilter>("all");
   const [episodeSort, setEpisodeSort] = useState<EpisodeSort>("newest");
   const [jump, setJump] = useState("");
@@ -192,7 +194,12 @@ function App() {
   const episodeRows = useMemo(() => episodeRowsOf(episodeGroups, progress, episodeFilter, episodeSort), [episodeGroups, progress, episodeFilter, episodeSort]);
   const episodeCount = new Set(episodeGroups.flatMap((group) => group.episodes.map((episode) => episode.number))).size;
   const selectedEpisodeIndex = Math.max(0, episodeRows.findIndex((row) => row.episode.id === selectedEpisodeId));
-  const selectEpisodeAt = (index: number) => setSelectedEpisodeId(episodeRows[index]?.episode.id);
+  const seriesScroll = useSeriesScroll(listRef, screen === "series", episodesLoading);
+  const selectEpisodeAt = (index: number) => {
+    const id = episodeRows[index]?.episode.id;
+    setSelectedEpisodeId(id);
+    if (id) seriesScroll.reveal({ id });
+  };
   const sourceScope = catalogScope(appState.settings);
   const metadata = useEpisodeMetadata(listRef, screen === "series", episodeRows.map((row) => row.episode.id), episodeRows[selectedEpisodeIndex]?.episode.id, mode, sourceScope);
   const seriesMetadata = useSeriesMetadata(`${sourceScope}|${enabledProviders(appState.settings).join(",")}`);
@@ -206,25 +213,6 @@ function App() {
     if (screen === "series" && selectedAnime) { seriesMetadata.load(linkedAnime(selectedAnime), "selected"); workInfo.load(linkedAnime(selectedAnime), "selected"); }
   }, [screen, selectedAnime, linkedAnime, seriesMetadata.load, workInfo.load]);
 
-  // Anchor the first visible source row while asynchronous provider updates insert rows above it.
-  const scrollAnchor = useRef<{ id: string; top: number } | undefined>(undefined);
-  useLayoutEffect(() => {
-    const page = listRef.current?.closest<HTMLElement>(".page");
-    const anchor = scrollAnchor.current;
-    if (page && anchor) {
-      const row = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-episode]") ?? [])].find((item) => item.dataset.episode === anchor.id);
-      if (row) page.scrollTop += row.getBoundingClientRect().top - anchor.top;
-    }
-    const capture = () => {
-      if (!page) return;
-      const top = page.getBoundingClientRect().top;
-      const row = [...(listRef.current?.querySelectorAll<HTMLElement>("[data-episode]") ?? [])].find((item) => item.getBoundingClientRect().bottom > top);
-      scrollAnchor.current = row ? { id: row.dataset.episode!, top: row.getBoundingClientRect().top } : undefined;
-    };
-    capture(); page?.addEventListener("scroll", capture, { passive: true });
-    return () => { page?.removeEventListener("scroll", capture); };
-  }, [episodeRows, screen]);
-
   const previousResults = useRef(results);
   useLayoutEffect(() => {
     const previous = previousResults.current[cursor];
@@ -235,15 +223,11 @@ function App() {
     previousResults.current = results;
   }, [results]);
   useEffect(() => { if (screen !== "series" && screen !== "player") setCursor(0); }, [screen, filter]);
-  // Opening a series shows its header first; later jumps and playback reveal the relevant episode.
-  const skipReveal = useRef(false);
-  // Reveal follows the selected row itself, so a state refresh (saving, window focus) does not scroll the list back.
-  const cursorKey = screen === "series" ? episodeRows[selectedEpisodeIndex]?.episode.id : rows[cursor]?.anime?.id ?? rows[cursor]?.entry?.animeId;
+  // Library navigation follows its cursor; series jumps are explicit scroll commands.
+  const cursorKey = rows[cursor]?.anime?.id ?? rows[cursor]?.entry?.animeId;
   useEffect(() => {
-    if (skipReveal.current) { skipReveal.current = false; return; }
-    const selected = screen === "series"
-      ? [...(listRef.current?.querySelectorAll<HTMLElement>("[data-episode]") ?? [])].find((row) => row.dataset.episode === cursorKey)
-      : document.querySelector<HTMLElement>('[data-cursor="true"]');
+    if (screen === "series") return;
+    const selected = document.querySelector<HTMLElement>('[data-cursor="true"]');
     if (!selected) return;
     const list = selected.closest<HTMLElement>(".page, .palette");
     if (!list) { selected.scrollIntoView({ block: "nearest" }); return; }
@@ -308,7 +292,7 @@ function App() {
   function showPlayingEpisodes() {
     setEpisodeFilter("all");
     if (nowPlaying && selectedAnime?.id !== nowPlaying.anime.id) { void openAnime(nowPlaying.anime, { focusEpisodeId: nowPlaying.episodeId }); refreshState(); return; }
-    if (nowPlaying) setSelectedEpisodeId(nowPlaying.episodeId);
+    if (nowPlaying) { setSelectedEpisodeId(nowPlaying.episodeId); seriesScroll.reveal({ id: nowPlaying.episodeId }); }
     dockPlayer();
   }
 
@@ -366,7 +350,7 @@ function App() {
     catalogTasks.current.clear();
   };
   useEffect(() => {
-    if (screen !== "series" && screen !== "player" && screen !== "opening") { cancelSeries(); setBusy(undefined); setResolving(false); }
+    if (screen !== "series" && screen !== "player" && screen !== "opening") { cancelSeries(); setBusy(undefined); setResolving(false); setEpisodesLoading(false); }
   }, [screen, sourceScope]);
   useEffect(() => () => cancelSeries(), []);
 
@@ -378,7 +362,8 @@ function App() {
     playToken.current += 1;
     if (playbackRequest.current) window.aniDesktop.cancelCatalog(playbackRequest.current);
     setSelectedAnime(anime);
-    if (!options.refresh) { setSelectedEpisodeId(options.focusEpisodeId); scrollAnchor.current = undefined; }
+    setEpisodesLoading(true);
+    if (!options.refresh) { setSelectedEpisodeId(options.focusEpisodeId); seriesScroll.begin(options.focusEpisodeId); }
     if (!options.refresh) setEpisodeGroups([]);
     setStatus(undefined); setJump(""); setSourceErrors({});
     setScreen(options.autoPlay ? "opening" : "series");
@@ -408,7 +393,7 @@ function App() {
       if (!list.length) return;
       setBusy(undefined);
       const index = nextUpIndex(list, groups, animeProgress, preferred, options.resumeAfter);
-      if (!positioned) { positioned = true; skipReveal.current = true; setSelectedEpisodeId(list[index]?.episode.id); }
+      if (!positioned) { positioned = true; setSelectedEpisodeId(list[index]?.episode.id); }
       const preferredReady = groups.some((group) => group.provider === preferred && group.episodes.length);
       const preferredFailed = groups.some((group) => group.provider === preferred && (group.error || (!group.refreshing && !group.episodes.length))) || !enabledProviders(appState.settings).includes(preferred);
       if (options.autoPlay && !played && !attempting && (preferredReady || preferredFailed || allowFallback || attempted.size)) {
@@ -469,6 +454,7 @@ function App() {
     void Promise.all([initial, discovery]).then(() => {
       if (token !== openToken.current) return;
       finished = true;
+      setEpisodesLoading(false);
       setResolving(false); setPendingSources([]); setBusy(undefined); position(true);
       if (options.autoPlay && !played && !attempting && !attempted.size) setError("No episode is available to continue. Open Episodes to check the series and its sources.");
     });
@@ -635,10 +621,11 @@ function App() {
   function jumpTo(value: string) {
     setJump(value);
     const wanted = value.trim();
-    if (!wanted) return;
+    if (!wanted) { seriesScroll.cancelReveal(); return; }
     const index = episodeRows.findIndex((row) => row.number === wanted) ;
     const loose = index >= 0 ? index : episodeRows.findIndex((row) => row.number.startsWith(wanted));
     if (loose >= 0) selectEpisodeAt(loose);
+    else seriesScroll.reveal({ number: wanted });
   }
 
   const moveCursor = (delta: number, length: number) => { if (length) setCursor((current) => Math.min(Math.max(current + delta, 0), length - 1)); };

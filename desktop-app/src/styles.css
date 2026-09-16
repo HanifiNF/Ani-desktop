@@ -295,6 +295,8 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .icon.fill { fill: currentColor; }
 
 /* ---- series ----------------------------------------------------------- */
+/* The series scroll controller owns anchoring, including asynchronous source changes. */
+.page-series { overflow-anchor: none; }
 .series { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 12px; }
 .series .side { position: sticky; top: 0; }
 .series .side .poster { width: 100%; aspect-ratio: 2 / 3; border-radius: var(--radius); box-shadow: 0 10px 30px rgb(0 0 0 / 30%); }
