@@ -76,6 +76,7 @@ function App() {
   });
   const [nowPlaying, setNowPlaying] = useState<NowPlaying>();
   const [settingsDraft, setSettingsDraft] = useState<Settings>(DEFAULT_STATE.settings);
+  const [subtitleAppearance, setSubtitleAppearance] = useState(DEFAULT_STATE.subtitleAppearance!);
   const [stateLoaded, setStateLoaded] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -100,12 +101,20 @@ function App() {
   useEffect(() => {
     window.aniDesktop.getState().then((state) => {
       setAppState(state);
+      setSubtitleAppearance(state.subtitleAppearance ?? DEFAULT_STATE.subtitleAppearance!);
       setSettingsDraft(state.settings);
       setMode(state.settings.preferredMode);
       setQuality(state.settings.preferredQuality);
       setProvider(state.settings.preferredProvider);
       setStateLoaded(true);
     }).catch((reason) => setError(messageFrom(reason)));
+  }, []);
+
+  const changeSubtitleAppearance = useCallback((value: typeof subtitleAppearance) => {
+    setSubtitleAppearance(value);
+    void window.aniDesktop.saveSubtitleAppearance(value).then((saved) => {
+      setAppState((previous) => ({ ...previous, subtitleAppearance: saved }));
+    }, (reason) => setError(messageFrom(reason)));
   }, []);
 
   const checkForUpdates = useCallback((force = false) => {
@@ -801,6 +810,8 @@ function App() {
         <Suspense fallback={<div className="player-message">loading player ···</div>}>
           <PlayerScreen
             session={session}
+            subtitleAppearance={subtitleAppearance}
+            onSubtitleAppearance={changeSubtitleAppearance}
             fullscreen={playerFullscreen}
             onFullscreenChange={setPlayerFullscreen}
             docked={screen !== "player"}
@@ -883,6 +894,7 @@ function App() {
 
         {screen === "settings" && (
           <SettingsScreen draft={settingsDraft} setDraft={setSettingsDraft} saved={appState.settings}
+            subtitleAppearance={subtitleAppearance} onSubtitleAppearance={changeSubtitleAppearance}
             bookmarkCount={appState.bookmarks.length} linkCount={(appState.providerLinks ?? []).length} dirty={settingsDirty}
             onSave={() => void saveSettings()} onCancel={goBack} onClearLinks={() => void clearSourceLinks()}
             updateStatus={updateStatus} updateChecking={updateChecking} onCheckUpdates={() => checkForUpdates(true)} onOpenUpdate={openLatestRelease}

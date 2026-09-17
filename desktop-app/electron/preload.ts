@@ -112,6 +112,7 @@ const api: AniDesktopApi = {
   play: (request: PlayRequest) => ipcRenderer.invoke("player:play", request),
   getState: () => ipcRenderer.invoke("state:get"),
   saveSettings: (settings: Settings) => ipcRenderer.invoke("state:settings", settings),
+  saveSubtitleAppearance: (appearance) => ipcRenderer.invoke("state:subtitle-appearance", appearance),
   openPlayerLogs: () => ipcRenderer.invoke("player:open-logs"),
   checkForUpdates: (force) => ipcRenderer.invoke("app:update-check", force),
   dismissUpdate: (version) => ipcRenderer.invoke("app:update-dismiss", version),

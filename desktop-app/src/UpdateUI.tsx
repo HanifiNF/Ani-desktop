@@ -24,7 +24,7 @@ export function UpdatePanel({ status, checking, onCheck, onOpen }: { status?: Up
     : status.state === "available" ? `Version ${status.latestVersion} is available${status.dismissed ? " (reminder dismissed)" : ""}.`
     : status.state === "current" ? `Version ${status.currentVersion} is up to date.`
     : status.error ?? "Could not check for updates.";
-  return <div className="group update-settings"><h3>Updates</h3><div className="box">
+  return <div className="group update-settings"><h3 id="settings-updates" tabIndex={-1}>Updates</h3><div className="box">
     <div className="r"><span className="k">Application updates<small>{detail} {status?.stale ? "Showing the last valid result." : ""}</small></span>
       <span className="v-row">
         {status?.state === "available" && <button type="button" className="btn small" onClick={onOpen}>view release</button>}

@@ -111,6 +111,7 @@ const player: AniPlayerApi = {
 export function installDevApi(): void {
   const api: AniDesktopApi = {
     player,
+    async saveSubtitleAppearance(appearance) { state.subtitleAppearance = appearance; return appearance; },
     async search(query) {
       await wait(400);
       const enabled = enabledProviders(state.settings);

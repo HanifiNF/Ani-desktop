@@ -89,6 +89,7 @@ beforeEach(async () => {
     availability: vi.fn().mockResolvedValue({ sub: true, dub: true, checkedAt: Date.now() }), cancelCatalog: vi.fn(),
     streams: vi.fn().mockResolvedValue([]), play: vi.fn().mockResolvedValue(true),
     saveSettings: vi.fn(async (settings) => ({ ...state, settings })),
+    saveSubtitleAppearance: vi.fn(async (appearance) => appearance),
     openPlayerLogs: vi.fn().mockResolvedValue(undefined),
     checkForUpdates: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
     dismissUpdate: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
@@ -261,6 +262,32 @@ describe("built-in player screen", () => {
 });
 
 describe("live catalog search", () => {
+  it("tracks Settings sections and jumps without saving the form", async () => {
+    await click("settings");
+    const page = container.querySelector<HTMLElement>(".page-settings")!;
+    const headings = [...container.querySelectorAll<HTMLElement>('.settings .group h3[id^="settings-"]')];
+    const nav = container.querySelector<HTMLElement>('.settings-section-nav')!;
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Updates", "Playback", "Subtitles", "Defaults", "Appearance", "Anime information", "Episode metadata", "Sources"]);
+    const positions = new Map(headings.map((heading, index) => [heading.id, 120 + index * 200]));
+    vi.spyOn(page, "getBoundingClientRect").mockReturnValue({ top: 0 } as DOMRect);
+    for (const heading of headings) vi.spyOn(heading, "getBoundingClientRect").mockImplementation(() => ({ top: positions.get(heading.id)! } as DOMRect));
+    const scrollTo = vi.fn();
+    page.scrollTo = scrollTo;
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Updates");
+    positions.set("settings-subtitles", 50);
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Subtitles");
+    const sourcesButton = [...nav.querySelectorAll("button")].find((button) => button.textContent === "Sources")!;
+    await act(async () => sourcesButton.click());
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number) }));
+    expect(document.activeElement?.id).toBe("settings-sources");
+    expect(api.saveSettings).not.toHaveBeenCalled();
+    const jump = container.querySelector<HTMLSelectElement>("#settings-section-jump")!;
+    expect(jump.options).toHaveLength(8);
+    await click("home");
+    expect(container.querySelector(".settings-section-nav")).toBeNull();
+  });
   it("saves opt-in diagnostics and opens the log folder from settings", async () => {
     await click("settings");
     const toggle = container.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Diagnostics logging"]')!;
@@ -473,7 +500,7 @@ describe("live catalog search", () => {
     vi.mocked(api.updateIdentityIndex).mockResolvedValue({ enabled: true, entries: 41537, updatedAt: Date.now(), updating: false });
     await act(async () => { again.querySelector<HTMLButtonElement>(".btn")!.click(); });
     expect(api.updateIdentityIndex).toHaveBeenCalledOnce();
-    expect(again.textContent).toContain("41,537 titles");
+    expect(again.textContent).toContain(`${(41537).toLocaleString()} titles`);
   });
 
   it("looks the series up on the other providers and merges their episodes into the grouped list", async () => {

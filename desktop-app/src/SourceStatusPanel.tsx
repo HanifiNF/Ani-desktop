@@ -59,7 +59,7 @@ export default function SourceStatusPanel({ saved, draft, onChange, children }: 
     }
   };
 
-  return <div className="group source-status"><h3>Sources</h3>
+  return <div className="group source-status"><h3 id="settings-sources" tabIndex={-1}>Sources</h3>
     {readError && <p className="msg err" role="alert">Could not read source status: {readError}</p>}
     <div className="box">{SOURCES.map(({ provider, name, address }) => {
       const status = statuses.find((item) => item.provider === provider);

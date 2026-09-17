@@ -10,9 +10,10 @@ vi.mock("@vidstack/react", async () => {
   return {
     ...await vi.importActual<typeof import("@vidstack/react")>("@vidstack/react"),
     useMediaContext: () => ({}),
-    MediaPlayer: ({ children, className, src, title, viewType, streamType, load, controlsDelay, hideControlsOnMouseLeave, keyShortcuts, keyDisabled, onError, onEnded }: {
+    MediaPlayer: ({ children, className, style, src, title, viewType, streamType, load, controlsDelay, hideControlsOnMouseLeave, keyShortcuts, keyDisabled, onError, onEnded }: {
       children: React.ReactNode;
       className: string;
+      style: React.CSSProperties;
       src: { src: string };
       title: string;
       viewType: string;
@@ -39,6 +40,7 @@ vi.mock("@vidstack/react", async () => {
           data-key-fullscreen-disabled={keyShortcuts.toggleFullscreen === null}
           data-key-disabled={keyDisabled}
           className={className}
+          style={style}
         >
           {children}
           <button data-testid="fail-media" type="button" onClick={() => onError({ message: "fatal HLS error" })}>fail media</button>
@@ -53,13 +55,14 @@ vi.mock("@vidstack/react", async () => {
   };
 });
 vi.mock("@vidstack/react/player/layouts/default", () => ({
-  DefaultVideoLayout: ({ seekStep, slots }: { seekStep: number; slots: { beforePlayButton: React.ReactNode; afterPlayButton: React.ReactNode; fullscreenButton: React.ReactNode } }) => (
+  DefaultVideoLayout: ({ seekStep, slots }: { seekStep: number; slots: { beforePlayButton: React.ReactNode; afterPlayButton: React.ReactNode; fullscreenButton: React.ReactNode; settingsMenuEndItems: React.ReactNode } }) => (
     <div data-testid="controls" data-seek-step={seekStep}>
       {slots.beforePlayButton}
       <button type="button">Play</button>
       {slots.afterPlayButton}
       <input data-testid="timeline" type="range" />
       {slots.fullscreenButton}
+      {slots.settingsMenuEndItems}
     </div>
   ),
   defaultLayoutIcons: {
@@ -99,6 +102,7 @@ function Harness(props: Partial<PlayerScreenProps> & { session: PlayerSession })
   const [fullscreen, setFullscreen] = useState(props.session.fullscreen);
   setFullscreenFromWindow = setFullscreen;
   return <PlayerScreen fullscreen={fullscreen} onFullscreenChange={setFullscreen} autoplayNext docked={false} corner="bottom-right" onCornerChange={onCornerChange} onWidthChange={onWidthChange}
+    subtitleAppearance={{ font: "sans", size: 100, textColor: "#ffffff", backgroundEnabled: false, backgroundColor: "#000000", backgroundOpacity: 70, edge: "outline", bottomInset: 0 }} onSubtitleAppearance={() => {}}
     onDock={onDock} onEpisodes={onEpisodes} onExpand={onExpand} onClose={onClose} onNext={onNext} onPrev={onPrev} episodeCount={12} detail="1080p sub aniwave" {...props} width={props.width ?? 400} />;
 }
 const render = (props: Partial<PlayerScreenProps> & { session: PlayerSession }) => act(async () => { root.render(<Harness {...props} />); });
@@ -137,6 +141,15 @@ afterEach(async () => {
 });
 
 describe("built-in player screen", () => {
+  it("offers subtitle appearance from settings and applies the global preset", async () => {
+    const appearance = { font: "mono" as const, size: 140, textColor: "#ffcc00", backgroundEnabled: true, backgroundColor: "#112233", backgroundOpacity: 30, edge: "shadow" as const, bottomInset: 10 };
+    await render({ session: session("https://cdn.test/first.m3u8"), subtitleAppearance: appearance });
+    expect(button("Subtitle appearance")).toBeDefined();
+    const media = container.querySelector<HTMLElement>('[data-testid="media"]')!;
+    expect(media.style.getPropertyValue("--app-subtitle-size")).toBe("1.4");
+    expect(media.style.getPropertyValue("--app-subtitle-bottom-inset")).toBe("10%");
+    expect(container.querySelector(".player-subtitle-dialog .subtitle-preview")).not.toBeNull();
+  });
   it("renders on-demand video controls with timeline and ten-second seeking", () => {
     const media = container.querySelector<HTMLElement>('[data-testid="media"]')!;
     expect(media.dataset.viewType).toBe("video");

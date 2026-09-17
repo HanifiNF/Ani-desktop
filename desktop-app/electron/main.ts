@@ -390,6 +390,10 @@ function registerIpc(): void {
     return availability;
   }));
   ipcMain.handle("state:get", () => store.snapshot());
+  ipcMain.handle("state:subtitle-appearance", async (event, value: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    return store.saveSubtitleAppearance(value);
+  });
   ipcMain.handle("state:settings", async (_event, settings: Settings) => {
     const previous = store.snapshot().settings;
     const state = await store.saveSettings(settings);

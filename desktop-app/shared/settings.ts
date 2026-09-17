@@ -1,6 +1,7 @@
 import { MINI_PLAYER_WIDTH, type PersistedState, type Settings } from "./contracts";
 import { THEME_PRESETS } from "./theme";
 import { enabledProviders } from "./catalog";
+import { DEFAULT_SUBTITLE_APPEARANCE } from "./subtitle-appearance";
 
 export const DEFAULT_STATE: PersistedState = {
   bookmarks: [],
@@ -8,6 +9,7 @@ export const DEFAULT_STATE: PersistedState = {
   providerLinks: [],
   works: [],
   dismissedMergeKeys: [],
+  subtitleAppearance: { ...DEFAULT_SUBTITLE_APPEARANCE },
   settings: {
     playerPath: "",
     playbackTarget: "builtin",

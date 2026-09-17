@@ -300,6 +300,7 @@ export interface PersistedState {
   works?: Work[];
   dismissedMergeKeys?: string[];
   playerPreferences?: PlayerPreferences;
+  subtitleAppearance?: SubtitleAppearance;
   playbackPositions?: Record<string, PlaybackPosition>;
 }
 
@@ -329,6 +330,17 @@ export interface PlayerPreferences {
   rate?: number;
   captions?: boolean;
   lang?: string | null;
+}
+
+export interface SubtitleAppearance {
+  font: "sans" | "serif" | "mono";
+  size: number;
+  textColor: string;
+  backgroundEnabled: boolean;
+  backgroundColor: string;
+  backgroundOpacity: number;
+  edge: "none" | "outline" | "shadow";
+  bottomInset: number;
 }
 
 export interface PlaybackPosition { time: number; completed: boolean; updatedAt: string; animeId?: string; }
@@ -364,6 +376,7 @@ export interface AniDesktopApi {
   play(request: PlayRequest): Promise<boolean>;
   getState(): Promise<PersistedState>;
   saveSettings(settings: Settings): Promise<PersistedState>;
+  saveSubtitleAppearance(appearance: SubtitleAppearance): Promise<SubtitleAppearance>;
   openPlayerLogs(): Promise<void>;
   checkForUpdates(force?: boolean): Promise<UpdateStatus>;
   dismissUpdate(version: string): Promise<UpdateStatus>;
