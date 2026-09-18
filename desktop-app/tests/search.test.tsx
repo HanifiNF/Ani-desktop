@@ -313,7 +313,7 @@ describe("live catalog search", () => {
     const toggle = container.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Diagnostics logging"]')!;
     const status = container.querySelector<HTMLElement>(".save-state")!;
     expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(status.textContent).toBe("Saved");
+    expect(status.textContent).toBe("");
     await act(async () => { toggle.click(); });
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(status.textContent).toBe("Saving…");
@@ -323,6 +323,8 @@ describe("live catalog search", () => {
     await advance(400);
     expect(api.saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ playerDiagnostics: true }));
     expect(status.textContent).toBe("Saved");
+    await advance(2_000);
+    expect(status.textContent).toBe("");
   });
   it("coalesces quick edits into one save, and leaving the page saves at once", async () => {
     await click("settings");
@@ -334,12 +336,25 @@ describe("live catalog search", () => {
   it("reports a save the main process refused and keeps the edit for the next try", async () => {
     vi.mocked(api.saveSettings).mockRejectedValueOnce(new Error("External player path is required"));
     await click("settings"); await click("external"); await advance(400);
-    expect(container.querySelector(".save-state")?.textContent).toBe("Not saved");
+    expect(container.querySelector(".save-word")?.textContent).toBe("Not saved");
     expect(container.querySelector(".msg.err")?.textContent).toContain("External player path is required");
+    await advance(5_000);
+    expect(container.querySelector(".save-word")?.textContent).toBe("Not saved");
     const path = container.querySelector<HTMLInputElement>("#player")!;
     await type("/usr/local/bin/mpv", path); await advance(400);
     expect(api.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ playbackTarget: "external", playerPath: "/usr/local/bin/mpv" }));
     expect(container.querySelector(".save-state")?.textContent).toBe("Saved");
+  });
+  it("retries a refused save from the heading", async () => {
+    vi.mocked(api.saveSettings).mockRejectedValueOnce(new Error("Disk is full"));
+    await click("settings"); await click("dub"); await advance(400);
+    expect(api.saveSettings).toHaveBeenCalledOnce();
+    await click("retry");
+    expect(api.saveSettings).toHaveBeenCalledTimes(2);
+    expect(api.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ preferredMode: "dub" }));
+    expect(container.querySelector(".save-state")?.textContent).toBe("Saved");
+    expect(container.querySelector(".save-retry")).toBeNull();
+    expect(container.querySelector(".msg.err")).toBeNull();
   });
   it("opens the subtitle rows under Playback and applies them as they change", async () => {
     await click("settings");

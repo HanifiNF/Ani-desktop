@@ -1,0 +1,94 @@
+<!doctype html><meta charset="utf-8"><title>Settings save state · variants</title>
+<style>
+:root {
+  --bg:#262626; --text:#EFE6D0; --cursor:#F0BC42; --cursor-text:#1d1a12;
+  --raised: color-mix(in oklab, var(--bg), var(--text) 6%);
+  --raised2: color-mix(in oklab, var(--bg), var(--text) 10%);
+  --rule: color-mix(in oklab, var(--bg), var(--text) 12%);
+  --dim: color-mix(in oklab, var(--bg), var(--text) 36%);
+  --muted: color-mix(in oklab, var(--bg), var(--text) 60%);
+  --ok:#8FC7A0; --danger:#E5807A;
+}
+* { box-sizing: border-box; }
+body { margin:0; background:#151515; color:var(--text); font: 400 14px/1.45 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing:-.005em; padding: 40px 0 80px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.caption { width: 1000px; margin: 56px 60px 12px; color: #8a8578; font-size: 12.5px; line-height: 1.55; }
+.caption:first-child { margin-top: 0; }
+.caption b { color: #d8cfba; font-weight: 600; }
+.variant { width: 1120px; background: var(--bg); padding: 10px 60px 26px; }
+.icon { width: 14px; height: 14px; flex: none; }
+
+.state { display: grid; grid-template-columns: 110px 1fr; align-items: center; border-top: 1px solid var(--rule); padding: 18px 0 16px; }
+.state:first-child { border-top: 0; }
+.state > em { font-style: normal; color: #8a8578; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+.head { display: flex; align-items: baseline; gap: 16px; }
+h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.newver { display: inline-flex; align-items: center; gap: 7px; color: var(--cursor); font-size: 12.5px; font-weight: 500; }
+.newver i { width: 6px; height: 6px; border-radius: 50%; background: var(--cursor); }
+.ss { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; color: var(--dim); font-size: 12px; align-self: center; }
+.ss.err { color: var(--danger); }
+.ss button { color: var(--text); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; font-size: 12px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.ghost { opacity: .0; }
+.note { color: #6f6a5f; font-size: 11px; margin-left: 12px; font-style: italic; }
+
+/* spinner ring */
+.ring { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--rule); border-top-color: var(--muted); }
+
+/* P4 row flash */
+.box { border-radius: 12px; background: var(--raised); overflow: hidden; width: 760px; margin-top: 14px; }
+.r { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--rule); }
+.r:first-child { border-top: 0; }
+.r .k { flex: 1; }
+.r .k small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.chips { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--bg); }
+.chips button { padding: 4px 11px; border-radius: 7px; color: var(--muted); font-size: 13px; font-weight: 500; }
+.chips button.on { background: var(--raised2); color: var(--text); }
+.rowmark { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
+.rowmark.ok { color: var(--ok); }
+.rowmark.err { color: var(--danger); }
+.rowmark button { color: var(--text); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; font-size: 12px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></symbol>
+<symbol id="i-warn" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5l6 10.5H2z"/><path d="M8 6.8v3M8 11.6v.1"/></symbol>
+</defs></svg>
+
+<p class="caption"><b>Now</b> · A green dot and the word "Saved" sit at the right end of the Settings heading at all times. With the update link in the same heading there are now two dotted labels on one line, and the word reports the normal case forever.</p>
+
+<p class="caption"><b>P1 · Silent until something happens.</b> Nothing at rest. "Saving…" appears while a change is written, turns to "Saved" with a check, and fades out after about two seconds. A failure stays until it is resolved and offers "retry". The heading carries only the update link most of the time.</p>
+<div class="variant" data-variant="p1">
+  <div class="state"><em>At rest</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss"><span class="note">nothing shown</span></span></div></div>
+  <div class="state"><em>Saving</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss">Saving…</span></div></div>
+  <div class="state"><em>Just saved</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss"><svg class="icon"><use href="#i-check"/></svg>Saved<span class="note">fades after 2 s</span></span></div></div>
+  <div class="state"><em>Failed</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss err">Not saved<button>retry</button></span></div></div>
+</div>
+
+<p class="caption"><b>P2 · Always there, icon in place of the dot.</b> Keeps the permanent reassurance and drops the second dot: a dim check with "Saved", a small ring that turns while saving, a warning mark with "Not saved" and "retry". The only coloured state is the failure.</p>
+<div class="variant" data-variant="p2">
+  <div class="state"><em>At rest</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss"><svg class="icon"><use href="#i-check"/></svg>Saved</span></div></div>
+  <div class="state"><em>Saving</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss"><span class="ring"></span>Saving…</span></div></div>
+  <div class="state"><em>Failed</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss err"><svg class="icon"><use href="#i-warn"/></svg>Not saved<button>retry</button></span></div></div>
+</div>
+
+<p class="caption"><b>P3 · One plain sentence.</b> No dot and no icon. At rest it states the rule of the page, "Changes save automatically", in the dimmest text. It reads "Saving…" during a write and "Saved just now" for a few seconds after, then returns to the sentence. A failure turns red with "retry".</p>
+<div class="variant" data-variant="p3">
+  <div class="state"><em>At rest</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss">Changes save automatically</span></div></div>
+  <div class="state"><em>Saving</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss">Saving…</span></div></div>
+  <div class="state"><em>Just saved</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss" style="color:var(--muted)">Saved just now</span></div></div>
+  <div class="state"><em>Failed</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span><span class="ss err">Could not save<button>retry</button></span></div></div>
+</div>
+
+<p class="caption"><b>P4 · On the row you changed.</b> The heading carries no save state at all. The row that was just edited shows a small green check beside its control for about a second; a failure shows "not saved · retry" on that row and stays. The confirmation appears where the eye already is.</p>
+<div class="variant" data-variant="p4">
+  <div class="state"><em>Heading</em><div class="head"><h1>Settings</h1><span class="newver"><i></i>v0.1.4 available</span></div></div>
+  <div class="state"><em>Just saved</em><div><div class="box" style="margin-top:0">
+    <div class="r"><span class="k">Quality<small>Best takes the highest stream a source offers</small></span><span class="rowmark ok"><svg class="icon"><use href="#i-check"/></svg></span><span class="chips"><button>best</button><button class="on">1080p</button><button>720p</button><button>480p</button><button>360p</button></span></div>
+    <div class="r"><span class="k">Audio<small>Used when a source offers both</small></span><span class="chips"><button class="on">sub</button><button>dub</button></span></div>
+  </div></div></div>
+  <div class="state"><em>Failed</em><div><div class="box" style="margin-top:0">
+    <div class="r"><span class="k">Quality<small>Best takes the highest stream a source offers</small></span><span class="rowmark err">not saved<button>retry</button></span><span class="chips"><button>best</button><button class="on">1080p</button><button>720p</button><button>480p</button><button>360p</button></span></div>
+    <div class="r"><span class="k">Audio<small>Used when a source offers both</small></span><span class="chips"><button class="on">sub</button><button>dub</button></span></div>
+  </div></div></div>
+</div>

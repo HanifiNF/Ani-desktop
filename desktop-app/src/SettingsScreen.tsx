@@ -5,6 +5,7 @@ import { PLAYBACK_QUALITIES as QUALITIES } from "../shared/settings";
 import { THEME_NAMES, resolveTheme } from "../shared/theme";
 import { isMac } from "./keys";
 import Chips from "./Chips";
+import { Icon } from "./icons";
 import Switch from "./Switch";
 import SourceStatusPanel from "./SourceStatusPanel";
 import BookmarkMetadataPanel from "./BookmarkMetadataPanel";
@@ -13,11 +14,11 @@ import { UpdateNotice, UpdatePanel, updatePending } from "./UpdateUI";
 import { SubtitleAppearanceEditor, SubtitleAppearanceRow } from "./SubtitleAppearanceEditor";
 import Reveal from "./Reveal";
 
-/** Every row applies as it changes; this is the page's word on how that went. */
-export type SettingsSaveState = "saved" | "saving" | "error";
+/** Every row applies as it changes; this is the page's word on how that went. Idle says nothing. */
+export type SettingsSaveState = "idle" | "saved" | "saving" | "error";
 
 interface Props {
-  draft: Settings; setDraft: (settings: Settings) => void; saved: Settings; saveState: SettingsSaveState;
+  draft: Settings; setDraft: (settings: Settings) => void; saved: Settings; saveState: SettingsSaveState; onRetrySave: () => void;
   bookmarkCount: number; linkCount: number;
   onOpenLogs: () => void; onClearLinks: () => void;
   updateStatus?: UpdateStatus; updateChecking: boolean; onCheckUpdates: () => void; onOpenUpdate: () => void; onSkipUpdate: () => void;
@@ -97,15 +98,15 @@ function useSectionNavigation() {
   return { formRef, active, jump };
 }
 
-const SAVE_WORDS: Record<SettingsSaveState, string> = { saved: "Saved", saving: "Saving…", error: "Not saved" };
+const SAVE_WORDS: Record<SettingsSaveState, string> = { idle: "", saved: "Saved", saving: "Saving…", error: "Not saved" };
 
-export default function SettingsScreen({ draft, setDraft, saved, saveState, bookmarkCount, linkCount, onOpenLogs, onClearLinks,
+export default function SettingsScreen({ draft, setDraft, saved, saveState, onRetrySave, bookmarkCount, linkCount, onOpenLogs, onClearLinks,
   updateStatus, updateChecking, onCheckUpdates, onOpenUpdate, onSkipUpdate, subtitleAppearance, onSubtitleAppearance }: Props) {
   const { formRef, active, jump } = useSectionNavigation();
   const [subtitlesOpen, setSubtitlesOpen] = useState(false);
   return (
     <div className="settings-layout">
-    <div className="settings-head"><h1>Settings</h1><UpdateNotice status={updateStatus} onJump={() => jump("settings-updates")} /><span className="save-state" data-state={saveState} role="status" aria-live="polite"><i aria-hidden="true" /><span key={saveState} className="save-word">{SAVE_WORDS[saveState]}</span></span></div>
+    <div className="settings-head"><h1>Settings</h1><UpdateNotice status={updateStatus} onJump={() => jump("settings-updates")} /><span className="save-state" data-state={saveState}><span key={saveState} className="save-word" role="status" aria-live="polite">{saveState === "saved" && <Icon name="check" />}{SAVE_WORDS[saveState]}</span>{saveState === "error" && <button type="button" className="save-retry" onClick={onRetrySave}>retry</button>}</span></div>
     <nav className="settings-section-nav" aria-label="Settings sections" style={{ "--i": Math.max(0, sections.findIndex((section) => section.id === active)) } as React.CSSProperties}><span className="rail-pill" aria-hidden="true" />{sections.map((section) => <button type="button" key={section.id} aria-current={active === section.id ? "location" : undefined} onClick={() => jump(section.id)}>{section.label}{section.id === "settings-updates" && updatePending(updateStatus) && <i className="rail-dot" aria-label="update available" />}</button>)}</nav>
     <form ref={formRef} className="settings" onSubmit={(event) => event.preventDefault()}>
       <div className="settings-jump"><label htmlFor="settings-section-jump">Jump to section</label><select id="settings-section-jump" value={active} onChange={(event) => jump(event.target.value)}>{sections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}</select></div>

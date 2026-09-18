@@ -169,6 +169,7 @@ async function openBuiltinPlayer(request: PlayRequest, settings: Settings): Prom
 }
 
 function createWindow(): void {
+  updateService.opened();
   const capturePath = !app.isPackaged ? process.env.ANI_DESKTOP_CAPTURE_PATH : undefined;
   const icon = nativeImage.createFromPath(join(__dirname, "../icon.png"));
   const settings = store.snapshot().settings;

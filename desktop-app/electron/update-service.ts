@@ -45,6 +45,8 @@ export class UpdateService {
   private cache: UpdateCache = { version: 1 };
   private loaded = false;
   private inFlight?: Promise<UpdateStatus>;
+  /** Each opening of the app asks GitHub once, whatever the saved result's age; the daily throttle governs the polls after it. */
+  private checkedSinceOpen = false;
 
   constructor(
     private readonly filePath: string,
@@ -61,12 +63,16 @@ export class UpdateService {
     catch { this.cache = { version: 1 }; }
   }
 
+  /** A window opened: a launch, or on macOS a return from the dock after the last window closed. The next check goes to GitHub. */
+  opened(): void { this.checkedSinceOpen = false; }
+
   async check(force = false): Promise<UpdateStatus> {
     await this.load();
     if (!this.packaged && !force) return this.status("development");
     const age = this.cache.lastAttemptAt === undefined ? Infinity : this.now() - this.cache.lastAttemptAt;
-    if (!force && age >= 0 && age < UPDATE_CHECK_INTERVAL) return this.status();
+    if (!force && this.checkedSinceOpen && age >= 0 && age < UPDATE_CHECK_INTERVAL) return this.status();
     if (this.inFlight) return this.inFlight;
+    this.checkedSinceOpen = true;
     this.inFlight = this.fetchLatest().finally(() => { this.inFlight = undefined; });
     return this.inFlight;
   }

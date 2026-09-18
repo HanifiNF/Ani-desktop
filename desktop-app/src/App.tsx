@@ -111,8 +111,8 @@ function App() {
   }, []);
 
   // Settings apply as they change: the draft updates at once and one save follows shortly after the last edit.
-  const settingsSave = useRef<{ timer?: number; pending?: Settings }>({});
-  const [settingsSaveState, setSettingsSaveState] = useState<SettingsSaveState>("saved");
+  const settingsSave = useRef<{ timer?: number; pending?: Settings; failed?: Settings }>({});
+  const [settingsSaveState, setSettingsSaveState] = useState<SettingsSaveState>("idle");
   const flushSettings = useCallback(async () => {
     window.clearTimeout(settingsSave.current.timer);
     const pending = settingsSave.current.pending;
@@ -127,14 +127,32 @@ function App() {
       if (!settingsSave.current.pending) setSettingsSaveState("saved");
     }
     catch (reason) {
+      // A newer edit carries the whole draft, so only the latest refusal is worth retrying.
+      if (!settingsSave.current.pending) settingsSave.current.failed = pending;
       setSettingsSaveState("error");
       setError(messageFrom(reason));
     }
   }, []);
+  // "Saved" is a passing word: the heading goes quiet again shortly after.
+  useEffect(() => {
+    if (settingsSaveState !== "saved") return;
+    const timer = window.setTimeout(() => setSettingsSaveState("idle"), 2_000);
+    return () => window.clearTimeout(timer);
+  }, [settingsSaveState]);
+  const retrySettings = useCallback(() => {
+    const failed = settingsSave.current.failed;
+    if (!failed) return;
+    settingsSave.current.failed = undefined;
+    settingsSave.current.pending = failed;
+    setError(undefined);
+    setSettingsSaveState("saving");
+    void flushSettings();
+  }, [flushSettings]);
   const changeSettings = useCallback((next: Settings) => {
     setSettingsDraft(next);
     setError(undefined);
     settingsSave.current.pending = next;
+    settingsSave.current.failed = undefined;
     setSettingsSaveState("saving");
     window.clearTimeout(settingsSave.current.timer);
     settingsSave.current.timer = window.setTimeout(() => { void flushSettings(); }, 400);
@@ -911,7 +929,7 @@ function App() {
         )}
 
         {screen === "settings" && (
-          <SettingsScreen draft={settingsDraft} setDraft={changeSettings} saved={appState.settings} saveState={settingsSaveState}
+          <SettingsScreen draft={settingsDraft} setDraft={changeSettings} saved={appState.settings} saveState={settingsSaveState} onRetrySave={retrySettings}
             subtitleAppearance={subtitleAppearance} onSubtitleAppearance={changeSubtitleAppearance}
             bookmarkCount={appState.bookmarks.length} linkCount={(appState.providerLinks ?? []).length}
             onClearLinks={() => void clearSourceLinks()}
