@@ -47,7 +47,7 @@ it("edits the preset with chips, steppers, and colour picks, and resets it", asy
   vi.unstubAllGlobals();
 });
 
-it("summarises the preset on the closed row with a thumbnail", async () => {
+it("summarises the preset on the closed row beside a live sample", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   document.body.append(container);
   const toggle = vi.fn();

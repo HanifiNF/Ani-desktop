@@ -38,11 +38,13 @@ export function isDefaultSubtitleAppearance(value: SubtitleAppearance): boolean 
   return (Object.keys(DEFAULT_SUBTITLE_APPEARANCE) as (keyof SubtitleAppearance)[]).every((key) => value[key] === DEFAULT_SUBTITLE_APPEARANCE[key]);
 }
 
-/** A sample cue over a still, at the preset's size and colour. `thumb` is the small closed-row version. */
+/** A sample cue over a still, at the preset's size and colour. `thumb` is the one-line sample on the closed row, sized like a text field. */
 export function SubtitlePreview({ value, thumb = false }: { value: SubtitleAppearance; thumb?: boolean }) {
   return <div className={thumb ? "subtitle-preview subtitle-thumb" : "subtitle-preview"} style={subtitleVariables(value) as CSSProperties} role="img" aria-label={`Subtitle preview: ${subtitleSummary(value)}`}>
     {!thumb && <span className="subtitle-preview-tag">Preview</span>}
-    <span className="subtitle-sample"><span>{thumb ? "Sample · 字幕" : "Sample subtitle · 字幕"}</span><br /><span>{thumb ? "Second line" : "Second line of text"}</span></span>
+    {thumb
+      ? <span className="subtitle-sample"><span>Sample · 字幕</span></span>
+      : <span className="subtitle-sample"><span>Sample subtitle · 字幕</span><br /><span>Second line of text</span></span>}
   </div>;
 }
 
@@ -96,11 +98,13 @@ export function SubtitleAppearanceEditor({ value, onChange, note }: { value: Sub
   </div>;
 }
 
-/** The closed row in Playback: a thumbnail, a summary, and a chevron. Opens the editor beneath it. */
+/** The row in Playback: label and summary, then the live sample where a control would sit, and a chevron. Opens the editor beneath it. */
 export function SubtitleAppearanceRow({ value, open, onToggle }: { value: SubtitleAppearance; open: boolean; onToggle: () => void }) {
   return <button type="button" className="r subtitle-row" aria-expanded={open} aria-controls="subtitle-editor" onClick={onToggle}>
-    <SubtitlePreview value={value} thumb />
     <span className="k">Subtitle appearance<small>{subtitleSummary(value)}</small></span>
-    <svg className="icon subtitle-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+    <span className="v-row">
+      <SubtitlePreview value={value} thumb />
+      <svg className="icon subtitle-chevron" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+    </span>
   </button>;
 }

@@ -1,10 +1,12 @@
 /* Subtitle appearance: a disclosure row in Playback, and the same rows in the player's dialog. */
-.subtitle-preview { position: relative; height: 112px; overflow: hidden; background: linear-gradient(135deg, #24354b, #2f2b3f 65%, #171c29); }
+/* The still is a dark frame tinted by the theme, so it sits with the page and stays dark under a light theme. */
+.subtitle-preview { position: relative; height: 112px; overflow: hidden; background: linear-gradient(135deg, color-mix(in oklab, #1a1a1a, var(--text) 22%), color-mix(in oklab, #000, var(--bg) 40%)); }
 .subtitle-preview-tag { position: absolute; top: 10px; left: 14px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: rgb(255 255 255 / 55%); }
 .subtitle-sample { position: absolute; left: 5%; right: 5%; bottom: calc(14px + var(--app-subtitle-bottom-inset)); text-align: center; color: var(--app-subtitle-color); font-family: var(--app-subtitle-font); font-size: calc(20px * var(--app-subtitle-size)); font-weight: 500; line-height: 1.3; text-shadow: var(--app-subtitle-shadow); transition: color .2s, font-size .22s var(--ease), bottom .22s var(--ease), text-shadow .2s; }
 .subtitle-sample > span { transition: background .2s; background: var(--app-subtitle-background-resolved); padding: .1em .35em; border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-.subtitle-thumb { width: 132px; height: 52px; border-radius: 8px; flex: none; }
-.subtitle-thumb .subtitle-sample { bottom: calc(6px + var(--app-subtitle-bottom-inset)); font-size: calc(11px * var(--app-subtitle-size)); line-height: 1.25; }
+/* On the row the sample sits where a control would, at the height of a text field; the raise nudges it up within the well. */
+.subtitle-thumb { display: grid; place-items: center; width: 168px; height: 34px; border-radius: 8px; flex: none; }
+.subtitle-thumb .subtitle-sample { position: relative; left: auto; right: auto; bottom: var(--app-subtitle-bottom-inset); font-size: calc(13px * var(--app-subtitle-size)); line-height: 1; white-space: nowrap; }
 
 .group .r.subtitle-row { width: 100%; text-align: left; color: inherit; cursor: pointer; transition: background .16s; }
 .group .r.subtitle-row:hover { background: color-mix(in oklab, var(--raised), var(--text) 3%); }
