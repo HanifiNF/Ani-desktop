@@ -42,7 +42,7 @@ import { animeSources, enabledProviders, expandWithLinks, likelyDuplicate, merge
 import { Icon } from "./icons";
 import { withTransition } from "./transition";
 import { SiteFooter, type FooterScreen } from "./SiteFooter";
-import { UpdateBanner } from "./UpdateUI";
+import { updatePending } from "./UpdateUI";
 
 type Screen = "home" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
@@ -779,8 +779,9 @@ function App() {
     const row = all[nextUpIndex(all, episodeGroups, progress, progress?.lastProvider ?? (provider === "auto" ? selectedAnime?.provider : provider) ?? "aniwave")];
     return row ? all.find((item) => !item.watched && item.number === row.number) ?? row : undefined;
   }, [episodeGroups, progress, selectedAnime, provider]);
-  const navIcon = (target: Screen, name: "home" | "bookmark" | "clock" | "gear", text: string) => (
-    <button type="button" className={screen === target ? "on" : ""} title={text} onClick={() => go(target)}><Icon name={name} /><span className="sr-only">{text}</span></button>
+  // The update notice lives in Settings; a dot on the gear is its only sign elsewhere.
+  const navIcon = (target: Screen, name: "home" | "bookmark" | "clock" | "gear", text: string, badge = false) => (
+    <button type="button" className={screen === target ? "on" : ""} title={badge ? `${text} · update available` : text} onClick={() => go(target)}><Icon name={name} />{badge && <i className="nav-badge" aria-hidden="true" />}<span className="sr-only">{badge ? `${text}, update available` : text}</span></button>
   );
 
   return (
@@ -817,13 +818,12 @@ function App() {
           {navIcon("home", "home", "home")}
           {navIcon("saved", "bookmark", "saved")}
           {navIcon("recent", "clock", "recent")}
-          {navIcon("settings", "gear", "settings")}
+          {navIcon("settings", "gear", "settings", updatePending(updateStatus))}
         </nav>
       </header>
       {paletteOpen && <div className="dim" onClick={() => { setQuery(""); catalogSearch.clear(); }} />}
 
       <div className="body">
-      {screen !== "player" && screen !== "opening" && updateStatus && <UpdateBanner status={updateStatus} onOpen={openLatestRelease} onDismiss={dismissUpdate} />}
       {session && (
         <Suspense fallback={<div className="player-message">loading player ···</div>}>
           <PlayerScreen
@@ -915,7 +915,7 @@ function App() {
             subtitleAppearance={subtitleAppearance} onSubtitleAppearance={changeSubtitleAppearance}
             bookmarkCount={appState.bookmarks.length} linkCount={(appState.providerLinks ?? []).length}
             onClearLinks={() => void clearSourceLinks()}
-            updateStatus={updateStatus} updateChecking={updateChecking} onCheckUpdates={() => checkForUpdates(true)} onOpenUpdate={openLatestRelease}
+            updateStatus={updateStatus} updateChecking={updateChecking} onCheckUpdates={() => checkForUpdates(true)} onOpenUpdate={openLatestRelease} onSkipUpdate={dismissUpdate}
             onOpenLogs={() => { void run("opening player logs", () => window.aniDesktop.openPlayerLogs()); }} />
         )}
 

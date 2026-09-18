@@ -9,7 +9,7 @@ import Switch from "./Switch";
 import SourceStatusPanel from "./SourceStatusPanel";
 import BookmarkMetadataPanel from "./BookmarkMetadataPanel";
 import IdentityIndexPanel from "./IdentityIndexPanel";
-import { UpdatePanel } from "./UpdateUI";
+import { UpdateNotice, UpdatePanel, updatePending } from "./UpdateUI";
 import { SubtitleAppearanceEditor, SubtitleAppearanceRow } from "./SubtitleAppearanceEditor";
 import Reveal from "./Reveal";
 
@@ -20,7 +20,7 @@ interface Props {
   draft: Settings; setDraft: (settings: Settings) => void; saved: Settings; saveState: SettingsSaveState;
   bookmarkCount: number; linkCount: number;
   onOpenLogs: () => void; onClearLinks: () => void;
-  updateStatus?: UpdateStatus; updateChecking: boolean; onCheckUpdates: () => void; onOpenUpdate: () => void;
+  updateStatus?: UpdateStatus; updateChecking: boolean; onCheckUpdates: () => void; onOpenUpdate: () => void; onSkipUpdate: () => void;
   subtitleAppearance: SubtitleAppearance; onSubtitleAppearance: (value: SubtitleAppearance) => void;
 }
 
@@ -100,13 +100,13 @@ function useSectionNavigation() {
 const SAVE_WORDS: Record<SettingsSaveState, string> = { saved: "Saved", saving: "Saving…", error: "Not saved" };
 
 export default function SettingsScreen({ draft, setDraft, saved, saveState, bookmarkCount, linkCount, onOpenLogs, onClearLinks,
-  updateStatus, updateChecking, onCheckUpdates, onOpenUpdate, subtitleAppearance, onSubtitleAppearance }: Props) {
+  updateStatus, updateChecking, onCheckUpdates, onOpenUpdate, onSkipUpdate, subtitleAppearance, onSubtitleAppearance }: Props) {
   const { formRef, active, jump } = useSectionNavigation();
   const [subtitlesOpen, setSubtitlesOpen] = useState(false);
   return (
     <div className="settings-layout">
-    <div className="settings-head"><h1>Settings</h1><span className="save-state" data-state={saveState} role="status" aria-live="polite"><i aria-hidden="true" /><span key={saveState} className="save-word">{SAVE_WORDS[saveState]}</span></span></div>
-    <nav className="settings-section-nav" aria-label="Settings sections" style={{ "--i": Math.max(0, sections.findIndex((section) => section.id === active)) } as React.CSSProperties}><span className="rail-pill" aria-hidden="true" />{sections.map((section) => <button type="button" key={section.id} aria-current={active === section.id ? "location" : undefined} onClick={() => jump(section.id)}>{section.label}</button>)}</nav>
+    <div className="settings-head"><h1>Settings</h1><UpdateNotice status={updateStatus} onJump={() => jump("settings-updates")} /><span className="save-state" data-state={saveState} role="status" aria-live="polite"><i aria-hidden="true" /><span key={saveState} className="save-word">{SAVE_WORDS[saveState]}</span></span></div>
+    <nav className="settings-section-nav" aria-label="Settings sections" style={{ "--i": Math.max(0, sections.findIndex((section) => section.id === active)) } as React.CSSProperties}><span className="rail-pill" aria-hidden="true" />{sections.map((section) => <button type="button" key={section.id} aria-current={active === section.id ? "location" : undefined} onClick={() => jump(section.id)}>{section.label}{section.id === "settings-updates" && updatePending(updateStatus) && <i className="rail-dot" aria-label="update available" />}</button>)}</nav>
     <form ref={formRef} className="settings" onSubmit={(event) => event.preventDefault()}>
       <div className="settings-jump"><label htmlFor="settings-section-jump">Jump to section</label><select id="settings-section-jump" value={active} onChange={(event) => jump(event.target.value)}>{sections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}</select></div>
       <div className="group"><h3 id="settings-playback" tabIndex={-1}>Playback</h3><div className="box">
@@ -154,7 +154,7 @@ export default function SettingsScreen({ draft, setDraft, saved, saveState, book
       <SourceStatusPanel saved={saved} draft={draft} onChange={setDraft}>
         <div className="r"><span className="k">Source links<small>{linkCount} remembered {linkCount === 1 ? "anime" : "anime"} with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><button type="button" className="btn small" disabled={!linkCount} onClick={onClearLinks}>forget links</button></div>
       </SourceStatusPanel>
-      <UpdatePanel status={updateStatus} checking={updateChecking} onCheck={onCheckUpdates} onOpen={onOpenUpdate} />
+      <UpdatePanel status={updateStatus} checking={updateChecking} onCheck={onCheckUpdates} onOpen={onOpenUpdate} onSkip={onSkipUpdate} />
     </form>
     </div>
   );

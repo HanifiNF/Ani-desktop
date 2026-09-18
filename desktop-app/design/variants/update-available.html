@@ -1,0 +1,140 @@
+<!doctype html><meta charset="utf-8"><title>Update available · variants</title>
+<style>
+:root {
+  --bg:#262626; --text:#EFE6D0; --cursor:#F0BC42; --cursor-text:#1d1a12;
+  --raised: color-mix(in oklab, var(--bg), var(--text) 6%);
+  --raised2: color-mix(in oklab, var(--bg), var(--text) 10%);
+  --rule: color-mix(in oklab, var(--bg), var(--text) 12%);
+  --dim: color-mix(in oklab, var(--bg), var(--text) 36%);
+  --muted: color-mix(in oklab, var(--bg), var(--text) 60%);
+  --ok:#8FC7A0;
+}
+* { box-sizing: border-box; }
+body { margin:0; background:#151515; color:var(--text); font: 400 14px/1.45 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing:-.005em; padding: 40px 0 80px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.caption { width: 1120px; margin: 56px 60px 12px; color: #8a8578; font-size: 12.5px; line-height: 1.55; }
+.caption:first-child { margin-top: 0; }
+.caption b { color: #d8cfba; font-weight: 600; }
+.variant { width: 1240px; background: var(--bg); padding: 0 60px 36px; position: relative; overflow: hidden; }
+.icon { width: 18px; height: 18px; flex: none; }
+
+/* top bar */
+.bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 68px; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo { font-weight: 700; font-size: 19px; letter-spacing: .06em; }
+.logo em { font-style: normal; color: var(--muted); font-weight: 500; }
+.search { display: flex; align-items: center; gap: 12px; width: 420px; height: 44px; padding: 0 12px 0 16px; border-radius: 12px; background: var(--raised); color: var(--dim); font-size: 15px; }
+.search span { flex: 1; }
+.search kbd { font: 500 10px/1 inherit; padding: 5px 6px; border-radius: 6px; background: var(--bg); color: var(--muted); }
+.icons { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
+.icons button { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--muted); }
+.icons button.on { background: var(--raised); color: var(--text); }
+
+/* settings slice */
+.page { display: grid; grid-template-columns: 180px 760px; column-gap: 32px; align-items: start; padding-top: 22px; }
+.rail { display: grid; gap: 2px; }
+.rail button { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 8px; color: var(--muted); font-size: 13px; }
+.rail button.on { color: var(--text); background: var(--raised); font-weight: 600; }
+.group h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.box { border-radius: 12px; background: var(--raised); overflow: hidden; }
+.r { display: flex; align-items: center; gap: 24px; padding: 14px 18px; border-top: 1px solid var(--rule); }
+.r:first-child { border-top: 0; }
+.r .k { flex: 1; }
+.r .k small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.v-row { display: flex; align-items: center; gap: 14px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 12px; border-radius: 10px; font-size: 13px; font-weight: 500; background: var(--raised2); color: var(--text); }
+.btn.primary { background: var(--cursor); color: var(--cursor-text); }
+.link { color: var(--muted); font-size: 13px; }
+.ver { font-variant-numeric: tabular-nums; }
+.arrow { color: var(--dim); margin: 0 6px; }
+.home-slice h2 { margin: 22px 0 14px; font-size: 18px; font-weight: 600; letter-spacing: -.01em; }
+.cards { display: grid; grid-template-columns: repeat(8, 1fr); gap: 14px; }
+.cards i { display: block; aspect-ratio: 2/3; border-radius: 10px; background: var(--raised); }
+.sub { margin: 18px 0 0; color: #8a8578; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+
+/* U1 · pill beside the wordmark, popover on click */
+.pill { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px 0 8px; border-radius: 12px; background: color-mix(in oklab, var(--bg), var(--cursor) 12%); color: var(--cursor); font-size: 12px; font-weight: 500; }
+.pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--cursor); }
+.stage { position: relative; }
+.pop { position: absolute; top: 56px; left: 136px; width: 280px; padding: 14px 16px; border-radius: 12px; background: var(--raised2); box-shadow: 0 12px 32px rgb(0 0 0 / 40%), 0 0 0 1px var(--rule); z-index: 5; }
+.pop b { display: block; font-weight: 600; }
+.pop small { display: block; color: var(--muted); font-size: 12px; margin: 2px 0 12px; }
+.pop .v-row { justify-content: space-between; }
+
+/* U2 · dot on the gear, the settings row is the only surface */
+.badge { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--cursor); box-shadow: 0 0 0 2px var(--bg); }
+.icons button.on .badge { box-shadow: 0 0 0 2px var(--raised); }
+.rail .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cursor); }
+.tick { border-left: 2px solid var(--cursor); }
+
+/* U3 · one quiet line under the bar */
+.line { display: flex; align-items: center; justify-content: center; gap: 10px; height: 30px; margin: 0 0 4px; color: var(--muted); font-size: 12.5px; border-bottom: 1px solid var(--rule); }
+.line i { width: 6px; height: 6px; border-radius: 50%; background: var(--cursor); }
+.line b { color: var(--text); font-weight: 500; }
+.line button { color: var(--text); text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; font-size: 12.5px; }
+.line button.q { color: var(--muted); text-decoration: none; }
+.line .sep { color: var(--dim); }
+</style>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 4h12v17l-6-4-6 4z"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 3l1.6 2.6 3-.6.9 2.9 2.9.9-.6 3L22 12l-2.2 1.6.6 3-2.9.9-.9 2.9-3-.6L12 21l-1.6-2.2-3 .6-.9-2.9-2.9-.9.6-3L2 12l2.2-1.6-.6-3 2.9-.9.9-2.9 3 .6z"/></symbol>
+</defs></svg>
+
+<p class="caption"><b>Now</b> · A full-width bordered amber banner under the bar on every screen. It pushes the page down, and on Settings the same message and the same "view release" action appear twice.</p>
+
+<p class="caption"><b>U1 · Version pill beside the wordmark.</b> A small amber pill sits next to the logo on every screen and takes no page height. Clicking it opens a small popover with the two versions, "View release", and "Later"; "Later" removes the pill until the next version. The Updates row in Settings becomes one line: both versions in the title, the check time in the small text, one primary button.</p>
+<div class="variant" data-variant="u1">
+  <div class="bar"><div class="brand"><span class="logo">ANI<em>desktop</em></span><button class="pill"><i></i><span class="ver">v0.1.4</span></button></div>
+    <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>Search anime</span><kbd>⌘K</kbd></div>
+    <div class="icons"><button><svg class="icon"><use href="#i-home"/></svg></button><button><svg class="icon"><use href="#i-save"/></svg></button><button><svg class="icon"><use href="#i-clock"/></svg></button><button class="on"><svg class="icon"><use href="#i-gear"/></svg></button></div></div>
+  <div class="page">
+    <nav class="rail"><button>Playback</button><button>Library</button><button>Appearance</button><button>Sources</button><button class="on">Updates</button></nav>
+    <div class="group"><h3>Updates</h3><div class="box">
+      <div class="r"><span class="k"><span class="ver">Version 0.1.4 is available</span><small>You have 0.1.0 · checked today 00:28</small></span><span class="v-row"><button class="link">check again</button><button class="btn primary">View release</button></span></div>
+    </div></div>
+  </div>
+  <p class="sub">Pill clicked, on Home</p>
+  <div class="stage"><div class="bar"><div class="brand"><span class="logo">ANI<em>desktop</em></span><button class="pill"><i></i><span class="ver">v0.1.4</span></button></div>
+    <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>Search anime</span><kbd>⌘K</kbd></div>
+    <div class="icons"><button class="on"><svg class="icon"><use href="#i-home"/></svg></button><button><svg class="icon"><use href="#i-save"/></svg></button><button><svg class="icon"><use href="#i-clock"/></svg></button><button><svg class="icon"><use href="#i-gear"/></svg></button></div></div>
+  <div class="pop"><b>Version 0.1.4 is available</b><small>You have 0.1.0</small><div class="v-row"><button class="btn primary">View release</button><button class="link">Later</button></div></div>
+  <div class="home-slice"><h2>Continue watching</h2><div class="cards"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>
+</div>
+
+<p class="caption"><b>U2 · Dot on the gear.</b> The quietest option. Every screen shows only a small amber dot on the settings icon; the Updates entry in the rail carries the same dot. The Updates row is the single place that states the news and holds the action, marked with the accent tick used for section arrival. "Skip this version" clears the dots until the next release.</p>
+<div class="variant" data-variant="u2">
+  <div class="bar"><div class="brand"><span class="logo">ANI<em>desktop</em></span></div>
+    <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>Search anime</span><kbd>⌘K</kbd></div>
+    <div class="icons"><button><svg class="icon"><use href="#i-home"/></svg></button><button><svg class="icon"><use href="#i-save"/></svg></button><button><svg class="icon"><use href="#i-clock"/></svg></button><button class="on"><svg class="icon"><use href="#i-gear"/></svg><span class="badge"></span></button></div></div>
+  <div class="page">
+    <nav class="rail"><button>Playback</button><button>Library</button><button>Appearance</button><button>Sources</button><button class="on">Updates<span class="dot"></span></button></nav>
+    <div class="group"><h3>Updates</h3><div class="box">
+      <div class="r tick"><span class="k"><span class="ver">0.1.0<span class="arrow">→</span>0.1.4</span><small>A new version is available · checked today 00:28</small></span><span class="v-row"><button class="link">Skip this version</button><button class="btn primary">View release</button></span></div>
+      <div class="r"><span class="k">Check for updates<small>Checked hourly while the app is open</small></span><button class="btn">check now</button></div>
+    </div></div>
+  </div>
+  <p class="sub">On other screens</p>
+  <div class="bar"><div class="brand"><span class="logo">ANI<em>desktop</em></span></div>
+    <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>Search anime</span><kbd>⌘K</kbd></div>
+    <div class="icons"><button class="on"><svg class="icon"><use href="#i-home"/></svg></button><button><svg class="icon"><use href="#i-save"/></svg></button><button><svg class="icon"><use href="#i-clock"/></svg></button><button><svg class="icon"><use href="#i-gear"/></svg><span class="badge"></span></button></div></div>
+</div>
+
+<p class="caption"><b>U3 · One quiet line under the bar.</b> Keeps the current behaviour, a message with both actions on every screen, at a third of the height: no border, no fill, muted text, a hairline beneath. The Updates row in Settings matches U1.</p>
+<div class="variant" data-variant="u3">
+  <div class="bar"><div class="brand"><span class="logo">ANI<em>desktop</em></span></div>
+    <div class="search"><svg class="icon"><use href="#i-search"/></svg><span>Search anime</span><kbd>⌘K</kbd></div>
+    <div class="icons"><button class="on"><svg class="icon"><use href="#i-home"/></svg></button><button><svg class="icon"><use href="#i-save"/></svg></button><button><svg class="icon"><use href="#i-clock"/></svg></button><button><svg class="icon"><use href="#i-gear"/></svg></button></div></div>
+  <div class="line"><i></i><span><b class="ver">Version 0.1.4</b> is available</span><span class="sep">·</span><button>View release</button><span class="sep">·</span><button class="q">Later</button></div>
+  <div class="home-slice"><h2>Continue watching</h2><div class="cards"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+  <p class="sub">In Settings</p>
+  <div class="page" style="padding-top:12px">
+    <nav class="rail"><button>Playback</button><button>Library</button><button>Appearance</button><button>Sources</button><button class="on">Updates</button></nav>
+    <div class="group"><h3>Updates</h3><div class="box">
+      <div class="r"><span class="k"><span class="ver">Version 0.1.4 is available</span><small>You have 0.1.0 · checked today 00:28</small></span><span class="v-row"><button class="link">check again</button><button class="btn primary">View release</button></span></div>
+    </div></div>
+  </div>
+</div>
