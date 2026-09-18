@@ -359,7 +359,13 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 /* ---- settings --------------------------------------------------------- */
 .page-settings { container: settings-page / inline-size; }
 .settings-layout { display: grid; grid-template-columns: minmax(0, 760px) 180px; column-gap: 32px; align-items: start; width: min(100%, 972px); margin-top: 12px; }
-.settings-layout > h1 { grid-column: 1 / -1; margin: 0 0 22px; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.settings-head { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin: 0 0 22px; }
+.settings-head h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.save-state { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); font-size: 12px; }
+.save-state i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); display: block; }
+.save-state[data-state="saving"] i { background: var(--dim); }
+.save-state[data-state="error"] { color: var(--danger); }
+.save-state[data-state="error"] i { background: var(--danger); }
 .settings { min-width: 0; max-width: 760px; }
 .settings-section-nav { position: sticky; top: 16px; display: grid; gap: 2px; align-self: start; border-left: 1px solid var(--rule); }
 .settings-section-nav button { padding: 8px 12px; color: var(--muted); font-size: 13px; border-left: 2px solid transparent; margin-left: -1px; }
@@ -369,7 +375,7 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .settings .group h3:focus { outline: 2px solid var(--cursor); outline-offset: 3px; }
 @container settings-page (max-width: 979px) {
   .settings-layout { grid-template-columns: minmax(0, 760px); }
-  .settings-layout > h1 { grid-column: 1; }
+  .settings-head { grid-column: 1; }
   .settings-section-nav { display: none; }
   .settings-jump { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 16px; padding: 8px 0; color: var(--muted); background: var(--bg); font-size: 13px; }
   .settings-jump select { width: min(260px, 60%); min-height: 36px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: 8px; color: var(--text); background: var(--raised); }
@@ -407,9 +413,6 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .swatch input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .swatch input:not([type="color"]) { width: 72px; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
 .acts-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-/* The form is taller than the window, so the actions stay in view while it scrolls. Sticky boxes stop at the
-   scroller's content edge, so the bar pulls itself down through the page's bottom padding to sit flush with the window. */
-.settings .acts-row { position: sticky; bottom: calc(-1 * var(--page-pad-bottom)); margin: 0 0 calc(-1 * var(--page-pad-bottom)); padding: 12px 0 16px; background: var(--bg); border-top: 1px solid var(--rule); }
 
 /* ---- key hints -------------------------------------------------------- */
 .hints { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; display: flex; gap: 18px; padding: 8px 14px; border-radius: 10px; background: var(--raised); color: var(--muted); font-size: 12px; box-shadow: 0 0 0 1px var(--rule), 0 6px 20px rgb(0 0 0 / 25%); white-space: nowrap; }

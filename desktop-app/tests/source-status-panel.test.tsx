@@ -55,7 +55,7 @@ it("respects server delays and unsaved source addresses", async () => {
   });
   expect(onChange).toHaveBeenCalledWith({ ...settings, anidbBaseUrl: "https://new.test" });
   await render({ ...settings, anidbBaseUrl: "https://new.test" });
-  expect(button().disabled).toBe(true); expect(container.textContent).toContain("Save this address before checking");
+  expect(button().disabled).toBe(true); expect(container.textContent).toContain("Saving the address");
   expect(checkSource).not.toHaveBeenCalled();
 });
 

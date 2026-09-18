@@ -78,7 +78,7 @@ it("ignores a stale status response that arrives after a new job starts", async 
 it("requires bookmarks and saved enabled source settings", async () => {
   await render(0); expect(button().disabled).toBe(true);
   await render(2, { ...settings, aniwaveBaseUrl: "https://new.test" });
-  expect(button().disabled).toBe(true); expect(container.textContent).toContain("Save source changes");
+  expect(button().disabled).toBe(true); expect(container.textContent).toContain("Saving source changes");
   await render(2, { ...settings, disabledSources: ["aniwave"] }); expect(button().disabled).toBe(true);
   const off = { ...settings, disabledSources: ["aniwave", "anidb", "hianime"] as const };
   await act(async () => root.render(<BookmarkMetadataPanel count={2} saved={{ ...off, disabledSources: [...off.disabledSources] }} draft={{ ...off, disabledSources: [...off.disabledSources] }} />));

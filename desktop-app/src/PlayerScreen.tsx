@@ -19,7 +19,7 @@ import { DesktopMediaStorage } from "./player-storage";
 import { shortcut } from "./keys";
 import { observePlayerDiagnostics } from "./player-diagnostics";
 import { clampMiniPlayerWidth, type MiniPlayerCorner, type PlayerCommand, type PlayerSession, type SubtitleAppearance } from "../shared/contracts";
-import { SubtitleAppearanceEditor, subtitleVariables } from "./SubtitleAppearanceEditor";
+import { SubtitleAppearanceEditor, SubtitlePreview, subtitleVariables } from "./SubtitleAppearanceEditor";
 
 export interface PlayerScreenProps {
   session: PlayerSession;
@@ -109,6 +109,29 @@ function FullscreenControl({ fullscreen, busy, onToggle }: { fullscreen: boolean
   );
 }
 
+/** The last entry of the settings menu. Closes the menu first, so the dialog is alone on screen. */
+function SubtitleMenuEntry({ onOpen }: { onOpen: () => void }) {
+  const media = useMediaContext();
+  return <button type="button" className="vds-menu-item subtitle-menu-entry" role="menuitem" onClick={(event) => { media.activeMenu?.close(event.nativeEvent); onOpen(); }}>
+    <span className="vds-menu-item-label">Subtitle appearance</span>
+  </button>;
+}
+
+/** Reports whether the loaded media carries a subtitle track, including ones found inside an HLS playlist. */
+function TrackWatcher({ onChange }: { onChange: (count: number) => void }) {
+  const media = useMediaContext();
+  useEffect(() => {
+    const list = media.textTracks;
+    if (!list) return;
+    const update = () => onChange([...list].filter((track) => track.kind === "subtitles" || track.kind === "captions").length);
+    update();
+    list.addEventListener("add", update);
+    list.addEventListener("remove", update);
+    return () => { list.removeEventListener("add", update); list.removeEventListener("remove", update); };
+  }, [media, onChange]);
+  return null;
+}
+
 function MenuEscapeHandler() {
   const media = useMediaContext();
   useEffect(() => {
@@ -135,6 +158,7 @@ export default function PlayerScreen({ session, subtitleAppearance, onSubtitleAp
   const [notice, setNotice] = useState<string>();
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showSubtitleAppearance, setShowSubtitleAppearance] = useState(false);
+  const [subtitleTracks, setSubtitleTracks] = useState(session.request.textTracks?.length ?? 0);
   const [diagnostics, setDiagnostics] = useState(session.diagnostics === true);
   const [countdown, setCountdown] = useState<number>();
   const [paused, setPaused] = useState(false);
@@ -437,6 +461,7 @@ export default function PlayerScreen({ session, subtitleAppearance, onSubtitleAp
           onError={(detail) => setError(errorMessage(detail))}
         >
           <MenuEscapeHandler />
+          <TrackWatcher onChange={setSubtitleTracks} />
           <MediaProvider>
             {session.request.textTracks?.map((track, index) => <Track key={`${track.src}:${index}`} src={track.src} kind="subtitles" label={track.label} lang={track.lang} default={track.default} />)}
           </MediaProvider>
@@ -447,7 +472,7 @@ export default function PlayerScreen({ session, subtitleAppearance, onSubtitleAp
               beforePlayButton: <SeekControl seconds={-10} />,
               afterPlayButton: <SeekControl seconds={10} />,
               beforeSettingsMenu: <button type="button" className="vds-button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setShowShortcuts(true)}>?</button>,
-              settingsMenuEndItems: <button type="button" className="subtitle-menu-entry" onClick={() => setShowSubtitleAppearance(true)}>Subtitle appearance</button>,
+              settingsMenuEndItems: <SubtitleMenuEntry onOpen={() => setShowSubtitleAppearance(true)} />,
               googleCastButton: null,
               fullscreenButton: (
                 <FullscreenControl
@@ -520,7 +545,11 @@ export default function PlayerScreen({ session, subtitleAppearance, onSubtitleAp
       <dialog ref={subtitleDialog} className="player-subtitle-dialog" aria-labelledby="subtitle-dialog-title"
         onCancel={() => setShowSubtitleAppearance(false)} onClose={() => setShowSubtitleAppearance(false)}>
         <h2 id="subtitle-dialog-title">Subtitle appearance</h2>
-        <SubtitleAppearanceEditor value={subtitleAppearance} onChange={onSubtitleAppearance} noTrack={!session.request.textTracks?.length} />
+        <div className="group"><div className="box">
+          <SubtitlePreview value={subtitleAppearance} />
+          <SubtitleAppearanceEditor value={subtitleAppearance} onChange={onSubtitleAppearance}
+            note={subtitleTracks ? undefined : "This stream came without a subtitle track. The preset applies when one is available; text burned into the picture cannot be styled."} />
+        </div></div>
         <button type="button" className="btn" onClick={() => setShowSubtitleAppearance(false)}>Close</button>
       </dialog>
     </main>

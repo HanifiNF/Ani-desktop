@@ -1,34 +1,35 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProviderPreference, Settings, SubtitleAppearance, UpdateStatus } from "../shared/contracts";
 import { enabledProviders } from "../shared/catalog";
 import { PLAYBACK_QUALITIES as QUALITIES } from "../shared/settings";
 import { THEME_NAMES, resolveTheme } from "../shared/theme";
+import { isMac } from "./keys";
 import Chips from "./Chips";
 import Switch from "./Switch";
-import { isMac } from "./keys";
 import SourceStatusPanel from "./SourceStatusPanel";
 import BookmarkMetadataPanel from "./BookmarkMetadataPanel";
 import IdentityIndexPanel from "./IdentityIndexPanel";
 import { UpdatePanel } from "./UpdateUI";
-import { SubtitleAppearanceEditor } from "./SubtitleAppearanceEditor";
+import { SubtitleAppearanceEditor, SubtitleAppearanceRow } from "./SubtitleAppearanceEditor";
+
+/** Every row applies as it changes; this is the page's word on how that went. */
+export type SettingsSaveState = "saved" | "saving" | "error";
 
 interface Props {
-  draft: Settings; setDraft: Dispatch<SetStateAction<Settings>>; saved: Settings;
-  bookmarkCount: number; linkCount: number; dirty: boolean;
-  onSave: () => void; onCancel: () => void; onOpenLogs: () => void; onClearLinks: () => void;
+  draft: Settings; setDraft: (settings: Settings) => void; saved: Settings; saveState: SettingsSaveState;
+  bookmarkCount: number; linkCount: number;
+  onOpenLogs: () => void; onClearLinks: () => void;
   updateStatus?: UpdateStatus; updateChecking: boolean; onCheckUpdates: () => void; onOpenUpdate: () => void;
   subtitleAppearance: SubtitleAppearance; onSubtitleAppearance: (value: SubtitleAppearance) => void;
 }
 
+/** The side nav. Library covers the three groups from Defaults down to Episode metadata. */
 const sections = [
-  { id: "settings-updates", label: "Updates" },
   { id: "settings-playback", label: "Playback" },
-  { id: "settings-subtitles", label: "Subtitles" },
-  { id: "settings-defaults", label: "Defaults" },
+  { id: "settings-defaults", label: "Library" },
   { id: "settings-appearance", label: "Appearance" },
-  { id: "settings-anime-information", label: "Anime information" },
-  { id: "settings-episode-metadata", label: "Episode metadata" },
-  { id: "settings-sources", label: "Sources" }
+  { id: "settings-sources", label: "Sources" },
+  { id: "settings-updates", label: "Updates" }
 ] as const;
 
 function useSectionNavigation() {
@@ -72,25 +73,25 @@ function useSectionNavigation() {
   return { formRef, active, jump };
 }
 
-export default function SettingsScreen({ draft, setDraft, saved, bookmarkCount, linkCount, dirty, onSave, onCancel, onOpenLogs, onClearLinks,
+const SAVE_WORDS: Record<SettingsSaveState, string> = { saved: "Saved", saving: "Saving…", error: "Not saved" };
+
+export default function SettingsScreen({ draft, setDraft, saved, saveState, bookmarkCount, linkCount, onOpenLogs, onClearLinks,
   updateStatus, updateChecking, onCheckUpdates, onOpenUpdate, subtitleAppearance, onSubtitleAppearance }: Props) {
   const { formRef, active, jump } = useSectionNavigation();
+  const [subtitlesOpen, setSubtitlesOpen] = useState(false);
   return (
     <div className="settings-layout">
-    <h1>Settings</h1>
-    <form ref={formRef} className="settings" onSubmit={(event) => { event.preventDefault(); onSave(); }}>
+    <div className="settings-head"><h1>Settings</h1><span className="save-state" data-state={saveState} role="status" aria-live="polite"><i aria-hidden="true" />{SAVE_WORDS[saveState]}</span></div>
+    <form ref={formRef} className="settings" onSubmit={(event) => event.preventDefault()}>
       <div className="settings-jump"><label htmlFor="settings-section-jump">Jump to section</label><select id="settings-section-jump" value={active} onChange={(event) => jump(event.target.value)}>{sections.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}</select></div>
-      <UpdatePanel status={updateStatus} checking={updateChecking} onCheck={onCheckUpdates} onOpen={onOpenUpdate} />
       <div className="group"><h3 id="settings-playback" tabIndex={-1}>Playback</h3><div className="box">
         <div className="r"><span className="k">Player<small>Built-in works without installing another player</small></span><Chips value={draft.playbackTarget} options={["builtin", "external"] as const} onChange={(playbackTarget) => setDraft({ ...draft, playbackTarget })} names={{ builtin: "built-in" }} /></div>
         <div className="r"><span className="k">Start fullscreen<small>Enter fullscreen as soon as an episode starts</small></span><Switch checked={draft.startPlayerFullscreen} label="Start fullscreen" onChange={(startPlayerFullscreen) => setDraft({ ...draft, startPlayerFullscreen })} /></div>
         <div className="r"><span className="k">Autoplay next episode<small>Built-in player only. Waits five seconds and can be cancelled</small></span><Switch checked={draft.autoplayNext !== false} label="Autoplay next episode" onChange={(autoplayNext) => setDraft({ ...draft, autoplayNext })} /></div>
         <div className="r"><span className="k">Diagnostics<small>Local keyboard and playback logs for troubleshooting</small></span><span className="v-row"><button type="button" className="btn small" onClick={() => { onOpenLogs(); }}>open logs</button><Switch checked={draft.playerDiagnostics === true} label="Diagnostics logging" onChange={(playerDiagnostics) => setDraft({ ...draft, playerDiagnostics })} /></span></div>
         <div className="r"><label htmlFor="player" className="k">External player<small>Optional with the built-in player. {isMac() ? "mpv, VLC, or IINA's iina-cli" : "mpv or VLC, by name or full path"}</small></label><input id="player" value={draft.playerPath} placeholder={draft.playbackTarget === "external" ? (isMac() ? "iina-cli" : "mpv") : "optional"} spellCheck={false} onChange={(event) => setDraft({ ...draft, playerPath: event.target.value })} /></div>
-      </div></div>
-      <div className="group"><h3 id="settings-subtitles" tabIndex={-1}>Subtitles</h3><div className="box subtitle-settings-box">
-        <p className="subtitle-help">Appearance changes save automatically for the built-in player.</p>
-        <SubtitleAppearanceEditor value={subtitleAppearance} onChange={onSubtitleAppearance} />
+        <SubtitleAppearanceRow value={subtitleAppearance} open={subtitlesOpen} onToggle={() => setSubtitlesOpen((open) => !open)} />
+        {subtitlesOpen && <div id="subtitle-editor" className="subtitle-body"><SubtitleAppearanceEditor value={subtitleAppearance} onChange={onSubtitleAppearance} /></div>}
       </div></div>
       <div className="group"><h3 id="settings-defaults" tabIndex={-1}>Defaults</h3><div className="box">
         <div className="r"><span className="k">Quality<small>Best takes the highest stream a source offers</small></span><Chips value={draft.preferredQuality} options={QUALITIES} onChange={(preferredQuality) => setDraft({ ...draft, preferredQuality })} /></div>
@@ -126,9 +127,9 @@ export default function SettingsScreen({ draft, setDraft, saved, bookmarkCount, 
       <IdentityIndexPanel saved={saved} draft={draft} onChange={setDraft} />
       <BookmarkMetadataPanel count={bookmarkCount} saved={saved} draft={draft} />
       <SourceStatusPanel saved={saved} draft={draft} onChange={setDraft}>
-        <div className="r"><span className="k">Source links<small>{linkCount} remembered {linkCount === 1 ? "anime" : "anime"} with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><button type="button" className="btn small" disabled={!linkCount} onClick={() => onClearLinks()}>forget links</button></div>
+        <div className="r"><span className="k">Source links<small>{linkCount} remembered {linkCount === 1 ? "anime" : "anime"} with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><button type="button" className="btn small" disabled={!linkCount} onClick={onClearLinks}>forget links</button></div>
       </SourceStatusPanel>
-      <div className="acts-row"><button type="button" className="btn" onClick={onCancel}>cancel</button><button type="submit" className="btn primary" disabled={!dirty}>save changes</button></div>
+      <UpdatePanel status={updateStatus} checking={updateChecking} onCheck={onCheckUpdates} onOpen={onOpenUpdate} />
     </form>
     <nav className="settings-section-nav" aria-label="Settings sections">{sections.map((section) => <button type="button" key={section.id} aria-current={active === section.id ? "location" : undefined} onClick={() => jump(section.id)}>{section.label}</button>)}</nav>
     </div>

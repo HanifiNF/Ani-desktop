@@ -74,7 +74,7 @@ export default function SourceStatusPanel({ saved, draft, onChange, children }: 
         : status ? "Not checked" : readError ? "Status unavailable" : "Loading status";
       const detail = !on ? "not searched or loaded" : busy ? undefined : status?.state === "reachable" ? (checked && `checked ${checked}`)
         : status?.state === "paused" ? (seconds ? `${status.serverRequested ? "server requested a wait" : "automatic checks paused"} · ${wait}` : "the next request checks recovery") : undefined;
-      const hint = on && changed ? "Save this address before checking." : undefined;
+      const hint = on && changed ? "Saving the address…" : undefined;
       const toggle = () => {
         const disabledSources = on ? [...(draft.disabledSources ?? []), provider] : (draft.disabledSources ?? []).filter((name) => name !== provider);
         // Switching off the preferred source would search nothing, so the preference returns to auto.

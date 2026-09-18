@@ -1,23 +1,43 @@
-.subtitle-editor { display: grid; gap: 14px; min-width: 0; container-type: inline-size; }
-.subtitle-settings-box { display: grid; gap: 12px; padding: 18px; }
-.subtitle-help { margin: 0; color: var(--muted); font-size: 13px; }
-.subtitle-preview { position: relative; min-height: 205px; overflow: hidden; border: 1px solid var(--rule); border-radius: 10px; background: linear-gradient(135deg, #1c3754, #343046 65%, #151c2b); }
-.subtitle-sample { position: absolute; left: 5%; right: 5%; bottom: calc(12px + var(--app-subtitle-bottom-inset)); width: fit-content; max-width: 90%; margin: auto; padding: .15em .35em; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--app-subtitle-color); background: var(--app-subtitle-background-resolved); font-family: var(--app-subtitle-font); font-size: calc(17px * var(--app-subtitle-size)); line-height: 1.3; text-shadow: var(--app-subtitle-shadow); }
-.subtitle-fields { display: grid; min-width: 0; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
-.subtitle-field { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); align-items: center; gap: 18px; min-height: 55px; padding: 9px 14px; border-top: 1px solid var(--rule); color: var(--text); font-size: 13px; }
-.subtitle-fields > .subtitle-field:first-child, .subtitle-background-group > .subtitle-field:first-child { border-top: 0; }
-.subtitle-background-group { border-top: 1px solid var(--rule); background: color-mix(in oklab, var(--raised), var(--bg) 20%); }
-.subtitle-field[data-disabled="true"] { color: var(--muted); }
-.subtitle-checkbox { display: flex; align-items: center; gap: 9px; cursor: pointer; }
-.subtitle-checkbox input { accent-color: var(--cursor); }
-.subtitle-field input:disabled { opacity: .45; cursor: not-allowed; }
-.subtitle-range { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.subtitle-range input { flex: 1; min-width: 0; }
-.subtitle-range output { width: 42px; flex: none; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
-.subtitle-field select { width: 100%; min-height: 34px; padding: 5px 8px; color: var(--text); background: var(--raised); border: 1px solid var(--rule); border-radius: 6px; }
-.subtitle-field input[type="color"] { width: 48px; height: 34px; padding: 2px; border: 1px solid var(--rule); border-radius: 7px; background: var(--raised); cursor: pointer; }
-.subtitle-actions { display: flex; justify-content: flex-end; }
-@container (max-width: 479px) {
-  .subtitle-field { grid-template-columns: 1fr; gap: 6px; padding-block: 10px; }
-  .subtitle-preview { min-height: 220px; }
-}
+/* Subtitle appearance: a disclosure row in Playback, and the same rows in the player's dialog. */
+.subtitle-preview { position: relative; height: 112px; overflow: hidden; background: linear-gradient(135deg, #24354b, #2f2b3f 65%, #171c29); }
+.subtitle-preview-tag { position: absolute; top: 10px; left: 14px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: rgb(255 255 255 / 55%); }
+.subtitle-sample { position: absolute; left: 5%; right: 5%; bottom: calc(14px + var(--app-subtitle-bottom-inset)); text-align: center; color: var(--app-subtitle-color); font-family: var(--app-subtitle-font); font-size: calc(20px * var(--app-subtitle-size)); font-weight: 500; line-height: 1.3; text-shadow: var(--app-subtitle-shadow); }
+.subtitle-sample > span { background: var(--app-subtitle-background-resolved); padding: .1em .35em; border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.subtitle-thumb { width: 132px; height: 52px; border-radius: 8px; flex: none; }
+.subtitle-thumb .subtitle-sample { bottom: calc(6px + var(--app-subtitle-bottom-inset)); font-size: calc(11px * var(--app-subtitle-size)); line-height: 1.25; }
+
+.group .r.subtitle-row { width: 100%; text-align: left; color: inherit; cursor: pointer; }
+.group .r.subtitle-row:hover { background: color-mix(in oklab, var(--raised), var(--text) 3%); }
+.subtitle-chevron { color: var(--muted); transition: transform .15s; }
+.subtitle-row[aria-expanded="true"] .subtitle-chevron { transform: rotate(180deg); }
+.subtitle-body { border-top: 1px solid var(--rule); background: color-mix(in oklab, var(--raised), var(--bg) 35%); }
+.subtitle-body .r { padding: 11px 18px 11px 30px; }
+.subtitle-body .r:first-child { border-top: 0; }
+.subtitle-body .r .k { font-size: 13px; }
+.subtitle-editor .r[data-disabled="true"] .k { color: var(--muted); }
+.subtitle-editor .r[data-disabled="true"] :is(.stepper, .subtitle-swatch) { opacity: .45; }
+.subtitle-note { color: var(--muted); font-size: 12px; }
+
+.stepper { display: inline-flex; align-items: center; height: 30px; border-radius: 8px; background: var(--bg); overflow: hidden; }
+.stepper button { width: 30px; height: 30px; display: grid; place-items: center; color: var(--muted); }
+.stepper button:hover:not(:disabled) { color: var(--text); background: var(--raised2); }
+.stepper button:disabled { color: var(--dim); cursor: default; }
+.stepper button:focus-visible { outline-offset: -2px; border-radius: 6px; }
+.stepper output { min-width: 52px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+
+.colour-dots { display: inline-flex; gap: 6px; align-items: center; margin-right: 4px; }
+.colour-dots button { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--rule); }
+.colour-dots button.on { box-shadow: 0 0 0 2px var(--raised), 0 0 0 3.5px var(--cursor); }
+.subtitle-swatch { height: 30px; }
+.subtitle-swatch > span { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+.subtitle-custom.on .subtitle-swatch { box-shadow: inset 0 0 0 1.5px var(--cursor); }
+.subtitle-swatch input:disabled { cursor: default; }
+.btn.ghost { background: none; color: var(--muted); }
+.btn.ghost:hover:not(:disabled) { color: var(--text); background: var(--bg); }
+.group .r .btn.ghost { background: none; }
+.group .r .btn.ghost:hover:not(:disabled) { background: var(--bg); }
+
+/* The player's dialog stacks the preview over the same rows. */
+.player-subtitle-dialog .group { margin: 0; }
+.player-subtitle-dialog .box { background: var(--raised); }
+.player-subtitle-dialog .subtitle-editor .r { padding-left: 18px; }

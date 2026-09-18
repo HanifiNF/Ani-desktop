@@ -57,9 +57,8 @@
 .media-player[data-controls] .vds-video-layout .vds-captions { bottom: calc(var(--video-captions-offset, 96px) + var(--app-subtitle-bottom-inset)) !important; }
 .media-player[data-controls] .vds-video-layout[data-sm] .vds-captions { bottom: calc(var(--video-sm-captions-offset, 68px) + var(--app-subtitle-bottom-inset)) !important; }
 .player-shell.is-docked .media-player .vds-captions { bottom: calc(20px + var(--app-subtitle-bottom-inset)) !important; }
-.subtitle-menu-entry { width: 100%; padding: 10px 16px; color: inherit; text-align: left; cursor: pointer; }
-.subtitle-menu-entry:hover, .subtitle-menu-entry:focus-visible { background: rgb(255 255 255 / 12%); }
-.player-subtitle-dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; color: var(--text); background: var(--bg); border: 1px solid var(--rule); border-radius: 12px; }
+.subtitle-menu-entry { cursor: pointer; }
+.player-subtitle-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; color: var(--text); background: var(--bg); border: 1px solid var(--rule); border-radius: 12px; }
 .player-subtitle-dialog::backdrop { background: rgb(0 0 0 / 75%); }
 .player-subtitle-dialog h2 { margin: 0 0 16px; font-size: 20px; }
 .player-subtitle-dialog > .btn { margin-top: 16px; }

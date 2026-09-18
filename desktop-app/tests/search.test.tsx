@@ -262,42 +262,77 @@ describe("built-in player screen", () => {
 });
 
 describe("live catalog search", () => {
-  it("tracks Settings sections and jumps without saving the form", async () => {
+  it("tracks Settings sections and jumps without saving anything", async () => {
     await click("settings");
     const page = container.querySelector<HTMLElement>(".page-settings")!;
     const headings = [...container.querySelectorAll<HTMLElement>('.settings .group h3[id^="settings-"]')];
     const nav = container.querySelector<HTMLElement>('.settings-section-nav')!;
-    expect(headings.map((heading) => heading.textContent)).toEqual(["Updates", "Playback", "Subtitles", "Defaults", "Appearance", "Anime information", "Episode metadata", "Sources"]);
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Playback", "Defaults", "Appearance", "Anime information", "Episode metadata", "Sources", "Updates"]);
+    expect([...nav.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["Playback", "Library", "Appearance", "Sources", "Updates"]);
     const positions = new Map(headings.map((heading, index) => [heading.id, 120 + index * 200]));
     vi.spyOn(page, "getBoundingClientRect").mockReturnValue({ top: 0 } as DOMRect);
     for (const heading of headings) vi.spyOn(heading, "getBoundingClientRect").mockImplementation(() => ({ top: positions.get(heading.id)! } as DOMRect));
     const scrollTo = vi.fn();
     page.scrollTo = scrollTo;
     await act(async () => page.dispatchEvent(new Event("scroll")));
-    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Updates");
-    positions.set("settings-subtitles", 50);
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Playback");
+    // Anime information and Episode metadata sit under the Library entry.
+    positions.set("settings-defaults", 50); positions.set("settings-anime-information", 60);
     await act(async () => page.dispatchEvent(new Event("scroll")));
-    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Subtitles");
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
     const sourcesButton = [...nav.querySelectorAll("button")].find((button) => button.textContent === "Sources")!;
     await act(async () => sourcesButton.click());
     expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number) }));
     expect(document.activeElement?.id).toBe("settings-sources");
     expect(api.saveSettings).not.toHaveBeenCalled();
     const jump = container.querySelector<HTMLSelectElement>("#settings-section-jump")!;
-    expect(jump.options).toHaveLength(8);
+    expect(jump.options).toHaveLength(5);
     await click("home");
     expect(container.querySelector(".settings-section-nav")).toBeNull();
   });
-  it("saves opt-in diagnostics and opens the log folder from settings", async () => {
+  it("applies opt-in diagnostics on change and opens the log folder from settings", async () => {
     await click("settings");
     const toggle = container.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Diagnostics logging"]')!;
+    const status = container.querySelector<HTMLElement>(".save-state")!;
     expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(status.textContent).toBe("Saved");
     await act(async () => { toggle.click(); });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(status.textContent).toBe("Saving…");
     await click("open logs");
     expect(api.openPlayerLogs).toHaveBeenCalledOnce();
     expect(api.saveSettings).not.toHaveBeenCalled();
-    await click("save changes");
-    expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ playerDiagnostics: true }));
+    await advance(400);
+    expect(api.saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ playerDiagnostics: true }));
+    expect(status.textContent).toBe("Saved");
+  });
+  it("coalesces quick edits into one save, and leaving the page saves at once", async () => {
+    await click("settings");
+    await click("dub"); await click("720p"); await advance(100); await click("480p");
+    expect(api.saveSettings).not.toHaveBeenCalled();
+    await click("home");
+    expect(api.saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ preferredMode: "dub", preferredQuality: "480p" }));
+  });
+  it("reports a save the main process refused and keeps the edit for the next try", async () => {
+    vi.mocked(api.saveSettings).mockRejectedValueOnce(new Error("External player path is required"));
+    await click("settings"); await click("external"); await advance(400);
+    expect(container.querySelector(".save-state")?.textContent).toBe("Not saved");
+    expect(container.querySelector(".msg.err")?.textContent).toContain("External player path is required");
+    const path = container.querySelector<HTMLInputElement>("#player")!;
+    await type("/usr/local/bin/mpv", path); await advance(400);
+    expect(api.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ playbackTarget: "external", playerPath: "/usr/local/bin/mpv" }));
+    expect(container.querySelector(".save-state")?.textContent).toBe("Saved");
+  });
+  it("opens the subtitle rows under Playback and applies them as they change", async () => {
+    await click("settings");
+    const row = container.querySelector<HTMLButtonElement>(".subtitle-row")!;
+    expect(row.textContent).toContain("sans · 100% · outline · no background");
+    expect(container.querySelector("#subtitle-editor")).toBeNull();
+    await act(async () => { row.click(); });
+    await act(async () => { container.querySelector<HTMLButtonElement>('#subtitle-editor button[aria-label="Increase subtitle size"]')!.click(); });
+    expect(api.saveSubtitleAppearance).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ size: 110 }));
+    expect(row.textContent).toContain("sans · 110% · outline · no background");
+    expect(api.saveSettings).not.toHaveBeenCalled();
   });
   it.each([false, true])("continues the right episode when completed is %s", async (completed) => {
     const state = await api.getState();
@@ -311,14 +346,13 @@ describe("live catalog search", () => {
     expect(api.streams).toHaveBeenCalledExactlyOnceWith(completed ? "episode-2" : "episode-1", "sub", expect.objectContaining({ priority: "playback" }));
   });
 
-  it("previews icon colours, restores them on cancel, and retains a saved theme", async () => {
+  it("recolours the icon as a theme is picked and keeps the saved theme", async () => {
     const icon = () => decodeURIComponent(document.querySelector<HTMLLinkElement>('link[rel="icon"]')!.href);
     await click("settings"); await click("nord");
     expect(icon()).toContain('fill="#88C0D0"');
-    await click("cancel");
-    expect(icon()).toContain('fill="#1F2023"');
-    await click("settings"); await click("mocha"); await click("save changes");
-    expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: "mocha" }));
+    await click("mocha"); await advance(400);
+    expect(api.saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ theme: "mocha" }));
+    await click("home");
     expect(icon()).toContain('fill="#CBA6F7"');
   });
 
@@ -489,12 +523,12 @@ describe("live catalog search", () => {
     const button = group.querySelector<HTMLButtonElement>(".btn")!;
     expect(button.disabled).toBe(true);
     await act(async () => { group.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Offline title index"]')!.click(); });
-    expect(group.textContent).toContain("Save changes to apply the index setting.");
+    expect(group.textContent).toContain("Applying the index setting…");
     vi.mocked(api.saveSettings).mockImplementation(async (settings) => { state = { ...state, settings }; return state; });
     vi.mocked(api.identityIndexStatus).mockResolvedValue({ enabled: true, entries: 0, updating: false });
-    await click("save changes");
+    await advance(400);
     expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ offlineIndex: true }));
-    await click("settings"); await advance(100);
+    await advance(100);
     const again = [...container.querySelectorAll(".group")].find((node) => node.querySelector("h3")?.textContent === "Anime information")!;
     expect(again.textContent).toContain("Not downloaded yet.");
     vi.mocked(api.updateIdentityIndex).mockResolvedValue({ enabled: true, entries: 41537, updatedAt: Date.now(), updating: false });
@@ -696,7 +730,7 @@ describe("live catalog search", () => {
   it("reuses catalog searches across playback preference changes and expires the cache", async () => {
     await type("frieren"); await advance(); await type("other"); await advance(); await type("frieren");
     expect(titles()).toEqual(["frieren"]); expect(search).toHaveBeenCalledTimes(2);
-    await click("settings"); await click("anidb"); await click("save changes");
+    await click("settings"); await click("anidb"); await click("home");
     await type("frieren"); await advance(); expect(titles()).toEqual(["frieren"]); expect(search).toHaveBeenCalledTimes(2);
     await type(""); await advance(60_001); await type("frieren"); await advance();
     expect(search).toHaveBeenCalledTimes(3);
@@ -775,7 +809,7 @@ describe("live catalog search", () => {
   it("uses fresh results after a provider URL changes", async () => {
     await type("frieren"); await advance(); await click("settings");
     const urlInput = [...container.querySelectorAll("input")].find((node) => node.value === "https://aniwaves.ru")!;
-    await type("https://new.example", urlInput); await click("save changes"); await type("frieren"); await advance();
+    await type("https://new.example", urlInput); await click("home"); await type("frieren"); await advance();
     expect(search).toHaveBeenCalledTimes(2);
   });
 });
