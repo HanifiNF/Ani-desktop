@@ -284,6 +284,19 @@ describe("live catalog search", () => {
     await act(async () => sourcesButton.click());
     expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number) }));
     expect(document.activeElement?.id).toBe("settings-sources");
+    expect(document.activeElement?.classList.contains("jump-hit")).toBe(true);
+    // The pick holds while the smooth scroll passes other sections, until the user scrolls by hand.
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Sources");
+    await act(async () => { page.dispatchEvent(new Event("wheel")); page.dispatchEvent(new Event("scroll")); });
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
+    // A short last section never reaches the line, so the end of the page names it.
+    Object.defineProperties(page, { scrollHeight: { value: 3000, configurable: true }, clientHeight: { value: 700, configurable: true }, scrollTop: { value: 2300, configurable: true, writable: true } });
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Updates");
+    page.scrollTop = 1000;
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
     expect(api.saveSettings).not.toHaveBeenCalled();
     const jump = container.querySelector<HTMLSelectElement>("#settings-section-jump")!;
     expect(jump.options).toHaveLength(5);
@@ -327,8 +340,11 @@ describe("live catalog search", () => {
     await click("settings");
     const row = container.querySelector<HTMLButtonElement>(".subtitle-row")!;
     expect(row.textContent).toContain("sans · 100% · outline · no background");
-    expect(container.querySelector("#subtitle-editor")).toBeNull();
+    // The rows stay mounted so closing can animate; while closed they are inert and hidden.
+    const editor = container.querySelector<HTMLElement>("#subtitle-editor")!;
+    expect(editor.dataset.open).toBe("false"); expect(editor.hasAttribute("inert")).toBe(true); expect(editor.getAttribute("aria-hidden")).toBe("true");
     await act(async () => { row.click(); });
+    expect(editor.dataset.open).toBe("true"); expect(editor.hasAttribute("inert")).toBe(false);
     await act(async () => { container.querySelector<HTMLButtonElement>('#subtitle-editor button[aria-label="Increase subtitle size"]')!.click(); });
     expect(api.saveSubtitleAppearance).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ size: 110 }));
     expect(row.textContent).toContain("sans · 110% · outline · no background");

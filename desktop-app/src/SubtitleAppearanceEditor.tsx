@@ -53,7 +53,7 @@ function Stepper({ label, value, min, max, step, disabled, onChange }: { label: 
   const up = clamp(Math.floor((value + step) / step) * step);
   return <span className="stepper" role="group" aria-label={label}>
     <button type="button" aria-label={`Decrease ${label.toLowerCase()}`} disabled={disabled || value <= min} onClick={() => onChange(down)}>−</button>
-    <output aria-live="polite">{value}%</output>
+    <output aria-live="polite"><span key={value} className="stepper-value">{value}%</span></output>
     <button type="button" aria-label={`Increase ${label.toLowerCase()}`} disabled={disabled || value >= max} onClick={() => onChange(up)}>+</button>
   </span>;
 }
