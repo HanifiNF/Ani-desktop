@@ -25,6 +25,7 @@ Built on [ani-cli](https://github.com/pystardust/ani-cli), created by [pystardus
 ## Features
 
 - **Search across sources.** Search AniWave/Vidplay, AniDB, and HiAnime together. Matching titles are combined, with provider choices grouped under each episode.
+- **Explore related anime.** Click a series genre or AniList tag to open Browse with that filter selected, or click a studio to search its name. Each click starts a fresh browse view.
 - **Keep your place.** Save titles, track watched episodes, and return through Continue watching. Built-in playback saves resume positions and advances your next-play choice when an episode finishes.
 - **See what's airing.** Browse the seasonal schedule by day and SUB/DUB, with local release times, countdowns, posters, and genres.
 - **Watch inside the app.** Choose quality, captions where available, playback speed, picture in picture, and native fullscreen. Optional autoplay starts the next episode after a five-second countdown.

@@ -110,7 +110,7 @@ export class WorkInfoService {
   }
 
   private needsRefresh(info: WorkInfo, force?: boolean): boolean {
-    if (force) return true;
+    if (force || !Array.isArray(info.tags)) return true;
     const age = Date.now() - info.fetchedAt;
     return age >= STATIC_REFRESH || ((info.status === "ongoing" || info.status === "upcoming") && age >= AIRING_REFRESH);
   }

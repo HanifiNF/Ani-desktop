@@ -89,7 +89,10 @@ async function catalogInvoke<T, P = T>(channel: string, args: unknown[], request
 
 const api: AniDesktopApi = {
   player,
-  search: (query, provider, request, update) => catalogInvoke("catalog:search", [query, provider], request, update),
+  search: (query, provider, request, update, known) => catalogInvoke("catalog:search", [query, provider, known], request, update),
+  browseGenres: (request) => catalogInvoke("catalog:browse-genres", [], request),
+  browseTags: (request) => catalogInvoke("catalog:browse-tags", [], request),
+  browse: (query, request, update) => catalogInvoke("catalog:browse", [query], request, update),
   resolveSources: (anime, request, update) => catalogInvoke("catalog:resolve", [anime], request, update),
   workInfo: (anime, request, update) => catalogInvoke("catalog:work-info", [anime], request, update),
   identityIndexStatus: () => ipcRenderer.invoke("identity:index-status"),

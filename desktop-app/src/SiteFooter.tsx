@@ -4,14 +4,15 @@ import { Icon } from "./icons";
 import { BackdropCredit } from "./Backdrop";
 import type { BackdropArt } from "../shared/contracts";
 
-export type FooterScreen = "home" | "saved" | "recent" | "settings";
+export type FooterScreen = "home" | "browse" | "saved" | "recent" | "settings";
 
 export const ANI_CLI_URL = "https://github.com/pystardust/ani-cli";
 export const ANI_CLI_AUTHOR_URL = "https://github.com/pystardust";
 export const SOURCE_URL = "https://github.com/HanifiNF/Ani-cli-aniwave";
 
-const APP_LINKS: readonly { screen: FooterScreen; label: string; icon: "home" | "bookmark" | "clock" | "gear" }[] = [
+const APP_LINKS: readonly { screen: FooterScreen; label: string; icon: "home" | "browse" | "bookmark" | "clock" | "gear" }[] = [
   { screen: "home", label: "Home", icon: "home" },
+  { screen: "browse", label: "Browse", icon: "browse" },
   { screen: "saved", label: "Saved", icon: "bookmark" },
   { screen: "recent", label: "Recent", icon: "clock" },
   { screen: "settings", label: "Settings", icon: "gear" }
