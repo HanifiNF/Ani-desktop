@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ScheduleService } from "../electron/schedule-service";
 import { getAniwaveSchedule, getAniwaveScheduleArtwork } from "../electron/scraper";
-import { chipsThatFit, localDateKey, localWeek, releaseCountdown, releaseHasPassed, seasonLabel, seasonScheduleTitle, timezoneOffsetEast } from "../src/schedule";
+import { chipsThatFit, localDateKey, msUntilNextLocalDay, releaseCountdown, releaseHasPassed, scheduleDays, seasonLabel, seasonScheduleTitle, selectionAfterDayChange, timezoneOffsetEast } from "../src/schedule";
 import type { ScheduleQuery, ScheduleResult } from "../shared/contracts";
 import { validateScheduleAnimeId, validateScheduleQuery } from "../electron/schedule-validation";
 
@@ -9,7 +9,7 @@ vi.mock("../electron/scraper", () => ({ getAniwaveSchedule: vi.fn(), getAniwaveS
 
 const config = { preferredProvider: "auto" as const, aniwaveBaseUrl: "https://aniwaves.ru", anidbBaseUrl: "https://anidb.app", hianimeBaseUrl: "https://hianimes.se" };
 const query: ScheduleQuery = { date: "2026-09-14", timezoneOffset: 420, mode: "sub" };
-const fresh: ScheduleResult = { provider: "aniwave", requestedDate: query.date, supportedDates: [query.date], entries: [], refreshedAt: "2026-09-13T10:00:00.000Z", status: "fresh" };
+const fresh: ScheduleResult = { provider: "aniwave", requestedDate: query.date, entries: [], refreshedAt: "2026-09-13T10:00:00.000Z", status: "fresh" };
 
 beforeEach(() => vi.resetAllMocks());
 
@@ -22,13 +22,29 @@ describe("local schedule calendar", () => {
     expect(seasonScheduleTitle(new Date(2027, 0, 1))).toBe("Winter 2027 Season Schedule");
   });
 
-  it("builds the Sunday-through-Saturday local week and marks today", () => {
+  it("builds a rolling strip from two days back, in date order, and marks today", () => {
     const monday = new Date(2026, 8, 14, 8);
-    const week = localWeek(monday);
-    expect(week.map((day) => day.date)).toEqual(["2026-09-13", "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18", "2026-09-19"]);
-    expect(week.find((day) => day.today)?.date).toBe("2026-09-14");
+    const days = scheduleDays(monday);
+    expect(days.map((day) => day.date)).toEqual(["2026-09-12", "2026-09-13", "2026-09-14", "2026-09-15", "2026-09-16", "2026-09-17", "2026-09-18"]);
+    expect(days.map((day) => day.dayOfMonth)).toEqual(["12", "13", "14", "15", "16", "17", "18"]);
+    expect(days.findIndex((day) => day.today)).toBe(2);
+    expect(new Set(days.map((day) => day.weekday)).size).toBe(7);
+    expect(scheduleDays(new Date(2026, 9, 1, 8)).map((day) => day.date).slice(0, 3)).toEqual(["2026-09-29", "2026-09-30", "2026-10-01"]);
     expect(localDateKey(monday)).toBe("2026-09-14");
     expect(timezoneOffsetEast(monday)).toBe(-monday.getTimezoneOffset());
+  });
+
+  it("moves the selection across a day change only when it was on today or fell off the strip", () => {
+    const tuesday = new Date(2026, 8, 15, 0, 0, 1);
+    expect(selectionAfterDayChange("2026-09-14", "2026-09-14", tuesday)).toBe("2026-09-15");
+    expect(selectionAfterDayChange("2026-09-17", "2026-09-14", tuesday)).toBe("2026-09-17");
+    expect(selectionAfterDayChange("2026-09-13", "2026-09-14", tuesday)).toBe("2026-09-13");
+    expect(selectionAfterDayChange("2026-09-12", "2026-09-14", tuesday)).toBe("2026-09-15");
+  });
+
+  it("measures the time left in the local day", () => {
+    expect(msUntilNextLocalDay(new Date(2026, 8, 14, 23, 59, 30))).toBe(30_000);
+    expect(msUntilNextLocalDay(new Date(2026, 8, 30, 12))).toBe(12 * 60 * 60_000);
   });
 
   it("dims only after the complete release timestamp", () => {

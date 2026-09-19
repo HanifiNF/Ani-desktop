@@ -53,18 +53,6 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .app { display: flex; flex-direction: column; height: 100%; position: relative; }
 .body { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .page { flex: 1; min-height: 0; overflow: auto; padding: 8px var(--gutter) var(--page-pad-bottom); scrollbar-gutter: stable; display: flex; flex-direction: column; }
-.update-banner {
-  display: flex; align-items: center; justify-content: space-between; gap: 20px; flex: none;
-  margin: 0 var(--gutter) 8px; padding: 10px 14px; border: 1px solid color-mix(in oklab, var(--cursor), transparent 55%);
-  border-radius: 10px; background: color-mix(in oklab, var(--bg), var(--cursor) 9%); color: var(--text);
-}
-.update-banner > span:first-child { display: flex; align-items: baseline; gap: 9px; min-width: 0; }
-.update-banner b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.update-banner small { color: var(--muted); white-space: nowrap; }
-.update-actions { display: flex; align-items: center; gap: 12px; flex: none; }
-.update-actions .link { color: var(--muted); }
-.update-actions .link:hover { color: var(--text); }
-
 /* ---- top bar ---------------------------------------------------------- */
 .bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 68px; padding: 0 var(--gutter); flex: none; position: relative; z-index: 30; }
 /* Keep the search centred and leave room for the macOS traffic lights (20px, 27px). */
@@ -116,7 +104,6 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .copied-tip { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); padding: 3px 7px; border-radius: 6px; background: var(--text); color: var(--bg); font-size: 11px; font-weight: 500; white-space: nowrap; pointer-events: none; }
 .footer-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 26px; padding-top: 18px; border-top: 1px solid color-mix(in oklab, var(--raised), var(--text) 8%); color: var(--dim); font-size: 12px; }
 .update-settings { margin-top: 0; }
-.update-meta { display: flex; justify-content: space-between; gap: 16px; padding: 10px 14px; border-top: 1px solid var(--rule); color: var(--dim); font-size: 12px; }
 .searchbox { position: relative; width: 420px; }
 .search { display: flex; align-items: center; gap: 12px; width: 100%; height: 44px; padding: 0 12px 0 16px; border-radius: 12px; background: var(--raised); color: var(--muted); cursor: text; }
 .search.as-button { cursor: pointer; }
@@ -132,9 +119,12 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .search-throbber > span:nth-child(3) { animation-delay: .3s; }
 @keyframes search-pulse { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
 .icons { display: flex; justify-content: flex-end; gap: 4px; align-items: center; }
-.icons > button { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--muted); }
+.icons > button { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--muted); }
 .icons > button:hover { color: var(--text); background: var(--raised); }
 .icons > button.on { color: var(--text); background: var(--raised); }
+/* An update is waiting in Settings. The ring takes the colour behind the dot so it reads as a cut-out. */
+.nav-badge { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--cursor); box-shadow: 0 0 0 2px var(--bg); animation: fade var(--enter) both; }
+.icons > button:is(.on, :hover) .nav-badge { box-shadow: 0 0 0 2px var(--raised); }
 
 /* ---- search palette --------------------------------------------------- */
 .dim { position: absolute; inset: 0; background: rgb(0 0 0 / 55%); z-index: 20; }
@@ -251,11 +241,14 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .section-schedule { padding-bottom: 20px; }
 .section-schedule .section-head { flex-wrap: wrap; row-gap: 8px; }
 .schedule-sub { color: var(--muted); font-size: 13px; }
-.schedule-days { display: flex; gap: 16px; margin-left: auto; }
-.schedule-days button { position: relative; padding: 2px 0; color: var(--muted); font-size: 14px; white-space: nowrap; transition: color .15s; }
+.schedule-days { display: flex; gap: 18px; margin-left: auto; }
+.schedule-days button { position: relative; display: grid; justify-items: center; row-gap: 1px; padding: 2px 0; color: var(--muted); font-size: 14px; white-space: nowrap; transition: color .15s; }
+/* The strip rolls with today, so each tab names its day of the month. */
+.schedule-days button small { color: var(--dim); font-size: 10.5px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; transition: color .15s; }
+.schedule-days button.on small { color: var(--muted); }
 .schedule-days button:hover { color: var(--text); }
 .schedule-days button.on { color: var(--text); font-weight: 500; }
-.schedule-days button.today::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--muted); transition: background .15s; }
+.schedule-days button.today::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--muted); transition: background .15s; }
 .schedule-days button.on.today::after { background: var(--text); }
 .schedule-audio { display: flex; gap: 12px; margin-left: 22px; padding-left: 22px; border-left: 1px solid var(--rule); }
 .schedule-audio button { color: var(--muted); font-size: 13px; font-weight: 500; transition: color .15s; }
@@ -282,7 +275,7 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .chips-row { display: inline-flex; align-items: center; gap: 8px; }
 .chips-lab { color: var(--muted); font-size: 12px; }
 .chips { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--raised); }
-.chips button { padding: 4px 11px; border-radius: 7px; color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; }
+.chips button { padding: 4px 11px; border-radius: 7px; color: var(--muted); font-size: 13px; font-weight: 500; white-space: nowrap; transition: background .16s, color .16s, box-shadow .16s; }
 .chips button:hover { color: var(--text); }
 .chips button.on { background: var(--bg); color: var(--text); box-shadow: 0 1px 2px rgb(0 0 0 / 20%); }
 .btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 500; background: var(--raised); color: var(--text); }
@@ -357,9 +350,65 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .status .link { margin-left: auto; }
 
 /* ---- settings --------------------------------------------------------- */
-.settings { max-width: 760px; margin-top: 12px; }
-.settings h1 { margin: 0 0 22px; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.page-settings { container: settings-page / inline-size; }
+/* The section rail sits left of the form, like the series page's panel, and stays in view while the form scrolls. */
+.settings-layout { display: grid; grid-template-columns: 180px minmax(0, 760px); column-gap: 32px; align-items: start; width: min(100%, 972px); margin-top: 12px; }
+.settings-head { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 16px; margin: 0 0 22px; }
+.settings-head h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; }
+.update-notice { display: inline-flex; align-items: center; gap: 7px; color: var(--cursor); font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; animation: rise var(--enter) both; }
+.update-notice:hover { filter: brightness(1.12); }
+.update-notice i, .rail-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--cursor); display: block; flex: none; }
+.rail-dot { margin-left: auto; }
+.update-settings .v-row .link { color: var(--muted); font-size: 13px; }
+.update-settings .v-row .link:hover:not(:disabled) { color: var(--text); }
+.update-settings .v-row .link:disabled { opacity: .5; }
+/* Silent at rest: "Saving…" while a change is written, "Saved" for two seconds after, and a refusal that stays with a retry. */
+.save-state { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-height: 18px; color: var(--dim); font-size: 12px; }
+.save-word { display: inline-flex; align-items: center; gap: 6px; animation: word-in .22s var(--ease) both; }
+.save-word .icon { width: 13px; height: 13px; }
+@keyframes word-in { from { opacity: 0; transform: translateY(3px); } }
+.save-state[data-state="saved"] .save-word { animation: saved-word 2s var(--ease) both; }
+@keyframes saved-word { 0% { opacity: 0; transform: translateY(3px); } 11% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+.save-state[data-state="error"] { color: var(--danger); }
+.save-retry { color: var(--text); font-size: 12px; text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+.save-retry:hover { text-decoration-color: var(--text); }
+.settings { min-width: 0; max-width: 760px; }
+.settings-section-nav { position: sticky; top: 16px; display: grid; gap: 2px; align-self: start; animation: rise var(--enter) both; }
+/* One pill slides between the entries; --i is the current entry's index, and each entry is 35px plus the 2px gap. */
+.rail-pill { position: absolute; top: 0; left: 0; right: 0; height: 35px; border-radius: 8px; background: var(--raised); transform: translateY(calc(var(--i, 0) * 37px)); transition: transform .3s var(--ease); pointer-events: none; }
+.settings-section-nav button { position: relative; display: flex; align-items: center; height: 35px; padding: 0 12px; border-radius: 8px; color: var(--muted); font-size: 13px; transition: color .16s; }
+.settings-section-nav button:hover { color: var(--text); }
+.settings-section-nav button[aria-current="location"] { color: var(--text); font-weight: 600; }
+.settings-jump { display: none; }
+/* Arriving at a section: a tick in the accent colour beside its heading, which brightens and settles back. Keyboard focus holds both. */
+.settings .group h3 { position: relative; }
+.settings .group h3:focus { outline: none; }
+.settings .group h3::before { content: ""; position: absolute; left: -12px; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--cursor); opacity: 0; }
+.settings .group h3.jump-hit { animation: jump-text 1.4s ease-out; }
+.settings .group h3.jump-hit::before { animation: jump-tick 1.4s ease-out; }
+.settings .group h3:focus-visible { color: var(--text); }
+.settings .group h3:focus-visible::before { opacity: 1; }
+@keyframes jump-tick { 0%, 55% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes jump-text { 0%, 55% { color: var(--text); } 100% { color: var(--muted); } }
+@container settings-page (max-width: 979px) {
+  .settings-layout { grid-template-columns: minmax(0, 760px); }
+  .settings-head { grid-column: 1; }
+  .settings-section-nav { display: none; }
+  .settings-jump { position: sticky; top: 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 16px; padding: 8px 0; color: var(--muted); background: var(--bg); font-size: 13px; }
+  .settings-jump select { width: min(260px, 60%); min-height: 36px; padding: 5px 10px; border: 1px solid var(--rule); border-radius: 8px; color: var(--text); background: var(--raised); }
+}
 .group { margin-bottom: 26px; }
+/* Sections arrive one after another, like the cards and rows elsewhere. */
+.settings > .group { animation: rise var(--enter) both; animation-delay: calc(var(--n, 0) * 30ms); }
+.settings > .group:nth-child(3) { --n: 1; } .settings > .group:nth-child(4) { --n: 2; } .settings > .group:nth-child(5) { --n: 3; }
+.settings > .group:nth-child(6) { --n: 4; } .settings > .group:nth-child(7) { --n: 5; } .settings > .group:nth-child(8) { --n: 6; }
+/* Reveal: the row track grows from nothing, so the height animates without being measured. */
+.reveal { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows .3s var(--ease), visibility 0s linear .3s; }
+.reveal[data-open="true"] { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows .3s var(--ease), visibility 0s; }
+.reveal-inner { min-height: 0; overflow: hidden; opacity: 0; transform: translateY(-6px); transition: opacity .18s, transform .3s var(--ease); }
+.reveal[data-open="true"] > .reveal-inner { opacity: 1; transform: none; transition: opacity .24s .06s, transform .3s var(--ease); }
+/* Hairlines sit on the content, not the collapsing wrapper, so a closed Reveal takes no height at all. */
+.group .box > .reveal .reveal-row > .r:first-child { border-top: 1px solid var(--rule); }
 .group h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
 .group .box { border-radius: 12px; background: var(--raised); overflow: hidden; }
 .group .r { display: flex; align-items: center; gap: 24px; padding: 14px 18px; border-top: 1px solid var(--rule); }
@@ -371,8 +420,8 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .group .r .chips { background: var(--bg); }
 .group .r .chips button.on { background: var(--raised2); }
 .group .r .v-row { display: flex; align-items: center; gap: 12px; }
-.group .r .btn { background: var(--bg); }
-.group .r .btn:hover:not(:disabled) { background: var(--raised2); }
+.group .r .btn:not(.primary) { background: var(--bg); }
+.group .r .btn:not(.primary):hover:not(:disabled) { background: var(--raised2); }
 .group .r.stack { flex-direction: column; align-items: stretch; gap: 12px; }
 .tiles { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
 .tile { display: flex; flex-direction: column; gap: 6px; border-radius: 10px; }
@@ -392,9 +441,6 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .swatch input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 5px; }
 .swatch input:not([type="color"]) { width: 72px; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); }
 .acts-row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
-/* The form is taller than the window, so the actions stay in view while it scrolls. Sticky boxes stop at the
-   scroller's content edge, so the bar pulls itself down through the page's bottom padding to sit flush with the window. */
-.settings .acts-row { position: sticky; bottom: calc(-1 * var(--page-pad-bottom)); margin: 0 0 calc(-1 * var(--page-pad-bottom)); padding: 12px 0 16px; background: var(--bg); border-top: 1px solid var(--rule); }
 
 /* ---- key hints -------------------------------------------------------- */
 .hints { position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 40; display: flex; gap: 18px; padding: 8px 14px; border-radius: 10px; background: var(--raised); color: var(--muted); font-size: 12px; box-shadow: 0 0 0 1px var(--rule), 0 6px 20px rgb(0 0 0 / 25%); white-space: nowrap; }
@@ -402,11 +448,6 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 @media (max-width: 1100px) {
   :root { --cols: 6; --search-width: 340px; }
   .searchbox { width: 340px; }
-}
-
-@media (max-width: 960px) {
-  .update-banner { align-items: flex-start; }
-  .update-banner > span:first-child { align-items: flex-start; flex-direction: column; gap: 1px; }
 }
 
 .src .chk { grid-column: 3; }
@@ -418,7 +459,7 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 
 /* ---- motion ------------------------------------------------------------ */
 /* One entrance for everything that arrives asynchronously: a short rise with a stagger capped by --i so long lists never wait. */
-:root { --enter: .28s cubic-bezier(.2, .7, .2, 1); --stagger: 18ms; }
+:root { --ease: cubic-bezier(.2, .7, .2, 1); --enter: .28s var(--ease); --stagger: 18ms; }
 @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
 @keyframes fade { from { opacity: 0; } }
 @keyframes pop { from { opacity: 0; transform: scale(.98); } }
@@ -442,6 +483,12 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
   .dots, .search-throbber > span, .src-wrap, .hit-row, .card, .status, .notice, .msg, .hints, .empty, .schedule-state, .page, .palette, .dim, .src .q, .src .audio-availability, .src .metadata-status, .src .t em, .src-wrap.skel .t, .backdrop { animation: none; }
   .schedule-days button, .schedule-days button.today::after, .schedule-audio button, .schedule-card .poster { transition: none; }
   .art img { transition: none; }
+  .reveal, .reveal-inner, .rail-pill, .chips button, .settings-section-nav button, .subtitle-sample, .subtitle-sample > span, .subtitle-chevron, .subtitle-editor .r :is(.stepper, .subtitle-swatch), .colour-dots button { transition: none !important; }
+  .settings > .group, .settings-section-nav, .save-word, .stepper-value, .update-notice, .nav-badge { animation: none; }
+  /* Without the fade, the tick and the bright heading simply stay while the heading holds focus. */
+  .settings .group h3.jump-hit, .settings .group h3.jump-hit::before { animation: none; }
+  .settings .group h3:focus { color: var(--text); }
+  .settings .group h3:focus::before { opacity: 1; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none; }
 }
 

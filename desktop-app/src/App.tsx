@@ -3,7 +3,7 @@ import SearchPalette from "./SearchPalette";
 import SeriesScreen from "./SeriesScreen";
 import { useSeriesScroll } from "./useSeriesScroll";
 import type { PlayStatus, NowPlaying } from "./playback";
-import SettingsScreen from "./SettingsScreen";
+import SettingsScreen, { type SettingsSaveState } from "./SettingsScreen";
 import LibrarySection from "./LibrarySection";
 import EmptyLibrary from "./EmptyLibrary";
 import { Backdrop, type BackdropPage, type BackdropVariant } from "./Backdrop";
@@ -42,7 +42,7 @@ import { animeSources, enabledProviders, expandWithLinks, likelyDuplicate, merge
 import { Icon } from "./icons";
 import { withTransition } from "./transition";
 import { SiteFooter, type FooterScreen } from "./SiteFooter";
-import { UpdateBanner } from "./UpdateUI";
+import { updatePending } from "./UpdateUI";
 
 type Screen = "home" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
@@ -76,6 +76,7 @@ function App() {
   });
   const [nowPlaying, setNowPlaying] = useState<NowPlaying>();
   const [settingsDraft, setSettingsDraft] = useState<Settings>(DEFAULT_STATE.settings);
+  const [subtitleAppearance, setSubtitleAppearance] = useState(DEFAULT_STATE.subtitleAppearance!);
   const [stateLoaded, setStateLoaded] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [resolving, setResolving] = useState(false);
@@ -100,12 +101,70 @@ function App() {
   useEffect(() => {
     window.aniDesktop.getState().then((state) => {
       setAppState(state);
+      setSubtitleAppearance(state.subtitleAppearance ?? DEFAULT_STATE.subtitleAppearance!);
       setSettingsDraft(state.settings);
       setMode(state.settings.preferredMode);
       setQuality(state.settings.preferredQuality);
       setProvider(state.settings.preferredProvider);
       setStateLoaded(true);
     }).catch((reason) => setError(messageFrom(reason)));
+  }, []);
+
+  // Settings apply as they change: the draft updates at once and one save follows shortly after the last edit.
+  const settingsSave = useRef<{ timer?: number; pending?: Settings; failed?: Settings }>({});
+  const [settingsSaveState, setSettingsSaveState] = useState<SettingsSaveState>("idle");
+  const flushSettings = useCallback(async () => {
+    window.clearTimeout(settingsSave.current.timer);
+    const pending = settingsSave.current.pending;
+    if (!pending) return;
+    settingsSave.current.pending = undefined;
+    try {
+      const state = await window.aniDesktop.saveSettings(pending);
+      setAppState(state);
+      setMode(state.settings.preferredMode);
+      setQuality(state.settings.preferredQuality);
+      setProvider(state.settings.preferredProvider);
+      if (!settingsSave.current.pending) setSettingsSaveState("saved");
+    }
+    catch (reason) {
+      // A newer edit carries the whole draft, so only the latest refusal is worth retrying.
+      if (!settingsSave.current.pending) settingsSave.current.failed = pending;
+      setSettingsSaveState("error");
+      setError(messageFrom(reason));
+    }
+  }, []);
+  // "Saved" is a passing word: the heading goes quiet again shortly after.
+  useEffect(() => {
+    if (settingsSaveState !== "saved") return;
+    const timer = window.setTimeout(() => setSettingsSaveState("idle"), 2_000);
+    return () => window.clearTimeout(timer);
+  }, [settingsSaveState]);
+  const retrySettings = useCallback(() => {
+    const failed = settingsSave.current.failed;
+    if (!failed) return;
+    settingsSave.current.failed = undefined;
+    settingsSave.current.pending = failed;
+    setError(undefined);
+    setSettingsSaveState("saving");
+    void flushSettings();
+  }, [flushSettings]);
+  const changeSettings = useCallback((next: Settings) => {
+    setSettingsDraft(next);
+    setError(undefined);
+    settingsSave.current.pending = next;
+    settingsSave.current.failed = undefined;
+    setSettingsSaveState("saving");
+    window.clearTimeout(settingsSave.current.timer);
+    settingsSave.current.timer = window.setTimeout(() => { void flushSettings(); }, 400);
+  }, [flushSettings]);
+  // Leaving the page saves anything still waiting on the timer.
+  useEffect(() => { if (screen !== "settings") void flushSettings(); }, [screen, flushSettings]);
+
+  const changeSubtitleAppearance = useCallback((value: typeof subtitleAppearance) => {
+    setSubtitleAppearance(value);
+    void window.aniDesktop.saveSubtitleAppearance(value).then((saved) => {
+      setAppState((previous) => ({ ...previous, subtitleAppearance: saved }));
+    }, (reason) => setError(messageFrom(reason)));
   }, []);
 
   const checkForUpdates = useCallback((force = false) => {
@@ -153,7 +212,6 @@ function App() {
     void operation.then(setAppState, (reason) => setError(messageFrom(reason))).finally(() => { mergePromptActive.current = false; });
   }, [stateLoaded, appState.history, appState.bookmarks, appState.dismissedMergeKeys]);
 
-  const settingsDirty = JSON.stringify(settingsDraft) !== JSON.stringify(appState.settings);
   const themeSource = screen === "settings" ? settingsDraft : appState.settings;
   useEffect(() => applyTheme(themeSource.theme, themeSource.customTheme), [themeSource.theme, themeSource.customTheme]);
 
@@ -597,18 +655,6 @@ function App() {
     if (state) { setAppState(state); setNotice("source links forgotten"); }
   }
 
-  async function saveSettings() {
-    const state = await run("saving settings", () => window.aniDesktop.saveSettings(settingsDraft));
-    if (state) {
-      setAppState(state);
-      setMode(state.settings.preferredMode);
-      setQuality(state.settings.preferredQuality);
-      setProvider(state.settings.preferredProvider);
-      setScreen("home");
-      setNotice("settings saved");
-    }
-  }
-
   // Changing the order or filter keeps the selection on the same row when it is still shown.
   function reorder(filter: EpisodeFilter, sort: EpisodeSort) {
     const id = episodeRows[selectedEpisodeIndex]?.episode.id;
@@ -672,8 +718,7 @@ function App() {
     // The backtick expands the docked player while browsing the library or search results.
     if (event.key === "`" && session && screen !== "settings" && !event.metaKey && !event.ctrlKey && !event.altKey) { event.preventDefault(); expandPlayer(); return; }
     if (event.metaKey || event.ctrlKey) {
-      if (event.key === "s" && screen === "settings") { event.preventDefault(); void saveSettings(); }
-      else if (event.key === "k" && screen !== "settings") { event.preventDefault(); if (screen !== "home") go("home"); fieldRef.current?.focus(); fieldRef.current?.select(); }
+      if (event.key === "k" && screen !== "settings") { event.preventDefault(); if (screen !== "home") go("home"); fieldRef.current?.focus(); fieldRef.current?.select(); }
       // Library and settings shortcuts resize the docked player, including while typing.
       else if (session && (event.key === "=" || event.key === "+")) { event.preventDefault(); resizeMiniPlayer(miniWidth + MINI_PLAYER_WIDTH.step); }
       else if (session && (event.key === "-" || event.key === "_")) { event.preventDefault(); resizeMiniPlayer(miniWidth - MINI_PLAYER_WIDTH.step); }
@@ -752,8 +797,9 @@ function App() {
     const row = all[nextUpIndex(all, episodeGroups, progress, progress?.lastProvider ?? (provider === "auto" ? selectedAnime?.provider : provider) ?? "aniwave")];
     return row ? all.find((item) => !item.watched && item.number === row.number) ?? row : undefined;
   }, [episodeGroups, progress, selectedAnime, provider]);
-  const navIcon = (target: Screen, name: "home" | "bookmark" | "clock" | "gear", text: string) => (
-    <button type="button" className={screen === target ? "on" : ""} title={text} onClick={() => go(target)}><Icon name={name} /><span className="sr-only">{text}</span></button>
+  // The update notice lives in Settings; a dot on the gear is its only sign elsewhere.
+  const navIcon = (target: Screen, name: "home" | "bookmark" | "clock" | "gear", text: string, badge = false) => (
+    <button type="button" className={screen === target ? "on" : ""} title={badge ? `${text} · update available` : text} onClick={() => go(target)}><Icon name={name} />{badge && <i className="nav-badge" aria-hidden="true" />}<span className="sr-only">{badge ? `${text}, update available` : text}</span></button>
   );
 
   return (
@@ -790,17 +836,18 @@ function App() {
           {navIcon("home", "home", "home")}
           {navIcon("saved", "bookmark", "saved")}
           {navIcon("recent", "clock", "recent")}
-          {navIcon("settings", "gear", "settings")}
+          {navIcon("settings", "gear", "settings", updatePending(updateStatus))}
         </nav>
       </header>
       {paletteOpen && <div className="dim" onClick={() => { setQuery(""); catalogSearch.clear(); }} />}
 
       <div className="body">
-      {screen !== "player" && screen !== "opening" && updateStatus && <UpdateBanner status={updateStatus} onOpen={openLatestRelease} onDismiss={dismissUpdate} />}
       {session && (
         <Suspense fallback={<div className="player-message">loading player ···</div>}>
           <PlayerScreen
             session={session}
+            subtitleAppearance={subtitleAppearance}
+            onSubtitleAppearance={changeSubtitleAppearance}
             fullscreen={playerFullscreen}
             onFullscreenChange={setPlayerFullscreen}
             docked={screen !== "player"}
@@ -882,10 +929,11 @@ function App() {
         )}
 
         {screen === "settings" && (
-          <SettingsScreen draft={settingsDraft} setDraft={setSettingsDraft} saved={appState.settings}
-            bookmarkCount={appState.bookmarks.length} linkCount={(appState.providerLinks ?? []).length} dirty={settingsDirty}
-            onSave={() => void saveSettings()} onCancel={goBack} onClearLinks={() => void clearSourceLinks()}
-            updateStatus={updateStatus} updateChecking={updateChecking} onCheckUpdates={() => checkForUpdates(true)} onOpenUpdate={openLatestRelease}
+          <SettingsScreen draft={settingsDraft} setDraft={changeSettings} saved={appState.settings} saveState={settingsSaveState} onRetrySave={retrySettings}
+            subtitleAppearance={subtitleAppearance} onSubtitleAppearance={changeSubtitleAppearance}
+            bookmarkCount={appState.bookmarks.length} linkCount={(appState.providerLinks ?? []).length}
+            onClearLinks={() => void clearSourceLinks()}
+            updateStatus={updateStatus} updateChecking={updateChecking} onCheckUpdates={() => checkForUpdates(true)} onOpenUpdate={openLatestRelease} onSkipUpdate={dismissUpdate}
             onOpenLogs={() => { void run("opening player logs", () => window.aniDesktop.openPlayerLogs()); }} />
         )}
 

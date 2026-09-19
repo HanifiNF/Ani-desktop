@@ -145,11 +145,11 @@ describe("multi-source scraper", () => {
     await expect(getStreams("hianime:naruto-episode-1-aaa111", "sub", config)).rejects.toThrow("unsupported host unknown.test");
   });
 
-  it("requests today's selected AniWave date explicitly instead of using overview rows", async () => {
+  it("requests the selected AniWave date directly, whether or not the site's tab strip lists it", async () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date("2026-09-14T05:00:00.000Z"));
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      if (url.includes("/ajax/schedule/date")) return new Response(JSON.stringify({ result: `<a class="item" href="/watch/monday-show-42/ep-7"><div class="time" data-tip="42">07:30 PM</div><div class="ep"><span>Episode 7</span></div><div class="title d-title" data-jp="Monday JP">Monday Show</div></a>` }));
+      if (url.includes("/ajax/schedule/date?")) return new Response(JSON.stringify({ result: `<a class="item" href="/watch/monday-show-42/ep-7"><div class="time" data-tip="42">07:30 PM</div><div class="ep"><span>Episode 7</span></div><div class="title d-title" data-jp="Monday JP">Monday Show</div></a>` }));
       return new Response(JSON.stringify({ result: `<div data-time="2026-09-14"></div><a class="item" href="/watch/sunday-show-41/ep-8"><div class="time" data-tip="41">03:00 PM</div><div class="ep"><span>Episode 8</span></div><div class="title d-title">Sunday Show</div></a>` }));
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -157,12 +157,12 @@ describe("multi-source scraper", () => {
     expect(value.entries).toHaveLength(1);
     expect(value.entries[0]).toMatchObject({ anime: { id: "aniwave:monday-show-42", title: "Monday Show" }, episode: { id: "aniwave:42:7", number: "7" } });
     const urls = fetchMock.mock.calls.map(([input]) => String(input));
-    expect(urls[0]).toContain("tz=7"); expect(urls[0]).toContain("dub=1");
-    expect(urls[1]).toContain("time=2026-09-14"); expect(urls[1]).toContain("dub=1");
+    expect(urls).toHaveLength(1);
+    expect(urls[0]).toContain("/ajax/schedule/date?"); expect(urls[0]).toContain("tz=7"); expect(urls[0]).toContain("dub=1"); expect(urls[0]).toContain("time=2026-09-14");
     fetchMock.mockClear();
-    vi.stubGlobal("fetch", fetchMock.mockResolvedValue(new Response(JSON.stringify({ result: `<div data-time="2099-04-07"></div>` }))));
-    await expect(getAniwaveSchedule({ date: "2099-04-06", timezoneOffset: 420, mode: "sub" }, config)).resolves.toMatchObject({ status: "unavailable", entries: [] });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.stubGlobal("fetch", fetchMock.mockResolvedValue(new Response(JSON.stringify({ result: "" }))));
+    await expect(getAniwaveSchedule({ date: "2026-09-01", timezoneOffset: 420, mode: "sub" }, config)).resolves.toMatchObject({ requestedDate: "2026-09-01", status: "fresh", entries: [] });
+    expect(String(fetchMock.mock.calls[0][0])).toContain("time=2026-09-01");
   });
 
   it("enriches visible schedule rows through tooltip metadata and an AniWave poster fallback", async () => {

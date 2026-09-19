@@ -42,6 +42,38 @@
   --media-controls-padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
   --video-captions-offset: 96px; --video-sm-captions-offset: 68px;
 }
+.media-player .vds-font-menu { display: none; }
+.media-player .vds-captions {
+  --media-user-font-family: var(--app-subtitle-font);
+  --media-user-font-size: var(--app-subtitle-size);
+  --media-user-text-color: var(--app-subtitle-color);
+  --media-user-text-bg: var(--app-subtitle-background-resolved);
+  --media-cue-backdrop: none;
+  --media-user-text-shadow: var(--app-subtitle-shadow);
+  --media-user-display-bg: transparent;
+  --media-user-font-variant: normal;
+  bottom: var(--app-subtitle-bottom-inset) !important;
+}
+.media-player[data-controls] .vds-video-layout .vds-captions { bottom: calc(var(--video-captions-offset, 96px) + var(--app-subtitle-bottom-inset)) !important; }
+.media-player[data-controls] .vds-video-layout[data-sm] .vds-captions { bottom: calc(var(--video-sm-captions-offset, 68px) + var(--app-subtitle-bottom-inset)) !important; }
+.player-shell.is-docked .media-player .vds-captions { bottom: calc(20px + var(--app-subtitle-bottom-inset)) !important; }
+.subtitle-menu-entry { cursor: pointer; }
+.player-subtitle-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; color: var(--text); background: var(--bg); border: 1px solid var(--rule); border-radius: 12px; }
+.player-subtitle-dialog::backdrop { background: rgb(0 0 0 / 75%); }
+/* Both player dialogs ease in and out; display and overlay switch discretely so closing animates too. */
+:is(.player-subtitle-dialog, .player-shortcuts) { opacity: 0; transform: translateY(10px) scale(.98); transition: opacity .2s, transform .26s var(--ease), overlay .26s allow-discrete, display .26s allow-discrete; }
+:is(.player-subtitle-dialog, .player-shortcuts)[open] { opacity: 1; transform: none; }
+:is(.player-subtitle-dialog, .player-shortcuts)::backdrop { opacity: 0; transition: opacity .26s, overlay .26s allow-discrete, display .26s allow-discrete; }
+:is(.player-subtitle-dialog, .player-shortcuts)[open]::backdrop { opacity: 1; }
+@starting-style {
+  :is(.player-subtitle-dialog, .player-shortcuts)[open] { opacity: 0; transform: translateY(10px) scale(.98); }
+  :is(.player-subtitle-dialog, .player-shortcuts)[open]::backdrop { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.player-subtitle-dialog, .player-shortcuts), :is(.player-subtitle-dialog, .player-shortcuts)::backdrop { transition: none; }
+}
+.player-subtitle-dialog h2 { margin: 0 0 16px; font-size: 20px; }
+.player-subtitle-dialog > .btn { margin-top: 16px; }
 .media-player video { display: block; width: 100%; height: 100%; min-width: 0; min-height: 0; aspect-ratio: auto; object-fit: contain; object-position: center; }
 .media-player .vds-controls { z-index: 20; }
 @media (pointer: fine) {

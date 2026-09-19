@@ -1,37 +1,45 @@
 import type { UpdateStatus } from "../shared/contracts";
 
-interface Actions {
-  onCheck: () => void;
-  onOpen: () => void;
+/** A newer release the user has yet to skip. It lights the dot on the gear, the dot in the rail, and the link beside the Settings heading. */
+export const updatePending = (status?: UpdateStatus): status is UpdateStatus & { latestVersion: string } =>
+  status?.state === "available" && !status.dismissed && Boolean(status.latestVersion);
+
+/** The link beside the Settings heading; it jumps to the Updates row. */
+export function UpdateNotice({ status, onJump }: { status?: UpdateStatus; onJump: () => void }) {
+  if (!updatePending(status)) return null;
+  return <button type="button" className="update-notice" onClick={onJump}><i aria-hidden="true" />v{status.latestVersion} available</button>;
 }
 
-export function UpdateBanner({ status, onOpen, onDismiss }: { status: UpdateStatus; onOpen: () => void; onDismiss: () => void }) {
-  if (status.state !== "available" || status.dismissed || !status.latestVersion) return null;
-  return <aside className="update-banner" role="status">
-    <span><b>ANIdesktop v{status.latestVersion} is available</b>{status.stale && <small>saved update information</small>}</span>
-    <span className="update-actions">
-      <button type="button" className="btn small primary" onClick={onOpen}>View release</button>
-      <button type="button" className="link" onClick={onDismiss}>Later</button>
-    </span>
-  </aside>;
+/** "checked today 00:28", or the date once the check is older than today. */
+function checked(timestamp?: number): string {
+  if (timestamp === undefined) return "never checked";
+  const at = new Date(timestamp);
+  const time = at.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return at.toDateString() === new Date().toDateString() ? `checked today ${time}` : `checked ${at.toLocaleDateString()} ${time}`;
 }
 
-const checked = (timestamp?: number): string => timestamp === undefined ? "Never checked" : `Last checked ${new Date(timestamp).toLocaleString()}`;
+interface PanelProps { status?: UpdateStatus; checking: boolean; onCheck: () => void; onOpen: () => void; onSkip: () => void }
 
-export function UpdatePanel({ status, checking, onCheck, onOpen }: { status?: UpdateStatus; checking: boolean } & Actions) {
+export function UpdatePanel({ status, checking, onCheck, onOpen, onSkip }: PanelProps) {
+  const available = status?.state === "available" && Boolean(status.latestVersion);
+  const title = available ? `Version ${status?.latestVersion} is available`
+    : status?.state === "current" ? "ANIdesktop is up to date"
+    : "Application updates";
   const detail = !status ? "ANIdesktop will check shortly after startup."
     : status.state === "development" ? "Automatic checks are disabled while running from source."
-    : status.state === "available" ? `Version ${status.latestVersion} is available${status.dismissed ? " (reminder dismissed)" : ""}.`
-    : status.state === "current" ? `Version ${status.currentVersion} is up to date.`
-    : status.error ?? "Could not check for updates.";
-  return <div className="group update-settings"><h3>Updates</h3><div className="box">
-    <div className="r"><span className="k">Application updates<small>{detail} {status?.stale ? "Showing the last valid result." : ""}</small></span>
+    : available ? `You have ${status.currentVersion} · ${checked(status.checkedAt)}${status.dismissed ? " · skipped" : ""}`
+    : status.state === "current" ? `Version ${status.currentVersion} · ${checked(status.checkedAt)}`
+    : `${status.error ?? "Could not check for updates."} Installed v${status.currentVersion}.`;
+  return <div className="group update-settings"><h3 id="settings-updates" tabIndex={-1}>Updates</h3><div className="box">
+    <div className="r"><span className="k">{title}<small>{detail}{status?.stale ? " Showing the last valid result." : ""}</small></span>
       <span className="v-row">
-        {status?.state === "available" && <button type="button" className="btn small" onClick={onOpen}>view release</button>}
-        <button type="button" className="btn small" disabled={checking} onClick={onCheck}>{checking ? "checking…" : "check now"}</button>
+        {updatePending(status) && <button type="button" className="link" onClick={onSkip}>skip this version</button>}
+        {available
+          ? <button type="button" className="link" disabled={checking} onClick={onCheck}>{checking ? "checking…" : "check again"}</button>
+          : <button type="button" className="btn small" disabled={checking} onClick={onCheck}>{checking ? "checking…" : "check now"}</button>}
+        {available && <button type="button" className="btn small primary" onClick={onOpen}>View release</button>}
       </span>
     </div>
-    <div className="update-meta"><span>Installed {status ? `v${status.currentVersion}` : "version loading"}</span><span>{checked(status?.checkedAt)}</span></div>
     {status?.error && status.state !== "error" && <div className="group-note">{status.error}</div>}
   </div></div>;
 }

@@ -62,6 +62,27 @@ describe("update service", () => {
     expect(JSON.parse(await readFile(file, "utf8"))).toMatchObject({ version: 1, latestVersion: "1.3.0", dismissedVersion: "1.2.10" });
   });
 
+  it("asks again every time the app opens, inside the daily interval too", async () => {
+    let now = 1_000;
+    const request = vi.fn<UpdateFetch>().mockResolvedValue(response("v1.2.3"));
+    const file = await path();
+    expect((await new UpdateService(file, "1.2.3", true, request, () => now).check()).state).toBe("current");
+    now += 60_000;
+    request.mockResolvedValueOnce(response("v1.2.4"));
+    const relaunched = new UpdateService(file, "1.2.3", true, request, () => now);
+    expect(await relaunched.check()).toMatchObject({ state: "available", latestVersion: "1.2.4", checkedAt: now });
+    expect(request).toHaveBeenCalledTimes(2);
+    await relaunched.check();
+    expect(request).toHaveBeenCalledTimes(2);
+
+    // macOS keeps the app running without a window; a new window is an opening too.
+    relaunched.opened();
+    await relaunched.check();
+    expect(request).toHaveBeenCalledTimes(3);
+    await relaunched.check();
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+
   it("treats equal and older releases as current", async () => {
     const equal = new UpdateService(await path(), "2.0.0", true, vi.fn<UpdateFetch>().mockResolvedValue(response("v2.0.0")));
     expect((await equal.check()).state).toBe("current");

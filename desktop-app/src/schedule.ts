@@ -5,21 +5,38 @@ export const localDateKey = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-export interface LocalScheduleDay { date: string; weekday: string; dateLabel: string; today: boolean; }
+export interface LocalScheduleDay { date: string; weekday: string; dayOfMonth: string; dateLabel: string; today: boolean; }
 
-export function localWeek(now: Date): LocalScheduleDay[] {
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 12);
+/** Two days back keep recent releases in reach for catching up; seven days give every weekday one tab. */
+const DAYS_BACK = 2, DAYS_SHOWN = 7;
+
+/** A rolling strip of local days around today, in date order. */
+export function scheduleDays(now: Date): LocalScheduleDay[] {
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - DAYS_BACK, 12);
   const today = localDateKey(now);
-  return Array.from({ length: 7 }, (_, index) => {
+  return Array.from({ length: DAYS_SHOWN }, (_, index) => {
     const date = new Date(start); date.setDate(start.getDate() + index);
     return {
       date: localDateKey(date),
       weekday: date.toLocaleDateString([], { weekday: "short" }),
+      dayOfMonth: String(date.getDate()),
       dateLabel: date.toLocaleDateString([], { month: "short", day: "numeric" }),
       today: localDateKey(date) === today
     };
   });
 }
+
+/**
+ * The selected date after the local day changes: a selection on the old today follows to the new one,
+ * another day stays while the strip still shows it, and one that fell off the strip returns to today.
+ */
+export function selectionAfterDayChange(selected: string, previousToday: string, now: Date): string {
+  const today = localDateKey(now);
+  return selected !== previousToday && scheduleDays(now).some((day) => day.date === selected) ? selected : today;
+}
+
+export const msUntilNextLocalDay = (now: Date): number =>
+  new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
 
 export function seasonLabel(date: Date): string {
   const names = ["Winter", "Spring", "Summer", "Fall"] as const;

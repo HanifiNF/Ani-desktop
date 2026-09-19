@@ -18,7 +18,7 @@ export class ScheduleService {
     if (config.disabledSources?.includes("aniwave")) {
       const error = "Enable AniWave in Settings to load the release schedule";
       if (previous) return { ...previous, status: "stale", error };
-      return { provider: "aniwave", requestedDate: query.date, supportedDates: [], entries: [], refreshedAt: new Date().toISOString(), status: "unavailable", error };
+      return { provider: "aniwave", requestedDate: query.date, entries: [], refreshedAt: new Date().toISOString(), status: "unavailable", error };
     }
     try {
       const result = await getAniwaveSchedule(query, config);

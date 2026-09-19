@@ -1,0 +1,69 @@
+<!doctype html><meta charset="utf-8"><title>Schedule · past days roll over to next week</title>
+<!-- Uses the app's stylesheet so the section renders as it does in the app (gruvbox theme). Posters come from design/shots/schedule-posters/, which is not committed. -->
+<link rel="stylesheet" href="../../src/styles.css">
+<style>
+:root { --theme-bg:#282828; --theme-text:#EBDBB2; --theme-cursor:#FABD2F; }
+html, body { height: auto; }
+body { background:#151515; padding: 40px 0 80px; min-width: 0; }
+.caption { width: 1000px; margin: 56px 60px 12px; color: #8a8578; font-size: 12.5px; line-height: 1.55; }
+.caption:first-child { margin-top: 0; }
+.caption b { color: #d8cfba; font-weight: 600; }
+.variant { width: 1240px; background: var(--bg); padding: 14px 60px 30px; }
+.variant .section { margin-top: 0; }
+.variant * { animation: none !important; }
+
+/* L1 · the subtitle names the date being shown */
+.schedule-sub b { color: var(--text); font-weight: 500; }
+
+/* L2 · every tab carries its day of the month */
+.schedule-days.dated { gap: 18px; }
+.schedule-days.dated button { display: grid; justify-items: center; row-gap: 1px; }
+.schedule-days.dated button small { color: var(--dim); font-size: 10.5px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; }
+.schedule-days.dated button.on small { color: var(--muted); }
+.schedule-days.dated button.today::after { bottom: -8px; }
+
+/* L3 · next week's days sit behind a hairline with a small label */
+.schedule-days .next-label { align-self: center; color: var(--dim); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; margin-right: -4px; }
+.schedule-days .split { width: 1px; align-self: stretch; background: var(--rule); margin: 0 2px; }
+</style>
+<script>
+const P = "../shots/schedule-posters/";
+const tue = [
+  { f:"82716.jpg", t:"Young Ladies Don't Play Fighting Games", ep:12, time:"09:30 pm", g:["Comedy","Girls Love","School"] },
+  { f:"82717.jpg", t:"I Want to Love You Till Your Dying Day", ep:12, time:"10:30 pm", g:["Fantasy","Girls Love","School"] },
+  { f:"82739.jpg", t:"Saved by the Ice Cold Prince's Embrace", ep:12, time:"10:55 pm", g:["Fantasy","Romance"] }
+];
+const fri = [
+  { f:"75790.jpg", t:"Pokémon Horizons: The Series", ep:150, time:"07:55 pm", g:["Action","Adventure","Comedy"] },
+  { f:"81510.jpg", t:"Beyblade X", ep:134, time:"08:00 pm", g:["Adventure","Sports","Kids"] },
+  { f:"82683.jpg", t:"I Became a Legend After My 10 Year-Long Last Stand.", ep:12, time:"11:30 pm", g:["Action","Adventure","Fantasy"] },
+  { f:"82690.jpg", t:"The Frontier Lord Begins with Zero Subjects", ep:12, time:"11:30 pm", g:["Fantasy"] }
+];
+// Saturday 19 Sep is today. The source still has Thu 17 and Fri 18; Sun to Wed of this week are gone, so they show 20 to 23 Sep.
+const week = [["Sun",20,1],["Mon",21,1],["Tue",22,1],["Wed",23,1],["Thu",17,0],["Fri",18,0],["Sat",19,0]];
+const rolling = [["Thu",17],["Fri",18],["Sat",19],["Sun",20],["Mon",21],["Tue",22],["Wed",23]];
+
+const tab = ([d, n], on, dated) => `<button class="${d===on?'on':''} ${d==='Sat'?'today':''}">${d}${dated?`<small>${n}</small>`:''}</button>`;
+const audio = `<div class="schedule-audio"><button class="on">SUB</button><button>DUB</button></div>`;
+const card = (x, sub, aired) => `<div class="card schedule-card ${aired?'aired':'upcoming'}"><button class="hit"><span class="schedule-art"><span class="art poster"><img class="in" src="${P}${x.f}"></span></span><span class="badges"><span class="badge">EP ${x.ep}</span></span></button><span class="t">${x.t}</span><span class="s">${sub(x)}</span><span class="tags">${x.g.map(g=>`<span class="tag">${g}</span>`).join("")}</span></div>`;
+const section = (name, sub, days, cards) => `<div class="variant" data-variant="${name}"><section class="section section-schedule"><div class="section-head"><h2>Schedule</h2><span class="schedule-sub">${sub}</span>${days}${audio}</div><div class="cards">${cards}</div></section></div>`;
+const upcoming = tue.map(x => card(x, x => `${x.time} · in 3 days`)).join("");
+const base = "Summer 2026 · estimated release times · GMT+10";
+
+document.write(
+  `<div class="caption"><b>L1 · Subtitle names the date.</b> Tue is selected on Saturday 19 Sep. The tabs look as they do now; the line beside the heading leads with "Next Tue, Sep 22". Cards carry the "in 3 days" countdown.</div>` +
+  section("l1", `<b>Next Tue, Sep 22</b> · estimated release times · GMT+10`, `<div class="schedule-days">${week.map(d=>tab(d,"Tue")).join("")}</div>`, upcoming) +
+
+  `<div class="caption"><b>L2 · Dated tabs.</b> Same moment. Every tab carries its day of the month, so Sun to Wed read 20 to 23 and Thu to Sat read 17 to 19. The subtitle stays as it is today.</div>` +
+  section("l2", base, `<div class="schedule-days dated">${week.map(d=>tab(d,"Tue",true)).join("")}</div>`, upcoming) +
+
+  `<div class="caption"><b>L3 · "Next week" group in the strip.</b> Same moment. A small label and a hairline set Sun to Wed apart from the days that still belong to this week.</div>` +
+  section("l3", base, `<div class="schedule-days"><span class="next-label">Next week</span>${week.slice(0,4).map(d=>tab(d,"Tue")).join("")}<span class="split"></span>${week.slice(4).map(d=>tab(d,"Tue")).join("")}</div>`, upcoming) +
+
+  `<div class="caption"><b>L4 · Rolling strip (the alternative).</b> Same moment. The strip starts two days back: Thu, Fri, Sat (today), then Sun to Wed. Every tab is a real date, in order, with its day of the month.</div>` +
+  section("l4", base, `<div class="schedule-days dated">${rolling.map(d=>tab(d,"Tue",true)).join("")}</div>`, upcoming) +
+
+  `<div class="caption"><b>Reference · Fri selected (yesterday), unchanged in every variant.</b> The source still has this day, so it keeps the real aired list at full brightness. Shown with L2's dated tabs.</div>` +
+  section("ref-fri", base, `<div class="schedule-days dated">${week.map(d=>tab(d,"Fri",true)).join("")}</div>`, fri.map(x => card(x, x => `Aired · ${x.time}`, true)).join(""))
+);
+</script>

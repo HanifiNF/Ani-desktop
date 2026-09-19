@@ -60,16 +60,15 @@ describe("source parsers", () => {
   it("parses AniWave schedule dates, aliases, native episodes, and absolute release times", () => {
     const payload = { result: `<div data-time="2026-09-13"></div><div data-time="2026-09-14"></div><a class="item" href="/watch/late-show-42/ep-3"><div class="time" data-tip="42">09:30 PM</div><div class="ep"><span>Episode 3</span></div><div class="title d-title" data-jp="Late Shō">Late Show</div></a><a class="item old" href="/watch/early-show-41/ep-10.5"><div class="time" data-tip="41">04:55 PM</div><div class="ep"><span>Episode 10.5</span></div><div class="title d-title" data-jp="Early Show JP">Early &amp; Show</div></a>` };
     const result = parseAniwaveSchedule(payload, "2026-09-13", 420);
-    expect(result.supportedDates).toEqual(["2026-09-13", "2026-09-14"]);
-    expect(result.entries.map((entry) => [entry.anime.id, entry.episode.id, entry.releaseAt])).toEqual([
+    expect(result.map((entry) => [entry.anime.id, entry.episode.id, entry.releaseAt])).toEqual([
       ["aniwave:early-show-41", "aniwave:41:10.5", "2026-09-13T09:55:00.000Z"],
       ["aniwave:late-show-42", "aniwave:42:3", "2026-09-13T14:30:00.000Z"]
     ]);
-    expect(result.entries[0].anime.sources?.[0].aliases).toEqual(["Early & Show", "Early Show JP"]);
+    expect(result[0].anime.sources?.[0].aliases).toEqual(["Early & Show", "Early Show JP"]);
   });
 
   it("rejects malformed schedule rows and extracts tooltip artwork metadata", () => {
-    expect(parseAniwaveSchedule({ result: `<a class="item" href="javascript:alert(1)"><div class="time">noon</div></a>` }, "2026-09-13", 420).entries).toEqual([]);
+    expect(parseAniwaveSchedule({ result: `<a class="item" href="javascript:alert(1)"><div class="time">noon</div></a>` }, "2026-09-13", 420)).toEqual([]);
     expect(parseAniwaveTooltip(`<div class="title d-title" data-jp="JP Name">English Name</div><div><span>Other names:</span><span>Alias One, 別名</span></div>`, "aniwave:show-42"))
       .toEqual({ animeId: "aniwave:show-42", title: "English Name", aliases: ["English Name", "JP Name", "Alias One", "別名"], poster: undefined });
     expect(parseAniwavePoster(`<img itemprop="image" src="https://img.test/poster.jpg">`)).toBe("https://img.test/poster.jpg");

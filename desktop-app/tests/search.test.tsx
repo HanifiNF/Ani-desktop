@@ -82,13 +82,14 @@ beforeEach(async () => {
     seriesMetadata: vi.fn().mockResolvedValue({ sources: [], genres: [] }),
     episodeMetadata: vi.fn().mockResolvedValue(undefined), clearEpisodeMetadata: vi.fn().mockResolvedValue(undefined),
     sourceStatus: vi.fn().mockResolvedValue([]), checkSource: vi.fn().mockResolvedValue(undefined), fetchBookmarkMetadata: vi.fn(),
-    schedule: vi.fn<AniDesktopApi["schedule"]>(async (query) => ({ provider: "aniwave", requestedDate: query.date, supportedDates: [], entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" })),
+    schedule: vi.fn<AniDesktopApi["schedule"]>(async (query) => ({ provider: "aniwave", requestedDate: query.date, entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" })),
     scheduleArtwork: vi.fn(async (animeId) => ({ animeId, aliases: [] })),
     backdropArt: vi.fn(async () => undefined),
     bookmarkMetadataStatus: vi.fn().mockResolvedValue(undefined), cancelBookmarkMetadata: vi.fn(),
     availability: vi.fn().mockResolvedValue({ sub: true, dub: true, checkedAt: Date.now() }), cancelCatalog: vi.fn(),
     streams: vi.fn().mockResolvedValue([]), play: vi.fn().mockResolvedValue(true),
     saveSettings: vi.fn(async (settings) => ({ ...state, settings })),
+    saveSubtitleAppearance: vi.fn(async (appearance) => appearance),
     openPlayerLogs: vi.fn().mockResolvedValue(undefined),
     checkForUpdates: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
     dismissUpdate: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
@@ -126,28 +127,33 @@ describe("site footer navigation", () => {
 describe("release update checks", () => {
   const available = { currentVersion: "1.0.0", latestVersion: "1.1.0", state: "available" as const };
 
-  it("checks after startup, opens the release, and dismisses only that reminder", async () => {
+  it("checks after startup, marks the gear, and keeps the notice inside Settings until the version is skipped", async () => {
     vi.mocked(api.checkForUpdates).mockResolvedValue(available);
     vi.mocked(api.dismissUpdate).mockResolvedValue({ ...available, dismissed: true });
     await advance(1_500);
     expect(api.checkForUpdates).toHaveBeenCalledWith(false);
-    expect(container.querySelector(".update-banner")?.textContent).toContain("v1.1.0");
+    expect(container.querySelector(".page-home")).not.toBeNull();
+    expect(container.querySelector(".icons .nav-badge")).not.toBeNull();
+    expect(container.querySelector(".update-notice")).toBeNull();
+    await click("settings, update available");
+    expect(container.querySelector(".update-notice")?.textContent).toContain("v1.1.0 available");
+    expect(container.querySelector(".settings-section-nav .rail-dot")).not.toBeNull();
     await click("View release");
     expect(api.openLatestRelease).toHaveBeenCalledOnce();
-    await click("Later");
+    await click("skip this version");
     expect(api.dismissUpdate).toHaveBeenCalledWith("1.1.0");
-    expect(container.querySelector(".update-banner")).toBeNull();
+    expect(container.querySelector(".update-notice")).toBeNull();
+    expect(container.querySelector(".rail-dot")).toBeNull();
+    expect(container.querySelector(".nav-badge")).toBeNull();
+    expect(container.textContent).toContain("Version 1.1.0 is available");
   });
 
-  it("offers a forced Settings check and keeps the banner off the player screen", async () => {
+  it("offers a forced check from the Updates row", async () => {
     vi.mocked(api.checkForUpdates).mockResolvedValue(available);
     await advance(1_500);
-    await click("settings");
-    await click("check now");
+    await click("settings, update available");
+    await click("check again");
     expect(api.checkForUpdates).toHaveBeenLastCalledWith(true);
-    await act(async () => load({ id: "update-player", request: { url: "https://cdn.test/1.m3u8", title: "Episode 1" },
-      canOpenExternal: false, fullscreen: false, preferences: {} }));
-    expect(container.querySelector(".update-banner")).toBeNull();
   });
 });
 
@@ -261,16 +267,108 @@ describe("built-in player screen", () => {
 });
 
 describe("live catalog search", () => {
-  it("saves opt-in diagnostics and opens the log folder from settings", async () => {
+  it("tracks Settings sections and jumps without saving anything", async () => {
+    await click("settings");
+    const page = container.querySelector<HTMLElement>(".page-settings")!;
+    const headings = [...container.querySelectorAll<HTMLElement>('.settings .group h3[id^="settings-"]')];
+    const nav = container.querySelector<HTMLElement>('.settings-section-nav')!;
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Playback", "Defaults", "Appearance", "Anime information", "Episode metadata", "Sources", "Updates"]);
+    expect([...nav.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["Playback", "Library", "Appearance", "Sources", "Updates"]);
+    const positions = new Map(headings.map((heading, index) => [heading.id, 120 + index * 200]));
+    vi.spyOn(page, "getBoundingClientRect").mockReturnValue({ top: 0 } as DOMRect);
+    for (const heading of headings) vi.spyOn(heading, "getBoundingClientRect").mockImplementation(() => ({ top: positions.get(heading.id)! } as DOMRect));
+    const scrollTo = vi.fn();
+    page.scrollTo = scrollTo;
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Playback");
+    // Anime information and Episode metadata sit under the Library entry.
+    positions.set("settings-defaults", 50); positions.set("settings-anime-information", 60);
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
+    const sourcesButton = [...nav.querySelectorAll("button")].find((button) => button.textContent === "Sources")!;
+    await act(async () => sourcesButton.click());
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number) }));
+    expect(document.activeElement?.id).toBe("settings-sources");
+    expect(document.activeElement?.classList.contains("jump-hit")).toBe(true);
+    // The pick holds while the smooth scroll passes other sections, until the user scrolls by hand.
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Sources");
+    await act(async () => { page.dispatchEvent(new Event("wheel")); page.dispatchEvent(new Event("scroll")); });
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
+    // A short last section never reaches the line, so the end of the page names it.
+    Object.defineProperties(page, { scrollHeight: { value: 3000, configurable: true }, clientHeight: { value: 700, configurable: true }, scrollTop: { value: 2300, configurable: true, writable: true } });
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Updates");
+    page.scrollTop = 1000;
+    await act(async () => page.dispatchEvent(new Event("scroll")));
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
+    expect(api.saveSettings).not.toHaveBeenCalled();
+    const jump = container.querySelector<HTMLSelectElement>("#settings-section-jump")!;
+    expect(jump.options).toHaveLength(5);
+    await click("home");
+    expect(container.querySelector(".settings-section-nav")).toBeNull();
+  });
+  it("applies opt-in diagnostics on change and opens the log folder from settings", async () => {
     await click("settings");
     const toggle = container.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Diagnostics logging"]')!;
+    const status = container.querySelector<HTMLElement>(".save-state")!;
     expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(status.textContent).toBe("");
     await act(async () => { toggle.click(); });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    expect(status.textContent).toBe("Saving…");
     await click("open logs");
     expect(api.openPlayerLogs).toHaveBeenCalledOnce();
     expect(api.saveSettings).not.toHaveBeenCalled();
-    await click("save changes");
-    expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ playerDiagnostics: true }));
+    await advance(400);
+    expect(api.saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ playerDiagnostics: true }));
+    expect(status.textContent).toBe("Saved");
+    await advance(2_000);
+    expect(status.textContent).toBe("");
+  });
+  it("coalesces quick edits into one save, and leaving the page saves at once", async () => {
+    await click("settings");
+    await click("dub"); await click("720p"); await advance(100); await click("480p");
+    expect(api.saveSettings).not.toHaveBeenCalled();
+    await click("home");
+    expect(api.saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ preferredMode: "dub", preferredQuality: "480p" }));
+  });
+  it("reports a save the main process refused and keeps the edit for the next try", async () => {
+    vi.mocked(api.saveSettings).mockRejectedValueOnce(new Error("External player path is required"));
+    await click("settings"); await click("external"); await advance(400);
+    expect(container.querySelector(".save-word")?.textContent).toBe("Not saved");
+    expect(container.querySelector(".msg.err")?.textContent).toContain("External player path is required");
+    await advance(5_000);
+    expect(container.querySelector(".save-word")?.textContent).toBe("Not saved");
+    const path = container.querySelector<HTMLInputElement>("#player")!;
+    await type("/usr/local/bin/mpv", path); await advance(400);
+    expect(api.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ playbackTarget: "external", playerPath: "/usr/local/bin/mpv" }));
+    expect(container.querySelector(".save-state")?.textContent).toBe("Saved");
+  });
+  it("retries a refused save from the heading", async () => {
+    vi.mocked(api.saveSettings).mockRejectedValueOnce(new Error("Disk is full"));
+    await click("settings"); await click("dub"); await advance(400);
+    expect(api.saveSettings).toHaveBeenCalledOnce();
+    await click("retry");
+    expect(api.saveSettings).toHaveBeenCalledTimes(2);
+    expect(api.saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({ preferredMode: "dub" }));
+    expect(container.querySelector(".save-state")?.textContent).toBe("Saved");
+    expect(container.querySelector(".save-retry")).toBeNull();
+    expect(container.querySelector(".msg.err")).toBeNull();
+  });
+  it("opens the subtitle rows under Playback and applies them as they change", async () => {
+    await click("settings");
+    const row = container.querySelector<HTMLButtonElement>(".subtitle-row")!;
+    expect(row.textContent).toContain("sans · 100% · outline · no background");
+    // The rows stay mounted so closing can animate; while closed they are inert and hidden.
+    const editor = container.querySelector<HTMLElement>("#subtitle-editor")!;
+    expect(editor.dataset.open).toBe("false"); expect(editor.hasAttribute("inert")).toBe(true); expect(editor.getAttribute("aria-hidden")).toBe("true");
+    await act(async () => { row.click(); });
+    expect(editor.dataset.open).toBe("true"); expect(editor.hasAttribute("inert")).toBe(false);
+    await act(async () => { container.querySelector<HTMLButtonElement>('#subtitle-editor button[aria-label="Increase subtitle size"]')!.click(); });
+    expect(api.saveSubtitleAppearance).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ size: 110 }));
+    expect(row.textContent).toContain("sans · 110% · outline · no background");
+    expect(api.saveSettings).not.toHaveBeenCalled();
   });
   it.each([false, true])("continues the right episode when completed is %s", async (completed) => {
     const state = await api.getState();
@@ -284,14 +382,13 @@ describe("live catalog search", () => {
     expect(api.streams).toHaveBeenCalledExactlyOnceWith(completed ? "episode-2" : "episode-1", "sub", expect.objectContaining({ priority: "playback" }));
   });
 
-  it("previews icon colours, restores them on cancel, and retains a saved theme", async () => {
+  it("recolours the icon as a theme is picked and keeps the saved theme", async () => {
     const icon = () => decodeURIComponent(document.querySelector<HTMLLinkElement>('link[rel="icon"]')!.href);
     await click("settings"); await click("nord");
     expect(icon()).toContain('fill="#88C0D0"');
-    await click("cancel");
-    expect(icon()).toContain('fill="#1F2023"');
-    await click("settings"); await click("mocha"); await click("save changes");
-    expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: "mocha" }));
+    await click("mocha"); await advance(400);
+    expect(api.saveSettings).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ theme: "mocha" }));
+    await click("home");
     expect(icon()).toContain('fill="#CBA6F7"');
   });
 
@@ -462,18 +559,18 @@ describe("live catalog search", () => {
     const button = group.querySelector<HTMLButtonElement>(".btn")!;
     expect(button.disabled).toBe(true);
     await act(async () => { group.querySelector<HTMLButtonElement>('[role="switch"][aria-label="Offline title index"]')!.click(); });
-    expect(group.textContent).toContain("Save changes to apply the index setting.");
+    expect(group.textContent).toContain("Applying the index setting…");
     vi.mocked(api.saveSettings).mockImplementation(async (settings) => { state = { ...state, settings }; return state; });
     vi.mocked(api.identityIndexStatus).mockResolvedValue({ enabled: true, entries: 0, updating: false });
-    await click("save changes");
+    await advance(400);
     expect(api.saveSettings).toHaveBeenCalledWith(expect.objectContaining({ offlineIndex: true }));
-    await click("settings"); await advance(100);
+    await advance(100);
     const again = [...container.querySelectorAll(".group")].find((node) => node.querySelector("h3")?.textContent === "Anime information")!;
     expect(again.textContent).toContain("Not downloaded yet.");
     vi.mocked(api.updateIdentityIndex).mockResolvedValue({ enabled: true, entries: 41537, updatedAt: Date.now(), updating: false });
     await act(async () => { again.querySelector<HTMLButtonElement>(".btn")!.click(); });
     expect(api.updateIdentityIndex).toHaveBeenCalledOnce();
-    expect(again.textContent).toContain("41,537 titles");
+    expect(again.textContent).toContain(`${(41537).toLocaleString()} titles`);
   });
 
   it("looks the series up on the other providers and merges their episodes into the grouped list", async () => {
@@ -669,7 +766,7 @@ describe("live catalog search", () => {
   it("reuses catalog searches across playback preference changes and expires the cache", async () => {
     await type("frieren"); await advance(); await type("other"); await advance(); await type("frieren");
     expect(titles()).toEqual(["frieren"]); expect(search).toHaveBeenCalledTimes(2);
-    await click("settings"); await click("anidb"); await click("save changes");
+    await click("settings"); await click("anidb"); await click("home");
     await type("frieren"); await advance(); expect(titles()).toEqual(["frieren"]); expect(search).toHaveBeenCalledTimes(2);
     await type(""); await advance(60_001); await type("frieren"); await advance();
     expect(search).toHaveBeenCalledTimes(3);
@@ -748,7 +845,7 @@ describe("live catalog search", () => {
   it("uses fresh results after a provider URL changes", async () => {
     await type("frieren"); await advance(); await click("settings");
     const urlInput = [...container.querySelectorAll("input")].find((node) => node.value === "https://aniwaves.ru")!;
-    await type("https://new.example", urlInput); await click("save changes"); await type("frieren"); await advance();
+    await type("https://new.example", urlInput); await click("home"); await type("frieren"); await advance();
     expect(search).toHaveBeenCalledTimes(2);
   });
 });

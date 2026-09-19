@@ -11,6 +11,8 @@ const WORK_LIMIT = 5000;
 const newWorkId = () => `work:${randomBytes(8).toString("hex")}`;
 
 import { isHexColor, isThemePreset } from "../shared/theme";
+import { normalizeSubtitleAppearance, validateSubtitleAppearance } from "../shared/subtitle-appearance";
+import type { SubtitleAppearance } from "../shared/contracts";
 
 /** Bindings that should become or extend a remembered work. */
 export interface Binding { ids: string[]; refs?: string[]; title?: string; sources?: AnimeSource[]; tentative?: boolean; type?: unknown; year?: unknown; episodes?: unknown; }
@@ -134,6 +136,7 @@ export class StateStore {
         works,
         dismissedMergeKeys: Array.isArray(parsed.dismissedMergeKeys) ? parsed.dismissedMergeKeys : [],
         playerPreferences: parsed.playerPreferences ? validateStorageUpdate(parsed.playerPreferences) : {},
+        subtitleAppearance: normalizeSubtitleAppearance(parsed.subtitleAppearance),
         playbackPositions: parsed.playbackPositions ?? {},
         settings: {
           ...settings,
@@ -161,6 +164,13 @@ export class StateStore {
     const state = structuredClone(this.state);
     state.providerLinks = (state.works ?? []).filter((work) => work.records.length > 1).map((work) => work.records);
     return state;
+  }
+
+  async saveSubtitleAppearance(value: unknown): Promise<SubtitleAppearance> {
+    const appearance = validateSubtitleAppearance(value);
+    this.state.subtitleAppearance = appearance;
+    await this.persist();
+    return appearance;
   }
 
   /** The work a provider record is bound to, if any. */

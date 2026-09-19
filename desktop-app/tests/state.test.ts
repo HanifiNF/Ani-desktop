@@ -20,6 +20,14 @@ beforeEach(async () => {
 afterEach(() => rm(directory, { recursive: true, force: true }));
 
 describe("StateStore", () => {
+  it("persists subtitle appearance separately from playback preferences and history", async () => {
+    const appearance = { ...store.snapshot().subtitleAppearance!, font: "mono" as const, size: 130, bottomInset: 12 };
+    await store.saveSubtitleAppearance(appearance);
+    await store.load();
+    expect(store.snapshot().subtitleAppearance).toEqual(appearance);
+    expect(store.snapshot().playerPreferences).toEqual({});
+    expect(store.snapshot().history).toEqual([]);
+  });
   it("keeps backdrop art on until it is switched off, and remembers the choice", async () => {
     expect(store.snapshot().settings.emptyBackdrop).toBe(true);
     await store.saveSettings({ ...store.snapshot().settings, emptyBackdrop: false });

@@ -1,0 +1,109 @@
+<!doctype html><meta charset="utf-8"><title>Settings jump highlight · variants</title>
+<style>
+:root {
+  --bg:#282828; --text:#EBDBB2; --cursor:#FABD2F; --cursor-text: var(--bg);
+  --raised: color-mix(in oklab, var(--bg), var(--text) 6%);
+  --raised2: color-mix(in oklab, var(--bg), var(--text) 10%);
+  --rule: color-mix(in oklab, var(--bg), var(--text) 12%);
+  --dim: color-mix(in oklab, var(--bg), var(--text) 36%);
+  --muted: color-mix(in oklab, var(--bg), var(--text) 60%);
+}
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font: 400 14px/1.45 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing:-.005em; padding: 40px 60px 80px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; }
+.caption { margin: 48px 0 10px; color: var(--dim); font-size: 12px; max-width: 972px; }
+.caption:first-child { margin-top: 0; }
+.variant { width: 972px; padding: 8px 0 8px; display: grid; grid-template-columns: 180px 760px; column-gap: 32px; align-items: start; }
+.rail { display: grid; gap: 2px; }
+.rail button { padding: 8px 12px; border-radius: 8px; color: var(--muted); font-size: 13px; }
+.rail button.on { color: var(--text); background: var(--raised); font-weight: 600; }
+.group { margin-bottom: 26px; }
+.group h3 { margin: 0 0 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+.group .box { border-radius: 12px; background: var(--raised); overflow: hidden; }
+.group .r { display: flex; align-items: center; gap: 24px; padding: 14px 18px; border-top: 1px solid var(--rule); }
+.group .r:first-child { border-top: 0; }
+.group .r .k { flex: 1; }
+.group .r .k small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.btn { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 10px; font-size: 13px; font-weight: 500; background: var(--bg); }
+.meta { display: flex; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--rule); color: var(--dim); font-size: 12px; }
+.note { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+
+/* H0 · today */
+.h0 h3.hit { outline: 2px solid var(--cursor); outline-offset: 3px; }
+/* H1 · the heading brightens, then settles back */
+.h1 h3.hit { color: var(--text); }
+/* H2 · a wash over the section's box */
+.h2 .hit-box { background: color-mix(in oklab, var(--raised), var(--cursor) 9%); box-shadow: 0 0 0 1px color-mix(in oklab, var(--cursor), transparent 65%); }
+.h2 h3.hit { color: var(--text); }
+/* H3 · a short accent tick before the heading */
+.h3 h3.hit { color: var(--text); position: relative; }
+.h3 h3.hit::before { content: ""; position: absolute; left: -12px; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--cursor); }
+/* H4 · a ring that hugs the word, keyboard only */
+.h4 h3.hit { width: fit-content; color: var(--text); outline: 2px solid var(--cursor); outline-offset: 4px; border-radius: 4px; }
+</style>
+
+<p class="caption">H0 · Today, for reference. The heading takes focus and gets a full-width box in the accent colour, which stays until something else is clicked.</p>
+<div class="variant h0" data-variant="h0">
+  <nav class="rail"><button>Playback</button><button>Library</button><button>Appearance</button><button>Sources</button><button class="on">Updates</button></nav>
+  <div>
+    <div class="group"><div class="box" style="border-radius:0 0 12px 12px">
+      <div class="r"><span class="k">Source links<small>38 remembered anime with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><span class="btn">forget links</span></div>
+    </div><p class="note">Status reflects recent catalog requests. Playback hosts can have separate outages.</p></div>
+    <div class="group"><h3 class="hit">Updates</h3><div class="box hit-box">
+      <div class="r"><span class="k">Application updates<small>Automatic checks are disabled while running from source.</small></span><span class="btn">check now</span></div>
+      <div class="meta"><span>Installed v0.1.0</span><span>Never checked</span></div>
+    </div></div>
+  </div>
+</div>
+<p class="caption">H1 · The heading brightens. The word goes from muted to full text colour on arrival and eases back over about a second. No box, no accent colour. The quietest signal.</p>
+<div class="variant h1" data-variant="h1">
+  <nav class="rail"><button>Playback</button><button>Library</button><button>Appearance</button><button>Sources</button><button class="on">Updates</button></nav>
+  <div>
+    <div class="group"><div class="box" style="border-radius:0 0 12px 12px">
+      <div class="r"><span class="k">Source links<small>38 remembered anime with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><span class="btn">forget links</span></div>
+    </div><p class="note">Status reflects recent catalog requests. Playback hosts can have separate outages.</p></div>
+    <div class="group"><h3 class="hit">Updates</h3><div class="box hit-box">
+      <div class="r"><span class="k">Application updates<small>Automatic checks are disabled while running from source.</small></span><span class="btn">check now</span></div>
+      <div class="meta"><span>Installed v0.1.0</span><span>Never checked</span></div>
+    </div></div>
+  </div>
+</div>
+<p class="caption">H2 · A wash over the section. The heading brightens and the section's card takes a faint accent tint with a hairline, fading out over about a second. Points at the whole destination, which helps most when the target cannot scroll to the top, as with Updates here.</p>
+<div class="variant h2" data-variant="h2">
+  <nav class="rail"><button>Playback</button><button>Library</button><button>Appearance</button><button>Sources</button><button class="on">Updates</button></nav>
+  <div>
+    <div class="group"><div class="box" style="border-radius:0 0 12px 12px">
+      <div class="r"><span class="k">Source links<small>38 remembered anime with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><span class="btn">forget links</span></div>
+    </div><p class="note">Status reflects recent catalog requests. Playback hosts can have separate outages.</p></div>
+    <div class="group"><h3 class="hit">Updates</h3><div class="box hit-box">
+      <div class="r"><span class="k">Application updates<small>Automatic checks are disabled while running from source.</small></span><span class="btn">check now</span></div>
+      <div class="meta"><span>Installed v0.1.0</span><span>Never checked</span></div>
+    </div></div>
+  </div>
+</div>
+<p class="caption">H3 · An accent tick. A short bar in the accent colour appears in the margin beside the heading and fades with it. Echoes a cursor mark, in keeping with the terminal themes.</p>
+<div class="variant h3" data-variant="h3">
+  <nav class="rail"><button>Playback</button><button>Library</button><button>Appearance</button><button>Sources</button><button class="on">Updates</button></nav>
+  <div>
+    <div class="group"><div class="box" style="border-radius:0 0 12px 12px">
+      <div class="r"><span class="k">Source links<small>38 remembered anime with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><span class="btn">forget links</span></div>
+    </div><p class="note">Status reflects recent catalog requests. Playback hosts can have separate outages.</p></div>
+    <div class="group"><h3 class="hit">Updates</h3><div class="box hit-box">
+      <div class="r"><span class="k">Application updates<small>Automatic checks are disabled while running from source.</small></span><span class="btn">check now</span></div>
+      <div class="meta"><span>Installed v0.1.0</span><span>Never checked</span></div>
+    </div></div>
+  </div>
+</div>
+<p class="caption">H4 · A ring that hugs the word. The same focus ring as today, sized to the text with rounded corners, and shown for keyboard use only. Clicking with the mouse shows nothing.</p>
+<div class="variant h4" data-variant="h4">
+  <nav class="rail"><button>Playback</button><button>Library</button><button>Appearance</button><button>Sources</button><button class="on">Updates</button></nav>
+  <div>
+    <div class="group"><div class="box" style="border-radius:0 0 12px 12px">
+      <div class="r"><span class="k">Source links<small>38 remembered anime with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><span class="btn">forget links</span></div>
+    </div><p class="note">Status reflects recent catalog requests. Playback hosts can have separate outages.</p></div>
+    <div class="group"><h3 class="hit">Updates</h3><div class="box hit-box">
+      <div class="r"><span class="k">Application updates<small>Automatic checks are disabled while running from source.</small></span><span class="btn">check now</span></div>
+      <div class="meta"><span>Installed v0.1.0</span><span>Never checked</span></div>
+    </div></div>
+  </div>
+</div>

@@ -18,10 +18,13 @@ import "./player.css";
 import { DesktopMediaStorage } from "./player-storage";
 import { shortcut } from "./keys";
 import { observePlayerDiagnostics } from "./player-diagnostics";
-import { clampMiniPlayerWidth, type MiniPlayerCorner, type PlayerCommand, type PlayerSession } from "../shared/contracts";
+import { clampMiniPlayerWidth, type MiniPlayerCorner, type PlayerCommand, type PlayerSession, type SubtitleAppearance } from "../shared/contracts";
+import { SubtitleAppearanceEditor, SubtitlePreview, subtitleVariables } from "./SubtitleAppearanceEditor";
 
 export interface PlayerScreenProps {
   session: PlayerSession;
+  subtitleAppearance: SubtitleAppearance;
+  onSubtitleAppearance: (value: SubtitleAppearance) => void;
   fullscreen: boolean;
   onFullscreenChange: (fullscreen: boolean) => void;
   /** Docked: the player is a small box in a corner while the user browses. Playback keys are off. */
@@ -106,6 +109,29 @@ function FullscreenControl({ fullscreen, busy, onToggle }: { fullscreen: boolean
   );
 }
 
+/** The last entry of the settings menu. Closes the menu first, so the dialog is alone on screen. */
+function SubtitleMenuEntry({ onOpen }: { onOpen: () => void }) {
+  const media = useMediaContext();
+  return <button type="button" className="vds-menu-item subtitle-menu-entry" role="menuitem" onClick={(event) => { media.activeMenu?.close(event.nativeEvent); onOpen(); }}>
+    <span className="vds-menu-item-label">Subtitle appearance</span>
+  </button>;
+}
+
+/** Reports whether the loaded media carries a subtitle track, including ones found inside an HLS playlist. */
+function TrackWatcher({ onChange }: { onChange: (count: number) => void }) {
+  const media = useMediaContext();
+  useEffect(() => {
+    const list = media.textTracks;
+    if (!list) return;
+    const update = () => onChange([...list].filter((track) => track.kind === "subtitles" || track.kind === "captions").length);
+    update();
+    list.addEventListener("add", update);
+    list.addEventListener("remove", update);
+    return () => { list.removeEventListener("add", update); list.removeEventListener("remove", update); };
+  }, [media, onChange]);
+  return null;
+}
+
 function MenuEscapeHandler() {
   const media = useMediaContext();
   useEffect(() => {
@@ -123,7 +149,7 @@ function MenuEscapeHandler() {
   return null;
 }
 
-export default function PlayerScreen({ session, fullscreen, onFullscreenChange, docked, corner, onCornerChange, width, onWidthChange, episodeCount, detail, message, autoplayNext, onPrev, onNext, onRetry, onDock, onEpisodes, onExpand, onClose }: PlayerScreenProps) {
+export default function PlayerScreen({ session, subtitleAppearance, onSubtitleAppearance, fullscreen, onFullscreenChange, docked, corner, onCornerChange, width, onWidthChange, episodeCount, detail, message, autoplayNext, onPrev, onNext, onRetry, onDock, onEpisodes, onExpand, onClose }: PlayerScreenProps) {
   const api = window.aniDesktop.player;
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<string>();
@@ -131,6 +157,8 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
   const [fullscreenBusy, setFullscreenBusy] = useState(false);
   const [notice, setNotice] = useState<string>();
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showSubtitleAppearance, setShowSubtitleAppearance] = useState(false);
+  const [subtitleTracks, setSubtitleTracks] = useState(session.request.textTracks?.length ?? 0);
   const [diagnostics, setDiagnostics] = useState(session.diagnostics === true);
   const [countdown, setCountdown] = useState<number>();
   const [paused, setPaused] = useState(false);
@@ -146,6 +174,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
   const player = useRef<MediaPlayerInstance>(null);
   const surface = useRef<HTMLDivElement>(null);
   const shortcutsDialog = useRef<HTMLDialogElement>(null);
+  const subtitleDialog = useRef<HTMLDialogElement>(null);
   const transition = useRef(false);
   const fullscreenRef = useRef(fullscreen);
   fullscreenRef.current = fullscreen;
@@ -206,6 +235,16 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
     };
   }, [showShortcuts]);
 
+  useEffect(() => {
+    if (!showSubtitleAppearance) return;
+    const previous = document.activeElement;
+    subtitleDialog.current?.showModal();
+    return () => {
+      subtitleDialog.current?.close();
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+    };
+  }, [showSubtitleAppearance]);
+
   const fired = useRef(false);
   useEffect(() => { fired.current = false; }, [session.id]);
   useEffect(() => {
@@ -231,7 +270,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
   const runCommand = useCallback((command: PlayerCommand) => {
     logDiagnostic({ event: "command", command, time: player.current?.state.currentTime });
     if (command === "shortcuts") { if (docked) onExpand(); setShowShortcuts(true); return; }
-    if (showShortcuts || error) return;
+    if (showShortcuts || showSubtitleAppearance || error) return;
     if (command === "fullscreen") { if (docked) onExpand(); else void changeFullscreen(!fullscreen); return; }
     const media = player.current;
     if (!media?.state.canPlay) return;
@@ -250,7 +289,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
       case "speed-up": remote.changePlaybackRate(Math.min(2, media.state.playbackRate + 0.25)); break;
       case "speed-down": remote.changePlaybackRate(Math.max(0.25, media.state.playbackRate - 0.25)); break;
     }
-  }, [changeFullscreen, fullscreen, showShortcuts, error, logDiagnostic, docked, onExpand]);
+  }, [changeFullscreen, fullscreen, showShortcuts, showSubtitleAppearance, error, logDiagnostic, docked, onExpand]);
 
   useEffect(() => api.onCommand(runCommand), [api, runCommand]);
 
@@ -259,7 +298,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
       const target = event.target instanceof HTMLElement ? event.target : undefined;
       if (event.isComposing || target?.isContentEditable || target?.matches("input, textarea, select")) return;
       if (docked) return; // While docked the app owns the keyboard.
-      if (showShortcuts) return; // The native dialog owns Escape and focus trapping.
+      if (showShortcuts || showSubtitleAppearance) return; // Native dialogs own Escape and focus trapping.
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const menuOpen = Boolean(document.querySelector('.vds-menu-items[data-open]'));
       if (menuOpen) return;
@@ -291,7 +330,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
       element?.removeEventListener("media-enter-fullscreen-request", enter, true);
       element?.removeEventListener("media-exit-fullscreen-request", exit, true);
     };
-  }, [changeFullscreen, fullscreen, showShortcuts, countdown, docked, onDock, onNext, onPrev]);
+  }, [changeFullscreen, fullscreen, showShortcuts, showSubtitleAppearance, countdown, docked, onDock, onNext, onPrev]);
 
   const togglePaused = useCallback(() => {
     const media = player.current;
@@ -383,6 +422,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
           ref={player}
           key={`${session.id}:${attempt}`}
           className={`media-player ${fullscreen ? "is-native-fullscreen" : "is-windowed"}`}
+          style={subtitleVariables(subtitleAppearance)}
           title={session.request.title}
           artist="ANIdesktop"
           artwork={episode?.poster ? [{ src: episode.poster }] : []}
@@ -395,7 +435,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
           controlsDelay={2500}
           hideControlsOnMouseLeave
           keyTarget="document"
-          keyDisabled={docked || showShortcuts || Boolean(error) || countdown !== undefined}
+          keyDisabled={docked || showShortcuts || showSubtitleAppearance || Boolean(error) || countdown !== undefined}
           keyShortcuts={{
             ...MEDIA_KEY_SHORTCUTS,
             seekBackward: `${MEDIA_KEY_SHORTCUTS.seekBackward} Shift+ArrowLeft`,
@@ -421,6 +461,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
           onError={(detail) => setError(errorMessage(detail))}
         >
           <MenuEscapeHandler />
+          <TrackWatcher onChange={setSubtitleTracks} />
           <MediaProvider>
             {session.request.textTracks?.map((track, index) => <Track key={`${track.src}:${index}`} src={track.src} kind="subtitles" label={track.label} lang={track.lang} default={track.default} />)}
           </MediaProvider>
@@ -431,6 +472,7 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
               beforePlayButton: <SeekControl seconds={-10} />,
               afterPlayButton: <SeekControl seconds={10} />,
               beforeSettingsMenu: <button type="button" className="vds-button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={() => setShowShortcuts(true)}>?</button>,
+              settingsMenuEndItems: <SubtitleMenuEntry onOpen={() => setShowSubtitleAppearance(true)} />,
               googleCastButton: null,
               fullscreenButton: (
                 <FullscreenControl
@@ -499,6 +541,16 @@ export default function PlayerScreen({ session, fullscreen, onFullscreenChange, 
           <dt>?</dt><dd>Show shortcuts</dd>
         </dl>
         <button type="button" autoFocus onClick={() => setShowShortcuts(false)}>Close</button>
+      </dialog>
+      <dialog ref={subtitleDialog} className="player-subtitle-dialog" aria-labelledby="subtitle-dialog-title"
+        onCancel={() => setShowSubtitleAppearance(false)} onClose={() => setShowSubtitleAppearance(false)}>
+        <h2 id="subtitle-dialog-title">Subtitle appearance</h2>
+        <div className="group"><div className="box">
+          <SubtitlePreview value={subtitleAppearance} />
+          <SubtitleAppearanceEditor value={subtitleAppearance} onChange={onSubtitleAppearance}
+            note={subtitleTracks ? undefined : "This stream came without a subtitle track. The preset applies when one is available; text burned into the picture cannot be styled."} />
+        </div></div>
+        <button type="button" className="btn" onClick={() => setShowSubtitleAppearance(false)}>Close</button>
       </dialog>
     </main>
   );

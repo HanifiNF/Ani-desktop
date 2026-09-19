@@ -48,12 +48,12 @@ export default function IdentityIndexPanel({ saved, draft, onChange }: { saved: 
     : updating ? "Downloading and preparing the title index…"
     : status?.entries ? `${status.entries.toLocaleString()} titles${updated ? ` · updated ${updated}` : ""}. Refreshes weekly.`
     : "Not downloaded yet. About six megabytes, refreshed weekly.";
-  return <div className="group"><h3>Anime information</h3><div className="box">
+  return <div className="group"><h3 id="settings-anime-information" tabIndex={-1}>Anime information</h3><div className="box">
     <div className="r"><span className="k">Series details from AniList<small>Synopsis, studio, status, and the ids that group one anime across sources. Titles of series you open are sent to AniList; answers are kept locally and refreshed by age.</small></span>
       <Switch checked={draft.animeInfo !== false} label="Series details from AniList" onChange={(animeInfo) => onChange({ ...draft, animeInfo })} /></div>
     <div className="r"><span className="k">Offline title index<small>A local copy of the anime-offline-database, so search can group titles across sources without any request.</small></span>
       <Switch checked={draft.offlineIndex === true} label="Offline title index" onChange={(offlineIndex) => onChange({ ...draft, offlineIndex })} /></div>
-    <div className="r"><span className="k" role="status">{unsaved ? "Save changes to apply the index setting." : indexState}{error && <small className="err" role="alert">{error}</small>}</span>
+    <div className="r"><span className="k" role="status">{unsaved ? "Applying the index setting…" : indexState}{error && <small className="err" role="alert">{error}</small>}</span>
       <button type="button" className="btn small" disabled={!saved.offlineIndex || unsaved || updating} onClick={() => void update()}>{updating ? "Updating…" : status?.entries ? "Update now" : "Download"}</button></div>
   </div></div>;
 }

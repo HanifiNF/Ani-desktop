@@ -51,9 +51,9 @@ export default function BookmarkMetadataPanel({ count, saved, draft }: { count: 
   const stopping = progress?.state === "cancelling";
   const running = progress?.state === "running" || stopping;
   const changed = sourceSettingsKey(saved) !== sourceSettingsKey(draft);
-  const disabledReason = changed ? "Save source changes before fetching." : !count ? "Bookmark a series to prepare its episode metadata." : !enabledProviders(saved).length ? "Turn on a source and save changes before fetching." : undefined;
+  const disabledReason = changed ? "Saving source changes…" : !count ? "Bookmark a series to prepare its episode metadata." : !enabledProviders(saved).length ? "Turn on a source and save changes before fetching." : undefined;
   return <div className="group">
-    <h3>Episode metadata</h3>
+    <h3 id="settings-episode-metadata" tabIndex={-1}>Episode metadata</h3>
     <div className="box">
       <div className="r">
         <span className="k">Bookmarked series<small>Cache sub/dub availability and resolution for all {count} bookmarked series, using enabled sources.</small></span>
