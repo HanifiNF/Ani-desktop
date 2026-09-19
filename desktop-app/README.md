@@ -156,7 +156,9 @@ The AppImage is written to `release/`. Linux runs through Electron on X11 or Way
 
 ## GitHub releases
 
-Each push to `master`, including a merged pull request, starts the desktop release workflow. It runs the unit, build, and native player checks alongside builds of a Windows x64 installer, Linux x64 AppImage, and Intel and Apple Silicon macOS DMGs. Once all checks and packages succeed, it creates a version tag on the exact built commit and publishes the packages with generated release notes.
+The desktop release workflow runs nightly at 2:17 AM Brisbane time (16:17 UTC). It compares the scheduled `master` commit with the most recently published stable `vMAJOR.MINOR.PATCH` release. If the commit is already included in that release, packaging and publication are skipped. All changes count, including documentation changes. Drafts and prereleases are excluded from the comparison, so failed or missed releases remain eligible on the following night. GitHub schedules run on the repository's default branch, which must remain `master`, and execution can be delayed by GitHub.
+
+When changes exist, the workflow runs the unit, build, and native player checks alongside builds of a Windows x64 installer, Linux x64 AppImage, and Intel and Apple Silicon macOS DMGs. Once all checks and packages succeed, it creates a version tag on the exact built commit and publishes the packages with generated release notes. Desktop checks also run independently on pull requests and branch pushes, including merges into `master`, when desktop code or workflow files change.
 
 The first release uses the version in `package.json` (currently `0.1.0`). Each subsequent release increments the highest stable `vMAJOR.MINOR.PATCH` tag's patch number: `0.1.1`, `0.1.2`, and so on. To start a larger release, update the package and lockfile to a version above the latest release, then commit those files in your pull request:
 
@@ -171,7 +173,7 @@ Packaged apps check the repository's latest stable GitHub Release shortly after 
 
 Release runs queue one at a time (up to GitHub's 100 pending-run limit). Failed checks or package builds prevent publication. Uploads stay in a draft until all files are attached. Retrying a tagged commit reuses its version and preserves an already published release. If a failed run's version was claimed by a later commit, choose **Re-run all jobs** to select a fresh version.
 
-To test packages from a branch, open **Actions → Desktop release → Run workflow** and select the branch. Manual runs execute the same checks and builds and save the packages as workflow artifacts. Publication happens on pushes to `master`. macOS packages currently use ad-hoc signing; Developer ID signing and notarization can be added later.
+To test packages from a branch, open **Actions → Desktop release → Run workflow**, select the branch, and leave **Release action** set to **Test packages**. This runs the same checks and builds and saves the packages as workflow artifacts, even when the commit was already released. To publish an urgent release, select `master` and choose **Publish release**. Manual publication uses the same unreleased-change check as nightly runs; publishing from another branch is rejected. macOS packages currently use ad-hoc signing; Developer ID signing and notarization can be added later.
 
 Vidstack loads the bundled hls.js module directly, so the player requires no CDN script permission. Vidstack and hls.js are bundled JavaScript dependencies; no native player executable or streamed media is included. See [Third-party notices](THIRD_PARTY_NOTICES.md).
 

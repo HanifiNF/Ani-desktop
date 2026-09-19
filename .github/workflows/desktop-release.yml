@@ -1,14 +1,23 @@
 name: Desktop release
 
 on:
-  push:
-    branches: [master]
+  schedule:
+    # 02:17 Australia/Brisbane (UTC+10), every day.
+    - cron: '17 16 * * *'
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Release action (publishing requires master)
+        type: choice
+        default: Test packages
+        options:
+          - Test packages
+          - Publish release
 
 permissions:
   contents: read
 
-# Serialize version allocation and publication, including overlapping merges.
+# Serialize version allocation and publication, including manual runs.
 concurrency:
   group: desktop-release
   cancel-in-progress: false
@@ -18,6 +27,8 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
+      build: ${{ steps.plan.outputs.build }}
+      publish: ${{ steps.plan.outputs.publish }}
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
     steps:
@@ -29,17 +40,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --test .github/scripts/desktop-release-version.test.mjs
+      - run: node --test .github/scripts/desktop-release-*.test.mjs
+      - name: Check for unreleased changes
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_MODE: ${{ inputs.mode }}
+        run: node .github/scripts/desktop-release-plan.mjs
       - name: Choose release version
+        if: steps.plan.outputs.build == 'true'
         id: version
         run: node .github/scripts/desktop-release-version.mjs
 
   checks:
     needs: prepare
+    if: needs.prepare.outputs.build == 'true'
     uses: ./.github/workflows/desktop-checks.yml
 
   build:
     needs: prepare
+    if: needs.prepare.outputs.build == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -84,8 +105,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    # Manual runs validate packages and keep them as workflow artifacts.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: needs.prepare.outputs.publish == 'true' && github.ref == 'refs/heads/master'
     needs: [prepare, checks, build]
     runs-on: ubuntu-latest
     permissions:

@@ -5,7 +5,7 @@ on:
   pull_request:
     paths: ['desktop-app/**', '.github/workflows/desktop-*.yml', '.github/scripts/**']
   push:
-    branches-ignore: [master]
+    branches: ['**']
     paths: ['desktop-app/**', '.github/workflows/desktop-*.yml', '.github/scripts/**']
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: desktop-app/package-lock.json
-      - run: node --test ../.github/scripts/desktop-release-version.test.mjs
+      - run: node --test ../.github/scripts/desktop-release-*.test.mjs
       - run: npm ci
       - run: npm test
       - run: npm run build
