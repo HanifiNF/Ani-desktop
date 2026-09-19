@@ -49,6 +49,10 @@ jobs:
         run: |
           node --input-type=module -e "import { generateKeyPairSync } from 'node:crypto'; console.log('SPARKLE_PUBLIC_KEY=' + generateKeyPairSync('ed25519').publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('base64'))" >> "$GITHUB_ENV"
       - run: npm run dist:mac
+        env:
+          # Packages use identity "-" and disposable keys; this job has no signing secrets.
+          # electron-builder otherwise skips even ad-hoc signing on pull requests.
+          CSC_FOR_PULL_REQUEST: 'true'
       - run: node scripts/test-sparkle.mjs --smoke
 
   player-macos:
