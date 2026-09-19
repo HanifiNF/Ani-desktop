@@ -103,7 +103,10 @@ export interface WorkInfo {
   error?: string;
 }
 
-export type BrowseSort = "popularity" | "score" | "newest" | "title";
+/** "match" orders a title search by closeness and needs a search term. */
+export type BrowseSort = "match" | "popularity" | "score" | "newest" | "title";
+/** A company AniList credits. Only some of them animate; the rest fund or distribute. */
+export interface BrowseStudio { id: number; name: string; animation: boolean; }
 export interface BrowseFilters {
   includeGenres: string[];
   excludeGenres: string[];
@@ -114,6 +117,10 @@ export interface BrowseFilters {
   minimumScore?: number;
   minimumEpisodes?: number;
   maximumEpisodes?: number;
+  /** Matches English, romaji, and native titles and synonyms. */
+  search?: string;
+  tags?: string[];
+  studio?: BrowseStudio;
   sort: BrowseSort;
 }
 /** An AniList catalog entry. It deliberately has no streaming-provider id. */
@@ -138,12 +145,17 @@ export interface BrowseResult {
   query: BrowseQuery;
   entries: BrowseAnime[];
   hasNextPage: boolean;
+  /** Studios whose names match the search term; first page of a title search only. */
+  studios?: BrowseStudio[];
   fetchedAt: number;
   cached?: boolean;
   stale?: boolean;
   error?: string;
   retryAt?: number;
 }
+
+/** Sent while a studio's list of works is read for the first time: how far it is, and its most popular works to show meanwhile. */
+export interface BrowseProgress { studio: string; read: number; entries?: BrowseAnime[]; }
 
 export interface IdentityIndexStatus {
   enabled: boolean;
@@ -404,7 +416,8 @@ export interface AniDesktopApi {
   /** `known` names a work the caller has already identified, so matching rows carry its references without a title lookup. */
   search(query: string, provider?: ProviderPreference, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult[]>) => void, known?: IdentityCandidate): Promise<AnimeResult[]>;
   browseGenres(request?: CatalogRequest): Promise<string[]>;
-  browse(query: BrowseQuery, request?: CatalogRequest): Promise<BrowseResult>;
+  browseTags(request?: CatalogRequest): Promise<string[]>;
+  browse(query: BrowseQuery, request?: CatalogRequest, onUpdate?: (progress: BrowseProgress) => void): Promise<BrowseResult>;
   episodes(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: EpisodeCatalog) => void): Promise<EpisodeCatalog>;
   seriesMetadata(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: SeriesMetadataCatalog) => void): Promise<SeriesMetadataCatalog>;
   /** Look the anime up on every provider it is not yet known on, remembering confident matches. */

@@ -344,9 +344,13 @@ function registerIpc(): void {
     if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
     return browseService.genreOptions();
   }));
-  ipcMain.handle("catalog:browse", (event, query: unknown, request?: CatalogRequest) => catalogCall(event, request, () => {
+  ipcMain.handle("catalog:browse-tags", (event, request?: CatalogRequest) => catalogCall(event, request, () => {
     if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
-    return browseService.browse(validateBrowseQuery(query));
+    return browseService.tagOptions();
+  }));
+  ipcMain.handle("catalog:browse", (event, query: unknown, request?: CatalogRequest) => catalogCall(event, request, (update) => {
+    if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
+    return browseService.browse(validateBrowseQuery(query), update);
   }));
   ipcMain.handle("catalog:episodes", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, (update) => catalogService.episodes(anime, store.snapshot().settings, update)));
   ipcMain.handle("catalog:series-metadata", (event, anime: AnimeResult, request?: CatalogRequest) => {

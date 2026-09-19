@@ -6,6 +6,13 @@ import { DEFAULT_STATE } from "../shared/settings";
 import { BACKDROP_POOL } from "../shared/backdrops";
 import { DEV_BROWSE } from "./devBrowseFixtures";
 
+const DEV_TAGS = ["Cyberpunk", "Found Family", "Isekai", "Male Protagonist", "Reverse Isekai", "School", "Shounen", "Time Travel", "Tragedy", "Urban Fantasy"];
+const DEV_STUDIO_NAMES = [...new Set(DEV_BROWSE.flatMap((anime) => anime.studios))].sort();
+const devStudiosRead = new Set<number>();
+/** Studios named by the browse fixtures, plus one producer without works so that state can be seen. */
+const devStudios = (term: string) => [...DEV_STUDIO_NAMES.map((name, index) => ({ id: index + 1, name, animation: true })), { id: 999, name: "Toei Agency", animation: false }]
+  .filter((studio) => studio.name.toLowerCase().includes(term.trim().toLowerCase())).slice(0, 6);
+
 const svg = (bg: string, shapes: string) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300"><rect width="200" height="300" fill="${bg}"/>${shapes}</svg>`)}`;
 const posters = {
   frieren: svg("#DCE9F2", '<circle cx="120" cy="80" r="70" fill="#4F7BA6" opacity=".9"/><path d="M0 160 L200 110 L200 300 L0 300Z" fill="#1E2B3A"/>'),
@@ -189,17 +196,29 @@ export function installDevApi(): void {
       return { id: entry.id, kind, ...DEV_BACKDROPS[entry.id], src: DEV_BACKDROPS[entry.id].url };
     },
     async browseGenres() { return ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural"]; },
-    async browse(query) {
+    async browseTags() { await wait(300); return DEV_TAGS; },
+    async browse(query, _request, onUpdate) {
       await wait(500);
       const { filters, page } = query, lower = (values: string[]) => values.map((value) => value.toLowerCase());
+      // A studio's list is read a page at a time in the app; two ticks stand in for it here, once per studio.
+      if (filters.studio && !devStudiosRead.has(filters.studio.id)) {
+        const works = DEV_BROWSE.filter((anime) => anime.studios.includes(filters.studio!.name));
+        for (const read of [Math.ceil(works.length / 2), works.length]) { onUpdate?.({ studio: filters.studio.name, read, entries: works.slice(0, 8) }); await wait(1200); }
+        devStudiosRead.add(filters.studio.id);
+      }
+      const term = filters.search?.toLowerCase();
       const matches = DEV_BROWSE.filter((anime) => lower(filters.includeGenres).every((genre) => lower(anime.genres).includes(genre))
         && !lower(filters.excludeGenres).some((genre) => lower(anime.genres).includes(genre))
+        && (!term || anime.titles.some((title) => title.toLowerCase().includes(term))) && (!filters.studio || anime.studios.includes(filters.studio.name))
+        // The fixtures carry no tags; each tag keeps a fixed third of the catalog so the filter visibly narrows.
+        && (filters.tags ?? []).every((tag) => (anime.anilistId + tag.length) % 3 === 0)
         && (!filters.year || anime.year === filters.year) && (!filters.season || anime.season === filters.season) && (!filters.status || anime.status === filters.status)
         && (!filters.format || anime.type === filters.format) && (!filters.minimumScore || (anime.score ?? 0) >= filters.minimumScore)
         && (!filters.minimumEpisodes || (anime.episodes ?? 0) >= filters.minimumEpisodes) && (!filters.maximumEpisodes || (anime.episodes !== undefined && anime.episodes <= filters.maximumEpisodes)));
       const sorted = filters.sort === "score" ? [...matches].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)) : filters.sort === "newest" ? [...matches].sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
         : filters.sort === "title" ? [...matches].sort((a, b) => a.title.localeCompare(b.title)) : matches;
-      return { query, entries: sorted.slice((page - 1) * 24, page * 24), hasNextPage: sorted.length > page * 24, fetchedAt: Date.now() };
+      return { query, entries: sorted.slice((page - 1) * 24, page * 24), hasNextPage: sorted.length > page * 24, fetchedAt: Date.now(),
+        ...(filters.search && !filters.studio && page === 1 ? { studios: devStudios(filters.search) } : {}) };
     },
     cancelCatalog() {},
     async availability() { await wait(150); return { sub: true, dub: true, checkedAt: Date.now() }; },

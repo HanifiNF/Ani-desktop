@@ -427,6 +427,9 @@ function App() {
   }, [screen, sourceScope]);
   useEffect(() => () => cancelSeries(), []);
 
+  /** Hands words from Browse to the source search on Home. */
+  function searchSourcesFor(words: string) { cancelSeries(); go("home"); setQuery(words.slice(0, 120)); window.setTimeout(() => fieldRef.current?.focus(), 0); }
+
   async function openBrowseAnime(anime: BrowseAnime, retry = false): Promise<void> {
     // From the grid the card reports the check, and a second click on it cancels. Only a title without a source lands on the detail page.
     const inPlace = screen === "browse";
@@ -953,11 +956,12 @@ function App() {
           </>
         )}
 
-        {screen === "browse" && <BrowseScreen state={browseState} setState={setBrowseState} enabled={appState.settings.animeInfo !== false} openingId={browseOpening?.id} onOpen={(anime) => void openBrowseAnime(anime)} />}
+        {screen === "browse" && <BrowseScreen state={browseState} setState={setBrowseState} enabled={appState.settings.animeInfo !== false}
+          openingId={browseOpening?.id} onOpen={(anime) => void openBrowseAnime(anime)} onSearchSources={searchSourcesFor} />}
 
         {screen === "catalog-detail" && browseAnime && <BrowseDetail anime={browseAnime} resolving={browseResolving} error={browseResolveError}
           onBack={() => { cancelSeries(); go("browse"); }} onRetry={() => void openBrowseAnime(browseAnime, true)}
-          onSearch={() => { cancelSeries(); go("home"); setQuery(browseAnime.title.slice(0, 120)); window.setTimeout(() => fieldRef.current?.focus(), 0); }} />}
+          onSearch={() => searchSourcesFor(browseAnime.title)} />}
 
         {screen === "saved" && (appState.bookmarks.length === 0
           ? <EmptyLibrary kind="saved" onAction={focusSearch} />

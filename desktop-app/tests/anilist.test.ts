@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { aniListGenres, browseAniList, lookupAniList, plainDescription, resetAniListRateLimit, searchAniList, toCandidate, toWorkInfo } from "../electron/anilist";
+import { aniListGenres, aniListStudioPage, aniListTags, browseAniList, lookupAniList, plainDescription, resetAniListRateLimit, searchAniList, toCandidate, toWorkInfo } from "../electron/anilist";
 
 const media = {
   id: 146722, idMal: 51367, title: { romaji: "JoJo no Kimyou na Bouken: Stone Ocean Part 2", english: "JoJo's Bizarre Adventure: STONE OCEAN Part 2", native: "ジョジョの奇妙な冒険 ストーンオーシャン 2クール" },
@@ -88,5 +88,39 @@ describe("AniList client", () => {
     await browseAniList({ page: 1, filters: { includeGenres: [], excludeGenres: [], sort: "newest", status: "upcoming" } });
     expect(variables(1)).toMatchObject({ status: "NOT_YET_RELEASED", startedAfter: 10_000_000 });
     expect(variables(1).startedBefore).toBeUndefined();
+  });
+
+  it("sends a title search with tags and studio ids, and reads matching studios from the same request", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValueOnce(new Response(JSON.stringify({ data: { Page: { pageInfo: { hasNextPage: false }, media: [media] },
+      matching: { studios: [{ id: 7285, name: "Toei", isAnimationStudio: false }, { id: 18, name: "Toei Animation", isAnimationStudio: true }] } } }), { status: 200 }))
+      .mockImplementation(async () => new Response(JSON.stringify({ data: { Page: { pageInfo: { hasNextPage: false }, media: [] } } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const sent = (call: number) => JSON.parse(fetchMock.mock.calls[call][1]!.body as string);
+    const result = await browseAniList({ page: 1, filters: { includeGenres: [], excludeGenres: [], search: "toei", tags: ["Isekai"], sort: "match" } });
+    expect(result.studios).toEqual([{ id: 18, name: "Toei Animation", animation: true }, { id: 7285, name: "Toei", animation: false }]);
+    expect(sent(0).variables).toMatchObject({ search: "toei", tags: ["Isekai"], sort: ["SEARCH_MATCH"] });
+    expect(sent(0).query).toContain("studios(search: $search");
+    const studio = { id: 18, name: "Toei Animation", animation: true };
+    const within = await browseAniList({ page: 1, filters: { includeGenres: [], excludeGenres: [], studio, search: "piece", sort: "match" } }, [21, 22]);
+    expect(within.studios).toBeUndefined();
+    expect(sent(1).variables).toMatchObject({ ids: [21, 22], search: "piece" });
+    expect(sent(1).query).not.toContain("studios(search");
+    expect(await browseAniList({ page: 1, filters: { includeGenres: [], excludeGenres: [], studio, sort: "popularity" } }, [])).toEqual({ entries: [], hasNextPage: false });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("lists non-adult tags and reads a studio page as anime ids, with card details on the first page only", async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { MediaTagCollection: [{ name: "Time Travel", isAdult: false }, { name: "Nakadashi", isAdult: true }, { name: "Isekai", isAdult: false }] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { Studio: { media: { pageInfo: { hasNextPage: true }, nodes: [{ ...media, type: "ANIME", isAdult: false }, { id: 5, type: "MANGA", isAdult: false }, { id: 6, type: "ANIME", isAdult: true }] } } } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { Studio: { media: { pageInfo: { hasNextPage: false }, nodes: [{ id: 9, type: "ANIME", isAdult: false }] } } } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await aniListTags()).toEqual(["Isekai", "Time Travel"]);
+    const first = await aniListStudioPage({ id: 569, name: "MAPPA", animation: true }, 1);
+    expect(first).toMatchObject({ ids: [146722], hasNextPage: true }); expect(first.entries[0].anilistId).toBe(146722);
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string).variables).toEqual({ id: 569, page: 1, main: true });
+    const producer = await aniListStudioPage({ id: 141, name: "Toei Video", animation: false }, 2);
+    expect(producer).toEqual({ ids: [9], entries: [], hasNextPage: false });
+    expect(JSON.parse(fetchMock.mock.calls[2][1]!.body as string).variables.main).toBeUndefined();
   });
 });

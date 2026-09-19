@@ -1,17 +1,31 @@
-import type { BrowseFilters, BrowseQuery, BrowseSort, IdentityCandidate, MediaType, WorkStatus } from "../shared/contracts";
+import type { BrowseFilters, BrowseQuery, BrowseSort, BrowseStudio, IdentityCandidate, MediaType, WorkStatus } from "../shared/contracts";
 import { isRef, mediaTypeOf, positiveInteger, unique, yearOf } from "../shared/identity";
 
-const sorts: BrowseSort[] = ["popularity", "score", "newest", "title"];
+const sorts: BrowseSort[] = ["match", "popularity", "score", "newest", "title"];
 const seasons = ["winter", "spring", "summer", "fall"] as const;
 const statuses: Exclude<WorkStatus, "unknown">[] = ["finished", "ongoing", "upcoming"];
 const formats: MediaType[] = ["TV", "MOVIE", "OVA", "ONA", "SPECIAL", "MUSIC"];
 const integer = (value: unknown, min: number, max: number): number | undefined => value === undefined ? undefined
   : typeof value === "number" && Number.isInteger(value) && value >= min && value <= max ? value : (() => { throw new Error("Invalid browse filter"); })();
-const genres = (value: unknown): string[] => {
-  if (!Array.isArray(value) || value.length > 20) throw new Error("Invalid browse genres");
+const genres = (value: unknown, label = "genres"): string[] => {
+  if (!Array.isArray(value) || value.length > 20) throw new Error(`Invalid browse ${label}`);
   const normalized = value.map((item) => typeof item === "string" ? item.trim() : "");
-  if (normalized.some((item) => !item || item.length > 60)) throw new Error("Invalid browse genres");
+  if (normalized.some((item) => !item || item.length > 60)) throw new Error(`Invalid browse ${label}`);
   return normalized.filter((item, index) => normalized.findIndex((other) => other.toLocaleLowerCase() === item.toLocaleLowerCase()) === index);
+};
+
+/** A search term worth sending: trimmed, at least two characters, no longer than the search field allows. */
+function validateBrowseTerm(value: unknown): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.length > 120) throw new Error("Invalid browse search");
+  const term = value.trim().replace(/\s+/g, " ");
+  return term.length >= 2 ? term : undefined;
+}
+const studioOf = (value: unknown): BrowseStudio | undefined => {
+  if (value === undefined) return undefined;
+  const raw = value as Partial<BrowseStudio> | null;
+  if (!raw || typeof raw !== "object" || !positiveInteger(raw.id) || typeof raw.name !== "string" || !raw.name.trim() || raw.name.length > 120) throw new Error("Invalid browse studio");
+  return { id: raw.id!, name: raw.name.trim(), animation: raw.animation === true };
 };
 
 export function validateBrowseQuery(value: unknown): BrowseQuery {
@@ -28,7 +42,11 @@ export function validateBrowseQuery(value: unknown): BrowseQuery {
   if (format !== undefined && !formats.includes(format as MediaType)) throw new Error("Invalid browse format");
   const minimumEpisodes = integer(raw.filters.minimumEpisodes, 1, 100_000), maximumEpisodes = integer(raw.filters.maximumEpisodes, 1, 100_000);
   if (minimumEpisodes !== undefined && maximumEpisodes !== undefined && minimumEpisodes > maximumEpisodes) throw new Error("Invalid episode range");
-  const filters: BrowseFilters = { includeGenres, excludeGenres, sort: sort as BrowseSort,
+  const search = validateBrowseTerm(raw.filters.search), studio = studioOf(raw.filters.studio);
+  const tags = raw.filters.tags === undefined ? [] : genres(raw.filters.tags, "tags");
+  // Closeness only means something against a term.
+  const filters: BrowseFilters = { includeGenres, excludeGenres, sort: sort === "match" && !search ? "popularity" : sort as BrowseSort,
+    ...(search ? { search } : {}), ...(tags.length ? { tags } : {}), ...(studio ? { studio } : {}),
     year: integer(raw.filters.year, 1900, 2200), minimumScore: integer(raw.filters.minimumScore, 1, 100), minimumEpisodes, maximumEpisodes,
     ...(season === undefined ? {} : { season: season as BrowseFilters["season"] }),
     ...(status === undefined ? {} : { status: status as BrowseFilters["status"] }),
