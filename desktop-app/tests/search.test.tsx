@@ -94,6 +94,10 @@ beforeEach(async () => {
     checkForUpdates: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
     dismissUpdate: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
     openLatestRelease: vi.fn().mockResolvedValue(undefined),
+    getUpdateInstallStatus: vi.fn().mockResolvedValue({ mode: "unsupported", phase: "idle", detail: "Development" }),
+    onUpdateInstallStatus: vi.fn().mockReturnValue(() => {}),
+    downloadUpdate: vi.fn(),
+    installUpdate: vi.fn(),
     setAppIcon: vi.fn().mockResolvedValue(undefined),
     toggleBookmark: vi.fn(), removeBookmark: vi.fn(), recordHistory: vi.fn(), removeHistory: vi.fn(), clearHistory: vi.fn(),
     linkSources: vi.fn(), mergeEntries: vi.fn(), dismissMerge: vi.fn()

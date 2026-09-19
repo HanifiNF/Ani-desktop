@@ -98,15 +98,58 @@ jobs:
       - name: Set packaged version
         run: npm version "$RELEASE_VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
       - run: npm run dist:${{ matrix.platform }}
+        env:
+          SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+      - name: Verify automatic update metadata
+        run: |
+          case "${{ matrix.platform }}" in
+            win) test -s release/latest.yml ;;
+            linux) test -s release/latest-linux.yml ;;
+          esac
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: desktop-app/release/*.${{ matrix.extension }}
+          path: |
+            desktop-app/release/*.${{ matrix.extension }}
+            desktop-app/release/*.blockmap
+            desktop-app/release/latest*.yml
+            desktop-app/release/*-mac-*.zip
+          if-no-files-found: error
+
+  sparkle-sign:
+    if: needs.prepare.outputs.publish == 'true' && github.ref == 'refs/heads/master' && vars.SPARKLE_PUBLIC_KEY != ''
+    needs: [prepare, checks, build]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos
+          path: artifacts
+      - name: Sign and verify macOS update feeds
+        env:
+          SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+        run: node desktop-app/scripts/sign-sparkle-release.mjs artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sparkle-feeds
+          path: artifacts/appcast-*.xml
           if-no-files-found: error
 
   release:
-    if: needs.prepare.outputs.publish == 'true' && github.ref == 'refs/heads/master'
-    needs: [prepare, checks, build]
+    if: >-
+      always() && needs.prepare.outputs.publish == 'true' && github.ref == 'refs/heads/master' &&
+      needs.checks.result == 'success' && needs.build.result == 'success' &&
+      (needs.sparkle-sign.result == 'success' || (needs.sparkle-sign.result == 'skipped' && vars.SPARKLE_PUBLIC_KEY == ''))
+    needs: [prepare, checks, build, sparkle-sign]
     runs-on: ubuntu-latest
     permissions:
       contents: write

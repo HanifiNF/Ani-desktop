@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UpdateNotice, UpdatePanel, updatePending } from "../src/UpdateUI";
+import type { UpdateInstallStatus } from "../shared/contracts";
 
 let container: HTMLDivElement;
 let root: Root;
@@ -13,6 +14,35 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
 
 describe("update UI", () => {
+  it("offers download progress, install and restart, manual opening, and retry", async () => {
+    const download = vi.fn(), install = vi.fn();
+    const render = async (phase: UpdateInstallStatus["phase"], mode: UpdateInstallStatus["mode"] = "automatic") => act(async () => root.render(
+      <UpdatePanel status={{ state: "available", currentVersion: "1.0.0", latestVersion: "1.1.0" }} checking={false}
+        onCheck={vi.fn()} onOpen={vi.fn()} onSkip={vi.fn()} onDownload={download} onInstall={install}
+        installStatus={{ mode, phase, detail: "Platform instructions", version: "1.1.0", percent: 42, ...(phase === "error" ? { error: "Update failed" } : {}) }} />));
+    const button = (label: string) => [...container.querySelectorAll("button")].find((item) => item.textContent === label)!;
+    await render("idle");
+    await act(async () => button("Download update").click());
+    expect(download).toHaveBeenCalledOnce();
+    await render("downloading");
+    expect(button("Downloading 42%").disabled).toBe(true);
+    expect(button("check again").disabled).toBe(true);
+    await render("ready");
+    await act(async () => button("Install and restart").click());
+    expect(install).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain("Version 1.1.0 is ready");
+    await render("ready", "manual");
+    expect(button("Open download")).toBeDefined();
+    await render("error");
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe("Update failed");
+    expect(button("Download update").disabled).toBe(false);
+    await render("idle", "native");
+    await act(async () => button("Install update…").click());
+    expect(download).toHaveBeenCalledTimes(2);
+    await render("idle", "unsupported");
+    expect(button("Download update")).toBeUndefined();
+    expect(button("View release")).toBeDefined();
+  });
   it("links to the Updates row from the Settings heading until the version is skipped", async () => {
     const jump = vi.fn();
     await act(async () => root.render(<UpdateNotice status={{ currentVersion: "1.0.0", latestVersion: "1.1.0", state: "available" }} onJump={jump} />));

@@ -15,8 +15,9 @@ import { BookmarkMetadataFetcher } from "./bookmark-metadata";
 import { availabilityFresh } from "../shared/episode-metadata";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { access, mkdir, writeFile } from "node:fs/promises";
+import { constants } from "node:fs";
+import { dirname, isAbsolute, join } from "node:path";
 import { app, BrowserWindow, ipcMain, nativeImage, session, shell } from "electron";
 import type { AnimeResult, CatalogRequest, LibraryEntry, PlayerSession, PlayRequest, ProviderName, ProviderPreference, ScheduleQuery, Settings, TranslationMode } from "../shared/contracts";
 import { playerArguments } from "./player";
@@ -35,6 +36,10 @@ import { isAllowedExternalUrl } from "../shared/external-url";
 import { UpdateService } from "./update-service";
 import { LATEST_RELEASE_URL } from "../shared/update";
 import { validateUpdateCheck, validateUpdateVersion } from "./update-validation";
+import { UpdateInstaller, updateInstallCapability } from "./update-installer";
+import { loadSparkle } from "./sparkle";
+import { downloadReleaseAsset } from "./update-download";
+import { autoUpdater } from "electron-updater";
 
 // Preserve existing settings and library data across the display-name change.
 app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? "Ani Desktop" : "ani-desktop"));
@@ -50,6 +55,7 @@ let playerActive = false;
 const playbackSessions = new Map<string, PlayRequest>();
 let store: StateStore;
 let diagnostics: PlayerDiagnostics;
+let updateInstaller: UpdateInstaller;
 let episodeMetadata: EpisodeMetadataCache;
 let bookmarkMetadata: BookmarkMetadataFetcher;
 let refreshMenu: () => void = () => undefined;
@@ -275,6 +281,18 @@ function registerIpc(): void {
     assertPlayerSender(mainWindow, event);
     await shell.openExternal(LATEST_RELEASE_URL);
   });
+  ipcMain.handle("app:update-install-status", (event) => {
+    assertPlayerSender(mainWindow, event);
+    return updateInstaller.snapshot();
+  });
+  ipcMain.handle("app:update-download", (event, version: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    return updateInstaller.download(validateUpdateVersion(version));
+  });
+  ipcMain.handle("app:update-install", async (event) => {
+    assertPlayerSender(mainWindow, event);
+    await updateInstaller.install();
+  });
   ipcMain.handle("app:backdrop", (event, kind: unknown) => {
     assertPlayerSender(mainWindow, event);
     if (kind !== "wide" && kind !== "portrait") throw new Error("Unknown backdrop kind");
@@ -469,6 +487,42 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
+  let sparkle: ReturnType<typeof loadSparkle>;
+  try { sparkle = loadSparkle(app.isPackaged, process.platform, process.resourcesPath); }
+  catch { console.error("Sparkle could not load; using manual DMG updates."); }
+  const capability = updateInstallCapability(app.isPackaged, process.platform, process.arch, process.env.APPIMAGE, !!sparkle);
+  const backend = capability.mode === "automatic" ? autoUpdater : undefined;
+  if (backend) {
+    backend.autoDownload = false;
+    backend.autoInstallOnAppQuit = false;
+    backend.autoRunAppAfterInstall = true;
+    backend.allowPrerelease = false;
+    backend.allowDowngrade = false;
+  }
+  updateInstaller = new UpdateInstaller({
+    capability, currentVersion: app.getVersion(), backend, nativeCheck: sparkle?.check,
+    publish: (status) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("app:update-install-status", status); },
+    manualDownload: async (version, progress) => {
+      const asset = await updateService.asset(version, process.platform, process.arch);
+      return downloadReleaseAsset(session.fromPartition("ani-updates"), app.getPath("downloads"), asset, progress);
+    },
+    // Linux fallback is a manual replacement, so reveal the AppImage instead of running a second app.
+    openFile: async (path) => {
+      if (process.platform === "linux") { shell.showItemInFolder(path); return ""; }
+      return shell.openPath(path);
+    },
+    beforeInstall: async () => {
+      if (process.platform === "linux") {
+        const path = process.env.APPIMAGE;
+        if (!path || !isAbsolute(path)) throw new Error("Run the installed AppImage before updating.");
+        try { await access(path, constants.W_OK); await access(dirname(path), constants.W_OK); }
+        catch { throw new Error("Move the AppImage to a writable folder, relaunch it, then try again."); }
+      }
+      await Promise.all([store.flush(), diagnostics.flush(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush()]);
+    }
+  });
+  backend?.on("download-progress", (progress) => updateInstaller.progress(progress.percent));
+  backend?.on("error", () => updateInstaller.failed());
   store = new StateStore(join(app.getPath("userData"), "state.json"));
   await store.load();
   await catalogService.load(join(app.getPath("userData"), "episode-lists.json"));
@@ -524,5 +578,5 @@ app.on("before-quit", (event) => {
   bookmarkMetadata.cancel();
   backfill.abort();
   const timeout = setTimeout(() => app.quit(), 2000);
-  void Promise.allSettled([diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
+  void Promise.allSettled([store.flush(), diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
 });

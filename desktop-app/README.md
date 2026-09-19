@@ -136,7 +136,7 @@ The x64 NSIS installer is written to `release/`.
 
 ## macOS packages
 
-On macOS, build Intel and Apple Silicon DMGs with:
+On macOS, build Intel and Apple Silicon DMGs and update ZIPs with:
 
 ```sh
 npm run dist:mac
@@ -169,7 +169,17 @@ npm version 0.2.0 --no-git-tag-version
 
 The release version is applied to the package and lockfile in the build workspace. The workflow creates tags and releases using GitHub's built-in token; it creates no version-bump commits. The checked-in package version serves as the minimum version for future releases, so source checkouts can show an older version than downloaded packages.
 
-Packaged apps check the repository's latest stable GitHub Release shortly after every opening (a launch, or on macOS a new window after the last one closed), then at most once every 24 hours while they stay open. An available version appears only in Settings: a link beside the Settings heading jumps to the Updates row, and a small dot marks the settings icon and the Updates entry in the rail. **View release** opens GitHub so the user can choose the appropriate installer; **skip this version** clears the dots and the link until the next release. Checks never download or install files automatically. Results and per-version dismissals are stored in `update-check.json` in the app's user-data directory. Automatic checks are disabled while running from source, and **Check now** bypasses the daily throttle.
+Packaged apps check the repository's latest stable GitHub Release shortly after every opening (a launch, or on macOS a new window after the last one closed), then at most once every 24 hours while they stay open. An available version appears only in Settings: a link beside the Settings heading jumps to the Updates row, and a small dot marks the settings icon and the Updates entry in the rail. **Download update** downloads the matching release package; **View release** opens GitHub for release notes or manual installation; **skip this version** clears the dots and the link until the next release. Downloads begin when requested. On packaged Windows x64 installs and Linux x64 AppImages, a completed download offers **Install and restart**. Updates are applied only through that action; ordinary app shutdown leaves a downloaded update pending. Sparkle-enabled macOS builds offer **Install update…**, opening a native window that downloads, verifies, installs, and restarts the app. Builds without a configured Sparkle public key offer a matching DMG for manual replacement. Linux builds running outside an AppImage download the matching AppImage and reveal it for manual replacement. Download progress and failures appear in Settings, or in Sparkle’s native window on enabled macOS builds. Downloads continue when navigating to another screen. Results and per-version dismissals are stored in `update-check.json` in the app's user-data directory. Automatic checks are disabled while running from source, and **Check now** bypasses the daily throttle.
+
+### Update installation requirements
+
+The GitHub publish configuration embeds `app-update.yml` in packaged apps. Release builds also publish `latest.yml` for Windows, `latest-linux.yml` for Linux, and generated blockmaps alongside the installers. These files include the checksums that `electron-updater` verifies before installation. Existing releases lack this update flow; users must install the first release containing it manually, then use it for later releases. Source runs continue to offer release checks and links, with installation disabled.
+
+- **Windows:** the NSIS installer supports update and relaunch. Per-machine installs may ask for administrator permission. The current builds have no Windows publisher certificate, so Windows may show an unknown-publisher or SmartScreen prompt. Adding Authenticode signing later also enables publisher identity verification by the updater.
+- **Linux:** automatic replacement requires running the actual AppImage with `APPIMAGE` set and a writable file and containing directory. Move a system-owned or read-only AppImage to a user-writable folder and relaunch it before updating. Extracted apps use the manual download fallback. Only x64 Linux packages are currently published.
+- **macOS:** Sparkle verifies signed update feeds and ZIP archives with the project's Ed25519 public key, then installs and restarts through its native window. It works with the existing ad-hoc signing and requires no Apple membership. Install the first Sparkle-enabled release manually into Applications. First-launch Gatekeeper approval still applies to these unnotarized builds. Configure `SPARKLE_PRIVATE_KEY` as an Actions secret and `SPARKLE_PUBLIC_KEY` as a repository variable using the [Sparkle release setup guide](docs/sparkle-release-setup.md). Builds without the public key retain the DMG fallback.
+
+References: [electron-builder updater requirements](https://www.electron.build/v26/docs/features/auto-update/), [macOS notarization](https://www.electron.build/v26/docs/notarization/), and [Sparkle signing](https://sparkle-project.org/documentation/).
 
 Release runs queue one at a time (up to GitHub's 100 pending-run limit). Failed checks or package builds prevent publication. Uploads stay in a draft until all files are attached. Retrying a tagged commit reuses its version and preserves an already published release. If a failed run's version was claimed by a later commit, choose **Re-run all jobs** to select a fresh version.
 

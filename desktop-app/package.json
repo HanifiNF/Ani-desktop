@@ -10,15 +10,19 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest run",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
-    "dist:mac": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg --x64 --arm64 --publish never && sh scripts/verify-macos-packages.sh",
+    "dist:mac": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false node scripts/package-macos.mjs && sh scripts/verify-macos-packages.sh",
     "start": "npm run build && electron .",
     "test:scroll": "npm run build && node scripts/run-scroll-integration.cjs",
     "test:player": "npm run build && node scripts/run-player-integration.cjs",
     "test:player:native": "npm run build && cross-env ANI_PLAYER_NATIVE_TEST=1 node scripts/run-player-integration.cjs",
-    "dist:linux": "npm run build && electron-builder --linux AppImage --x64 --publish never"
+    "dist:linux": "npm run build && electron-builder --linux AppImage --x64 --publish never",
+    "sparkle:tools": "node scripts/sparkle-tools.mjs",
+    "sparkle:sign": "node scripts/sign-sparkle-release.mjs",
+    "test:sparkle": "node scripts/test-sparkle.mjs"
   },
   "dependencies": {
     "@vidstack/react": "1.15.6",
+    "electron-updater": "6.8.9",
     "hls.js": "1.7.2",
     "react": "latest",
     "react-dom": "latest"
@@ -34,6 +38,7 @@
     "electron": "latest",
     "electron-builder": "latest",
     "jsdom": "^30.0.1",
+    "node-api-headers": "1.9.0",
     "typescript": "latest",
     "vite": "latest",
     "vitest": "latest",
@@ -61,6 +66,10 @@
       {
         "from": "node_modules/hls.js/LICENSE",
         "to": "licenses/hls.js-LICENSE"
+      },
+      {
+        "from": "node_modules/electron-updater/LICENSE",
+        "to": "licenses/electron-updater-LICENSE"
       }
     ],
     "win": {
@@ -81,6 +90,11 @@
       "target": "AppImage",
       "icon": "dist-electron/icon.png",
       "category": "AudioVideo"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "HanifiNF",
+      "repo": "Ani-desktop"
     }
   }
 }

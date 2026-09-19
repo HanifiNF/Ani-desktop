@@ -165,6 +165,8 @@ ANIdesktop is made by [Hanifi](https://github.com/HanifiNF) and [Pascal](https:/
 
 Our thanks to [pystardust](https://github.com/pystardust), the creator of [ani-cli](https://github.com/pystardust/ani-cli), and [everyone who has contributed to it](https://github.com/pystardust/ani-cli/graphs/contributors). Their search, episode-selection, and playback workflow is the foundation of ANIdesktop.
 
+Thanks also to the [Sparkle Project](https://github.com/sparkle-project/Sparkle) and its contributors for the macOS update framework that powers signed update downloads, installation, and relaunch in ANIdesktop.
+
 Bug reports and contributions are welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for repository guidelines and the commands above for desktop checks.
 
-The project is licensed under [GPL-3.0](./LICENSE). See the [third-party notices](./desktop-app/THIRD_PARTY_NOTICES.md) for bundled player dependencies. Catalog information and streamed media come from external providers; availability depends on those services. See the [disclaimer](./disclaimer.md).
+The project is licensed under [GPL-3.0](./LICENSE). See the [third-party notices](./desktop-app/THIRD_PARTY_NOTICES.md) for bundled dependencies. Catalog information and streamed media come from external providers; availability depends on those services. See the [disclaimer](./disclaimer.md).

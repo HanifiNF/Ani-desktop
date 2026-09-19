@@ -1,4 +1,5 @@
 import { usePlayerSession } from "./usePlayerSession";
+import { useUpdateInstall } from "./useUpdateInstall";
 import SearchPalette from "./SearchPalette";
 import SeriesScreen from "./SeriesScreen";
 import { useSeriesScroll } from "./useSeriesScroll";
@@ -84,6 +85,7 @@ function App() {
   const [pendingSources, setPendingSources] = useState<ProviderName[]>([]);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>();
   const [updateChecking, setUpdateChecking] = useState(false);
+  const updateInstall = useUpdateInstall(setError);
 
   const catalogSearch = useAnimeSearch(query, "auto",
     [appState.settings.aniwaveBaseUrl, appState.settings.anidbBaseUrl, appState.settings.hianimeBaseUrl, enabledProviders(appState.settings).join(",")], screen === "home" && !composing);
@@ -934,6 +936,7 @@ function App() {
             bookmarkCount={appState.bookmarks.length} linkCount={(appState.providerLinks ?? []).length}
             onClearLinks={() => void clearSourceLinks()}
             updateStatus={updateStatus} updateChecking={updateChecking} onCheckUpdates={() => checkForUpdates(true)} onOpenUpdate={openLatestRelease} onSkipUpdate={dismissUpdate}
+            updateInstall={updateInstall.status} onDownloadUpdate={() => { if (updateStatus?.latestVersion) updateInstall.download(updateStatus.latestVersion); }} onInstallUpdate={updateInstall.install}
             onOpenLogs={() => { void run("opening player logs", () => window.aniDesktop.openPlayerLogs()); }} />
         )}
 
