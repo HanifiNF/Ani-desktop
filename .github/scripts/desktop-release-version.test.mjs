@@ -6,7 +6,7 @@ test('the first release uses the package version', () => {
   assert.equal(chooseVersion('0.1.0', []), '0.1.0');
 });
 
-test('merges advance the greatest stable tag numerically', () => {
+test('releases advance the greatest stable tag numerically', () => {
   assert.equal(chooseVersion('0.1.0', ['v0.1.9', 'v0.1.10', 'v0.1.2']), '0.1.11');
   assert.equal(chooseVersion('0.1.0', ['v1.9.8', 'v2.0.0']), '2.0.1');
 });
