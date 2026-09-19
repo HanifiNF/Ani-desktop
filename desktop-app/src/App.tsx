@@ -92,6 +92,8 @@ function App() {
   const [browseState, setBrowseState] = useState<BrowseViewState>(DEFAULT_BROWSE_STATE);
   const [browseAnime, setBrowseAnime] = useState<BrowseAnime>();
   const [browseResolving, setBrowseResolving] = useState(false);
+  // A title opened from the browse grid is checked in place; the token tells one attempt from the next.
+  const [browseOpening, setBrowseOpening] = useState<{ id: number; token: number }>();
   const [browseResolveError, setBrowseResolveError] = useState<string>();
   const updateInstall = useUpdateInstall(setError);
 
@@ -391,6 +393,7 @@ function App() {
   function goBack() {
     if (screen === "player") { dockPlayer(); return; }
     if (screen === "home") { if (query) setQuery(""); catalogSearch.clear(); return; }
+    if (screen === "browse" && browseOpening) { cancelSeries(); setBrowseOpening(undefined); return; }
     if (screen === "catalog-detail") { cancelSeries(); go("browse"); return; }
     if (screen === "series") { setSelectedAnime(undefined); go(seriesOrigin.current); return; }
     go("home");
@@ -420,14 +423,18 @@ function App() {
     catalogTasks.current.clear();
   };
   useEffect(() => {
-    if (screen !== "series" && screen !== "player" && screen !== "opening" && screen !== "catalog-detail") { cancelSeries(); setBusy(undefined); setResolving(false); setEpisodesLoading(false); }
+    if (screen !== "series" && screen !== "player" && screen !== "opening" && screen !== "catalog-detail") { cancelSeries(); setBrowseOpening(undefined); setBusy(undefined); setResolving(false); setEpisodesLoading(false); }
   }, [screen, sourceScope]);
   useEffect(() => () => cancelSeries(), []);
 
   async function openBrowseAnime(anime: BrowseAnime, retry = false): Promise<void> {
+    // From the grid the card reports the check, and a second click on it cancels. Only a title without a source lands on the detail page.
+    const inPlace = screen === "browse";
+    if (inPlace && browseOpening?.id === anime.anilistId) { cancelSeries(); setBrowseOpening(undefined); return; }
     cancelSeries();
     const token = openToken.current;
-    setBrowseAnime(anime); setBrowseResolving(true); setBrowseResolveError(undefined); setScreen("catalog-detail");
+    setBrowseAnime(anime); setBrowseResolving(true); setBrowseResolveError(undefined);
+    if (inPlace) setBrowseOpening({ id: anime.anilistId, token }); else setScreen("catalog-detail");
     const id = catalogRequestId("browse-open"); catalogTasks.current.add(id);
     let providerErrors: Partial<Record<ProviderName, string>> = {};
     try {
@@ -446,10 +453,12 @@ function App() {
       if (match) { await openAnime(identified(anime, match), { returnTo: "browse" }); return; }
       const failures = Object.entries(providerErrors).map(([provider, detail]) => `${provider}: ${detail}`);
       setBrowseResolveError(failures.length ? `Source search was incomplete. ${failures.join(" · ")}` : undefined);
+      setScreen("catalog-detail");
     } catch (reason) {
-      if (token === openToken.current) setBrowseResolveError(messageFrom(reason));
+      if (token === openToken.current) { setBrowseResolveError(messageFrom(reason)); setScreen("catalog-detail"); }
     } finally {
       catalogTasks.current.delete(id);
+      setBrowseOpening((current) => current?.token === token ? undefined : current);
       if (token === openToken.current) setBrowseResolving(false);
     }
   }
@@ -944,7 +953,7 @@ function App() {
           </>
         )}
 
-        {screen === "browse" && <BrowseScreen state={browseState} setState={setBrowseState} enabled={appState.settings.animeInfo !== false} onOpen={(anime) => void openBrowseAnime(anime)} />}
+        {screen === "browse" && <BrowseScreen state={browseState} setState={setBrowseState} enabled={appState.settings.animeInfo !== false} openingId={browseOpening?.id} onOpen={(anime) => void openBrowseAnime(anime)} />}
 
         {screen === "catalog-detail" && browseAnime && <BrowseDetail anime={browseAnime} resolving={browseResolving} error={browseResolveError}
           onBack={() => { cancelSeries(); go("browse"); }} onRetry={() => void openBrowseAnime(browseAnime, true)}
