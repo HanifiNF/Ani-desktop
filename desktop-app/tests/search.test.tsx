@@ -1205,7 +1205,7 @@ describe("browse navigation and resolution", () => {
     const pending = deferred<AnimeResult[]>(); search.mockReturnValue(pending.promise);
     await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
     await advance(0);
-    expect(container.querySelector(".browse .card.is-resolving .badge.hi")?.textContent).toContain("checking");
+    expect(container.querySelector(".browse .card.is-resolving [role=status]")?.textContent).toBe("Checking streaming sources");
     expect(container.querySelector(".browse-detail")).toBeNull();
     await press("Escape");
     expect(container.querySelector(".browse .card.is-resolving")).toBeNull();
@@ -1314,7 +1314,7 @@ describe("search inside browse", () => {
     const pending = deferred<import("../shared/contracts").BrowseResult>();
     vi.mocked(api.browse).mockImplementation(async (query, _request, update) => { update?.({ studio: "Toei Animation", read: 25, entries: [entry(21, "ONE PIECE")] }); return pending.promise.then((result) => ({ ...result, query })); });
     await typeTerm("toei"); await advance(700);
-    expect(container.querySelector(".browse-reading")?.textContent).toContain("Reading Toei Animation's list · 25 so far");
+    expect(container.querySelector(".browse-reading")?.textContent).toContain("Fetching Toei Animation's catalog · 25 so far");
     expect(titles()).toEqual(["ONE PIECE"]);
     expect(container.querySelector(".browse-genres")?.parentElement?.className).toContain("is-waiting");
     await act(async () => { pending.resolve({ query: { page: 1, filters: DEFAULT_FILTERS }, entries: [entry(22, "Dragon Ball")], hasNextPage: false, fetchedAt: Date.now() }); });

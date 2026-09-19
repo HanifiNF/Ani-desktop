@@ -251,13 +251,13 @@ export default function BrowseScreen({ state, setState, enabled, openingId, onOp
           {(Object.keys(problems) as Field[]).map((name) => <small className="field-problem" id={`browse-${name}-problem`} key={name}>{problems[name]}</small>)}
         </div>}
       </div>
-      {reading && <div className="browse-reading" role="status"><span className="track"><i /></span>Reading {reading.studio}'s list · {reading.read} so far · filters unlock when it is complete</div>}
+      {reading && <div className="browse-reading" role="status"><span className="track"><i /></span>Fetching {reading.studio}'s catalog · {reading.read} so far · filters ready when done</div>}
       {stale && <div className="notice">Showing cached results. {stale.error} <button type="button" className="link" onClick={() => load(stale.query.page, true)}>Retry</button></div>}
       {error && <div className="msg err" role="alert">{error} <button type="button" className="link" onClick={() => load(pages.length + 1, true)}>Retry</button></div>}
       {shown.length > 0 && <div className={`cards browse-grid ${waiting && !reading ? "is-loading" : ""} ${openingId !== undefined ? "is-opening" : ""}`} aria-busy={loading}>{shown.map((anime) => { const opening = anime.anilistId === openingId; return <div className={`card ${opening ? "is-resolving" : ""}`} key={anime.anilistId}>
         <button type="button" className="hit" aria-busy={opening} title={opening ? "Checking streaming sources · click to cancel" : undefined} onClick={() => onOpen(anime)}><Art src={anime.cover} className="poster" />
           {anime.score !== undefined && anime.score > 0 && <span className="badges top"><span className="badge">{(anime.score / 10).toFixed(1)}</span></span>}
-          {opening && <span className="badges"><span className="badge hi" role="status">checking<span className="dots"> ···</span></span></span>}</button>
+          {opening && <span className="sr-only" role="status">Checking streaming sources</span>}</button>
         <span className="t">{anime.title}</span><span className="s">{factsOf(anime)}</span><GenreChips genres={anime.genres} /></div>; })}</div>}
       {loading && !reading && (pages.length > 0 || !shown.length) && <div className="browse-ghosts" aria-hidden="true">{Array.from({ length: 8 }, (_, index) => <span className="ghost" key={index} />)}</div>}
       {!loading && !error && last && !entries.length && (last.hasNextPage
