@@ -15,6 +15,7 @@ const USER_AGENT = "ANIdesktop (https://github.com/HanifiNF/Ani-cli-aniwave)";
 
 const MEDIA_FIELDS = `id idMal title { romaji english native } synonyms format episodes seasonYear season startDate { year } status`;
 const INFO_FIELDS = `${MEDIA_FIELDS} genres studios(isMain: true) { nodes { name } } averageScore description(asHtml: false)
+  tags { name isAdult isGeneralSpoiler isMediaSpoiler }
   coverImage { extraLarge large } bannerImage nextAiringEpisode { episode airingAt }
   relations { edges { relationType node { id idMal type title { romaji english } format } } }`;
 
@@ -131,6 +132,9 @@ export function toWorkInfo(media: Media): WorkInfo | undefined {
     refs: candidate.refs, title: candidate.title, titles: titlesOf(media), synonyms: candidate.titles.filter((title) => !Object.values(titlesOf(media)).includes(title)),
     type: candidate.type, episodes: candidate.episodes, year: candidate.year, season: text(media.season)?.toLowerCase(), status: candidate.status ?? "unknown",
     genres: Array.isArray(media.genres) ? media.genres.filter((value): value is string => typeof value === "string") : [], studios,
+    tags: unique((Array.isArray(media.tags) ? media.tags as Record<string, unknown>[] : [])
+      .filter((tag) => tag && tag.isAdult !== true && tag.isGeneralSpoiler !== true && tag.isMediaSpoiler !== true)
+      .map((tag) => text(tag.name)).filter((value): value is string => Boolean(value))),
     ...(score ? { score } : {}), description: plainDescription(media.description),
     cover: text(cover?.extraLarge) ?? text(cover?.large), banner: text(media.bannerImage), ...(nextAiring ? { nextAiring } : {}),
     relations, fetchedAt: Date.now(), source: "anilist"

@@ -42,6 +42,7 @@ describe("AniList client", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string).variables).toEqual({ search: "stone ocean part 2" });
     expect((await lookupAniList(["mal:51367"]))?.title).toBe("JoJo's Bizarre Adventure: STONE OCEAN Part 2");
     expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string).variables).toEqual({ idMal: 51367 });
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string).query).toContain("tags { name isAdult isGeneralSpoiler isMediaSpoiler }");
     // The second response left one request before the limit, so the next call waits for the stated reset.
     const pending = lookupAniList(["anilist:99"]);
     await vi.advanceTimersByTimeAsync(1000);
@@ -50,6 +51,15 @@ describe("AniList client", () => {
     expect(await pending).toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(JSON.parse(fetchMock.mock.calls[2][1]!.body as string).variables).toEqual({ id: 99 });
+  });
+
+  it("keeps unique non-spoiler tags that Browse supports", () => {
+    expect(toWorkInfo({ ...media, tags: [
+      { name: "Time Travel" }, { name: "Time Travel" }, { name: "Prison" },
+      { name: "Secret ending", isMediaSpoiler: true }, { name: "Plot twist", isGeneralSpoiler: true },
+      { name: "Adult tag", isAdult: true }, { name: "" }, null
+    ] })?.tags).toEqual(["Time Travel", "Prison"]);
+    expect(toWorkInfo(media)?.tags).toEqual([]);
   });
 
   it("treats 429 as a network pause and other failures as errors", async () => {

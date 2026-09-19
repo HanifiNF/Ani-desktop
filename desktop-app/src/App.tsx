@@ -21,6 +21,7 @@ import type {
   AnimeResult,
   BackdropArt,
   BrowseAnime,
+  BrowseFilters,
   Episode,
   EpisodeGroup,
   EpisodeCatalog,
@@ -429,6 +430,14 @@ function App() {
 
   /** Hands words from Browse to the source search on Home. */
   function searchSourcesFor(words: string) { cancelSeries(); go("home"); setQuery(words.slice(0, 120)); window.setTimeout(() => fieldRef.current?.focus(), 0); }
+
+  function browseFor(filters: Partial<BrowseFilters>) {
+    cancelSeries();
+    setBrowseState({ ...DEFAULT_BROWSE_STATE, filters: { ...DEFAULT_BROWSE_STATE.filters, ...filters },
+      sortBefore: filters.search ? "popularity" : undefined });
+    setSelectedAnime(undefined);
+    go("browse");
+  }
 
   async function openBrowseAnime(anime: BrowseAnime, retry = false): Promise<void> {
     // From the grid the card reports the check, and a second click on it cancels. Only a title without a source lands on the detail page.
@@ -961,7 +970,7 @@ function App() {
 
         {screen === "catalog-detail" && browseAnime && <BrowseDetail anime={browseAnime} resolving={browseResolving} error={browseResolveError}
           onBack={() => { cancelSeries(); go("browse"); }} onRetry={() => void openBrowseAnime(browseAnime, true)}
-          onSearch={() => searchSourcesFor(browseAnime.title)} />}
+          onSearch={() => searchSourcesFor(browseAnime.title)} onBrowse={browseFor} />}
 
         {screen === "saved" && (appState.bookmarks.length === 0
           ? <EmptyLibrary kind="saved" onAction={focusSearch} />
@@ -981,7 +990,7 @@ function App() {
             pendingSources={pendingSources} sourceErrors={sourceErrors} episodeGroups={episodeGroups} episodeRows={episodeRows}
             episodeCount={episodeCount} seriesMetadata={seriesMetadata.get(selectedAnime)} info={workInfo.get(linkedAnime(selectedAnime))} nextUp={nextUp} episodeFilter={episodeFilter}
             episodeSort={episodeSort} jump={jump} playingId={playingId} status={status} metadata={metadata} listRef={listRef}
-            onPlay={(episode) => void playEpisode(episode)} onBookmark={() => void toggleBookmark()} onBack={goBack}
+            onPlay={(episode) => void playEpisode(episode)} onBookmark={() => void toggleBookmark()} onBack={goBack} onBrowse={browseFor}
             onMode={setMode} onQuality={setQuality} onCheckSources={() => void openAnime(selectedAnime, { refresh: true, checkNow: true })}
             onRefreshSources={() => {
               void metadata.refresh(episodeGroups.flatMap((group) => group.episodes.map((episode) => episode.id))).catch((error) => setError(messageFrom(error)));

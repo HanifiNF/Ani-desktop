@@ -393,7 +393,13 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 /* A finished state stays legible: muted text instead of a faded button. */
 .series .side .stack .btn:disabled:not(.primary) { opacity: 1; color: var(--muted); }
 .genre-bubbles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
-.genre-bubbles span { padding: 4px 7px; border-radius: 5px; background: var(--raised); color: var(--muted); font-size: 11px; line-height: 1.2; }
+.genre-bubbles span, .genre-bubbles button { padding: 4px 7px; border-radius: 5px; background: var(--raised); color: var(--muted); font-size: 11px; line-height: 1.2; }
+.genre-bubbles button:hover { background: var(--raised2); color: var(--text); }
+.studio-link { text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+.studio-link:hover { text-decoration-color: currentColor; }
+.series-tags { margin-top: 16px; }
+.series-tags h2 { margin: 0; font-size: 12px; font-weight: 500; color: var(--muted); }
+.series-tags .genre-bubbles { margin-top: 6px; }
 .series .side .prefs { display: grid; gap: 12px; margin-top: 16px; }
 .series .side .prefs .chips-row { display: grid; gap: 6px; justify-items: start; }
 .series .side .prefs .chips { flex-wrap: wrap; max-width: 100%; }

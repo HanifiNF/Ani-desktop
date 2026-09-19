@@ -88,6 +88,8 @@ export interface WorkInfo {
   season?: string;
   status: WorkStatus;
   genres: string[];
+  /** Non-spoiler AniList tags; absent in older cached information. */
+  tags?: string[];
   studios: string[];
   /** Average score on a 0–100 scale. */
   score?: number;

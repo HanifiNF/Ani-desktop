@@ -529,7 +529,7 @@ describe("live catalog search", () => {
     vi.mocked(api.episodes).mockResolvedValue({ groups: [{ provider: "aniwave", episodes: Array.from({ length: 11 }, (_, index) => ({ id: `ep-${index + 1}`, number: String(index + 1), provider: "aniwave" as const })) }] });
     await type("frieren"); await advance(); await press("Enter");
     await act(async () => { await Promise.resolve(); });
-    expect([...container.querySelectorAll(".genre-bubbles span")].map((node) => node.textContent)).toEqual(["Adventure", "Fantasy"]);
+    expect([...container.querySelectorAll(".genre-bubbles button")].map((node) => node.textContent)).toEqual(["Adventure", "Fantasy"]);
     expect(container.querySelector(".genre-bubbles")?.previousElementSibling?.classList.contains("stack")).toBe(true);
     expect(container.querySelector(".genre-bubbles")?.nextElementSibling?.classList.contains("prefs")).toBe(true);
     const facts = container.querySelector(".facts")?.textContent;
@@ -550,7 +550,7 @@ describe("live catalog search", () => {
     const facts = [...container.querySelectorAll(".facts div")].map((node) => node.textContent);
     expect(facts).toEqual(expect.arrayContaining(["FormatTV · Fall 2023", "StatusFinished", "Studiomadhouse", "Score8.9", "Announced total28"]));
     expect(container.querySelector(".series .meta > span:not(.tag)")?.textContent).toBe("Sousou no Frieren");
-    expect([...container.querySelectorAll(".genre-bubbles span")].map((node) => node.textContent)).toEqual(["Fantasy"]);
+    expect([...container.querySelectorAll(".genre-bubbles button")].map((node) => node.textContent)).toEqual(["Fantasy"]);
     await click("Refresh info");
     expect(api.workInfo).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ refresh: true }), expect.any(Function));
   });
@@ -1040,6 +1040,63 @@ const setupBrowse = async () => {
 };
 
 describe("browse navigation and resolution", () => {
+  it("opens a series genre as a fresh browse filter and keeps it when returning from another series", async () => {
+    await setupBrowse();
+    vi.mocked(api.browseGenres).mockResolvedValue(["Action", "Adventure", "Fantasy"]);
+    await click("Show more"); await advance(0);
+    await act(async () => { container.querySelector<HTMLButtonElement>(".browse-genres button")!.click(); });
+    await advance(0);
+    vi.mocked(api.seriesMetadata).mockResolvedValue({ genres: ["Fantasy"], sources: [] });
+    await click("Home"); await type("frieren"); await advance(); await enter();
+    vi.mocked(api.browse).mockClear();
+    await click("Fantasy"); await advance(0);
+    expect(container.querySelector(".page-browse")).not.toBeNull();
+    expect(api.browse).toHaveBeenCalledWith({ page: 1, filters: { includeGenres: ["Fantasy"], excludeGenres: [], sort: "popularity" } }, expect.anything(), expect.any(Function));
+    expect(vi.mocked(api.browse).mock.calls.every(([query]) => query.page === 1 && query.filters.includeGenres.join() === "Fantasy")).toBe(true);
+    expect(container.querySelector(".page-browse")?.scrollTop).toBe(0);
+    vi.mocked(api.browse).mockClear();
+    await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
+    await advance(0);
+    expect(container.querySelector(".series .crumb")?.textContent).toBe("Browse");
+    await backFromSeries();
+    expect(container.querySelector('.browse-genres button.inc')?.textContent).toBe("Fantasy");
+    expect(api.browse).not.toHaveBeenCalled();
+  });
+
+  it("enters the clicked studio name in Browse and lets its matching studio be selected", async () => {
+    const studio = { id: 11, name: "Madhouse", animation: true };
+    vi.mocked(api.workInfo).mockResolvedValue({ refs: ["anilist:154587"], title: "Frieren", titles: {}, synonyms: [], status: "finished", genres: ["Fantasy"], studios: ["MAPPA", "Madhouse"], relations: [], fetchedAt: Date.now(), source: "anilist" });
+    vi.mocked(api.browse).mockImplementation(async (query) => ({ query, entries: [], studios: query.filters.search ? [studio] : [], hasNextPage: false, fetchedAt: Date.now() }));
+    await type("frieren"); await advance(); await enter();
+    expect([...container.querySelectorAll(".studio-link")].map((node) => node.textContent)).toEqual(["MAPPA", "Madhouse"]);
+    await click("Madhouse"); await advance(0);
+    expect(container.querySelector<HTMLInputElement>(".browse-search input")?.value).toBe("Madhouse");
+    expect(vi.mocked(api.browse).mock.calls.at(-1)![0]).toEqual({ page: 1, filters: { includeGenres: [], excludeGenres: [], sort: "match", search: "Madhouse" } });
+    await act(async () => { container.querySelector<HTMLButtonElement>(".browse-suggest button")!.click(); });
+    await advance(0);
+    expect(vi.mocked(api.browse).mock.calls.at(-1)![0].filters).toEqual({ includeGenres: [], excludeGenres: [], sort: "popularity", studio });
+    expect(container.querySelector(".studio-token")?.textContent).toContain("Madhouse");
+  });
+
+  it("opens an AniList tag as a tag filter, separately from genres", async () => {
+    vi.mocked(api.workInfo).mockResolvedValue({ refs: ["anilist:154587"], title: "Frieren", titles: {}, synonyms: [], status: "finished", genres: ["Fantasy"], tags: ["Elf", "Travel"], studios: [], relations: [], fetchedAt: Date.now(), source: "anilist" });
+    await type("frieren"); await advance(); await enter();
+    expect([...container.querySelectorAll('.series-tags button')].map((node) => node.textContent)).toEqual(["Elf", "Travel"]);
+    await click("Elf"); await advance(0);
+    expect(vi.mocked(api.browse).mock.calls.at(-1)![0]).toEqual({ page: 1, filters: { includeGenres: [], excludeGenres: [], tags: ["Elf"], sort: "popularity" } });
+    expect(container.querySelector(".browse-line .token")?.textContent).toContain("Elf");
+  });
+
+  it("opens genre filters from a catalog detail without streaming sources", async () => {
+    await setupBrowse(); search.mockResolvedValue([]);
+    await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
+    await advance(0);
+    expect(container.querySelector(".browse-detail")).not.toBeNull();
+    await click("Action"); await advance(0);
+    expect(container.querySelector(".page-browse")).not.toBeNull();
+    expect(vi.mocked(api.browse).mock.calls.at(-1)![0].filters).toEqual({ includeGenres: ["Action"], excludeGenres: [], sort: "popularity" });
+  });
+
   it("preserves arrow navigation inside the filter controls", async () => {
     await setupBrowse(); await click("Filters");
     const controls = container.querySelectorAll(".browse-field input, .browse-panel .chips button, .browse-genres button");
