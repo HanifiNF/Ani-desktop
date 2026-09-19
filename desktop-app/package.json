@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@vidstack/react": "1.15.6",
+    "electron-updater": "6.8.9",
     "hls.js": "1.7.2",
     "react": "latest",
     "react-dom": "latest"
@@ -61,6 +62,10 @@
       {
         "from": "node_modules/hls.js/LICENSE",
         "to": "licenses/hls.js-LICENSE"
+      },
+      {
+        "from": "node_modules/electron-updater/LICENSE",
+        "to": "licenses/electron-updater-LICENSE"
       }
     ],
     "win": {
@@ -81,6 +86,11 @@
       "target": "AppImage",
       "icon": "dist-electron/icon.png",
       "category": "AudioVideo"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "HanifiNF",
+      "repo": "Ani-cli-aniwave"
     }
   }
 }

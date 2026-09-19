@@ -2,6 +2,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { UpdateStatus } from "../shared/contracts";
 import { compareStableVersions, normalizeStableVersion, UPDATE_API_URL, UPDATE_CHECK_INTERVAL } from "../shared/update";
+import { selectUpdateAsset, type UpdateAsset } from "./update-asset";
 
 const REQUEST_TIMEOUT = 10_000;
 
@@ -45,6 +46,7 @@ export class UpdateService {
   private cache: UpdateCache = { version: 1 };
   private loaded = false;
   private inFlight?: Promise<UpdateStatus>;
+  private latestRelease?: unknown;
   /** Each opening of the app asks GitHub once, whatever the saved result's age; the daily throttle governs the polls after it. */
   private checkedSinceOpen = false;
 
@@ -86,6 +88,16 @@ export class UpdateService {
     return this.status();
   }
 
+  async asset(version: string, platform: string, arch: string): Promise<UpdateAsset> {
+    const status = await this.check(true);
+    if (status.stale || status.state !== "available" || status.latestVersion !== version) {
+      throw new Error("Check for updates again before downloading.");
+    }
+    const asset = selectUpdateAsset(this.latestRelease, platform, arch);
+    if (!asset) throw new Error("This release has no matching package. Use View release to see available downloads.");
+    return asset;
+  }
+
   private async fetchLatest(): Promise<UpdateStatus> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
@@ -95,7 +107,9 @@ export class UpdateService {
         Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "ANIdesktop-update-checker"
       } });
       if (!response.ok) throw new Error(`Update check failed (HTTP ${response.status})`);
-      this.cache.latestVersion = releaseVersion(await response.json());
+      const release = await response.json();
+      this.cache.latestVersion = releaseVersion(release);
+      this.latestRelease = release;
       delete this.cache.lastError;
     } catch (reason) {
       this.cache.lastError = reason instanceof Error && reason.name === "AbortError" ? "Update check timed out"

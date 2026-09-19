@@ -307,6 +307,15 @@ export interface PersistedState {
 
 export type UpdateState = "development" | "current" | "available" | "error";
 
+export interface UpdateInstallStatus {
+  mode: "automatic" | "manual" | "unsupported";
+  phase: "idle" | "downloading" | "ready" | "installing" | "error";
+  detail: string;
+  version?: string;
+  percent?: number;
+  error?: string;
+}
+
 export interface UpdateStatus {
   currentVersion: string;
   latestVersion?: string;
@@ -382,6 +391,10 @@ export interface AniDesktopApi {
   checkForUpdates(force?: boolean): Promise<UpdateStatus>;
   dismissUpdate(version: string): Promise<UpdateStatus>;
   openLatestRelease(): Promise<void>;
+  getUpdateInstallStatus(): Promise<UpdateInstallStatus>;
+  onUpdateInstallStatus(listener: (status: UpdateInstallStatus) => void): () => void;
+  downloadUpdate(version: string): Promise<UpdateInstallStatus>;
+  installUpdate(): Promise<void>;
   setAppIcon(pngDataUrl: string): Promise<void>;
   toggleBookmark(entry: LibraryEntry): Promise<PersistedState>;
   removeBookmark(animeId: string): Promise<PersistedState>;

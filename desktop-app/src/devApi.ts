@@ -209,6 +209,10 @@ export function installDevApi(): void {
     async checkForUpdates() { return { currentVersion: "development", state: "development" }; },
     async dismissUpdate() { return { currentVersion: "development", state: "development" }; },
     async openLatestRelease() { window.open("https://github.com/HanifiNF/Ani-cli-aniwave/releases/latest", "_blank", "noopener"); },
+    async getUpdateInstallStatus() { return { mode: "unsupported", phase: "idle", detail: "Install updates from a packaged release of ANIdesktop." }; },
+    onUpdateInstallStatus() { return () => {}; },
+    async downloadUpdate() { throw new Error("Update downloads are available in the desktop app."); },
+    async installUpdate() { throw new Error("Update installation is available in the desktop app."); },
     async setAppIcon() {},
     async toggleBookmark(entry) {
       const index = state.bookmarks.findIndex((item) => item.animeId === entry.animeId);

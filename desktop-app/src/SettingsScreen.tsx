@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { ProviderPreference, Settings, SubtitleAppearance, UpdateStatus } from "../shared/contracts";
+import type { ProviderPreference, Settings, SubtitleAppearance, UpdateStatus, UpdateInstallStatus } from "../shared/contracts";
 import { enabledProviders } from "../shared/catalog";
 import { PLAYBACK_QUALITIES as QUALITIES } from "../shared/settings";
 import { THEME_NAMES, resolveTheme } from "../shared/theme";
@@ -22,6 +22,7 @@ interface Props {
   bookmarkCount: number; linkCount: number;
   onOpenLogs: () => void; onClearLinks: () => void;
   updateStatus?: UpdateStatus; updateChecking: boolean; onCheckUpdates: () => void; onOpenUpdate: () => void; onSkipUpdate: () => void;
+  updateInstall?: UpdateInstallStatus; onDownloadUpdate?: () => void; onInstallUpdate?: () => void;
   subtitleAppearance: SubtitleAppearance; onSubtitleAppearance: (value: SubtitleAppearance) => void;
 }
 
@@ -101,7 +102,7 @@ function useSectionNavigation() {
 const SAVE_WORDS: Record<SettingsSaveState, string> = { idle: "", saved: "Saved", saving: "Saving…", error: "Not saved" };
 
 export default function SettingsScreen({ draft, setDraft, saved, saveState, onRetrySave, bookmarkCount, linkCount, onOpenLogs, onClearLinks,
-  updateStatus, updateChecking, onCheckUpdates, onOpenUpdate, onSkipUpdate, subtitleAppearance, onSubtitleAppearance }: Props) {
+  updateStatus, updateChecking, onCheckUpdates, onOpenUpdate, onSkipUpdate, updateInstall, onDownloadUpdate, onInstallUpdate, subtitleAppearance, onSubtitleAppearance }: Props) {
   const { formRef, active, jump } = useSectionNavigation();
   const [subtitlesOpen, setSubtitlesOpen] = useState(false);
   return (
@@ -155,7 +156,8 @@ export default function SettingsScreen({ draft, setDraft, saved, saveState, onRe
       <SourceStatusPanel saved={saved} draft={draft} onChange={setDraft}>
         <div className="r"><span className="k">Source links<small>{linkCount} remembered {linkCount === 1 ? "anime" : "anime"} with records on more than one source. Forget them if series show the wrong records together; splitting one source on its series page is the smaller fix</small></span><button type="button" className="btn small" disabled={!linkCount} onClick={onClearLinks}>forget links</button></div>
       </SourceStatusPanel>
-      <UpdatePanel status={updateStatus} checking={updateChecking} onCheck={onCheckUpdates} onOpen={onOpenUpdate} onSkip={onSkipUpdate} />
+      <UpdatePanel status={updateStatus} checking={updateChecking} onCheck={onCheckUpdates} onOpen={onOpenUpdate} onSkip={onSkipUpdate}
+        installStatus={updateInstall} onDownload={onDownloadUpdate} onInstall={onInstallUpdate} />
     </form>
     </div>
   );
