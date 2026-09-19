@@ -401,7 +401,8 @@ export type PlayerCommand = "play-pause" | "seek-backward" | "seek-forward" | "v
 
 export interface AniDesktopApi {
   player: AniPlayerApi;
-  search(query: string, provider?: ProviderPreference, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult[]>) => void): Promise<AnimeResult[]>;
+  /** `known` names a work the caller has already identified, so matching rows carry its references without a title lookup. */
+  search(query: string, provider?: ProviderPreference, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult[]>) => void, known?: IdentityCandidate): Promise<AnimeResult[]>;
   browseGenres(request?: CatalogRequest): Promise<string[]>;
   browse(query: BrowseQuery, request?: CatalogRequest): Promise<BrowseResult>;
   episodes(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: EpisodeCatalog) => void): Promise<EpisodeCatalog>;

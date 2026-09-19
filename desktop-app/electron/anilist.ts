@@ -144,37 +144,44 @@ export async function searchAniList(term: string): Promise<IdentityCandidate[]> 
   return (data?.Page?.media ?? []).map(toCandidate).filter((candidate): candidate is IdentityCandidate => Boolean(candidate));
 }
 
-const BROWSE_FIELDS = `${INFO_FIELDS}`;
+// Cards and the catalog detail need far less than the series screen, which looks the work up itself once it opens.
+const BROWSE_FIELDS = `${MEDIA_FIELDS} genres averageScore description(asHtml: false) coverImage { extraLarge large }`;
 const browseSort = { popularity: "POPULARITY_DESC", score: "SCORE_DESC", newest: "START_DATE_DESC", title: "TITLE_ENGLISH" } as const;
+/** AniList's FuzzyDateInt: a date as the number YYYYMMDD. */
+const fuzzyDate = (date: Date): number => date.getFullYear() * 10_000 + (date.getMonth() + 1) * 100 + date.getDate();
 const browseStatus = { finished: "FINISHED", ongoing: "RELEASING", upcoming: "NOT_YET_RELEASED" } as const;
 
-/** The stable genre vocabulary used by the browse filter. */
+/** The stable genre vocabulary used by the browse filter. Browse never lists adult titles, so the adult-only genre would always be empty. */
 export async function aniListGenres(): Promise<string[]> {
   const data = await graphql("query { GenreCollection }", {}, "AniList genres", 7 * DAY) as { GenreCollection?: unknown } | undefined;
   return Array.isArray(data?.GenreCollection)
-    ? data.GenreCollection.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim()).sort()
+    ? data.GenreCollection.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim())
+      .filter((value) => value.toLowerCase() !== "hentai").sort()
     : [];
 }
 
 export async function browseAniList(query: BrowseQuery): Promise<{ entries: BrowseAnime[]; hasNextPage: boolean }> {
   const { filters, page } = query;
   const document = `query ($page: Int, $genres: [String], $excluded: [String], $year: Int, $season: MediaSeason,
-    $status: MediaStatus, $format: MediaFormat, $score: Int, $minEpisodes: Int, $maxEpisodes: Int, $sort: [MediaSort]) {
+    $status: MediaStatus, $startedAfter: FuzzyDateInt, $startedBefore: FuzzyDateInt, $format: MediaFormat, $score: Int, $minEpisodes: Int, $maxEpisodes: Int, $sort: [MediaSort]) {
     Page(page: $page, perPage: 24) {
       pageInfo { hasNextPage }
       media(type: ANIME, isAdult: false, genre_in: $genres, genre_not_in: $excluded, seasonYear: $year,
-        season: $season, status: $status, format: $format, averageScore_greater: $score,
+        season: $season, status: $status, startDate_greater: $startedAfter, startDate_lesser: $startedBefore, format: $format, averageScore_greater: $score,
         episodes_greater: $minEpisodes, episodes_lesser: $maxEpisodes, sort: $sort) { ${BROWSE_FIELDS} }
     }
   }`;
   const variables = {
     page,
-    // AniList's list filter is broad on some schema versions. Narrow by one genre, then enforce every selected genre below.
-    genres: filters.includeGenres.length ? [filters.includeGenres[0]] : undefined,
+    genres: filters.includeGenres.length ? filters.includeGenres : undefined,
     excluded: filters.excludeGenres.length ? filters.excludeGenres : undefined,
     year: filters.year,
     season: filters.season?.toUpperCase(),
     status: filters.status ? browseStatus[filters.status] : undefined,
+    // AniList sorts undated entries first, which would bury every released title under unannounced and cancelled ones.
+    startedAfter: filters.sort === "newest" ? 10_000_000 : undefined,
+    // Without a chosen status, "newest" means released; a day of slack covers time zones ahead of this one.
+    startedBefore: filters.sort === "newest" && !filters.status ? fuzzyDate(new Date(Date.now() + DAY)) : undefined,
     format: filters.format,
     score: filters.minimumScore === undefined ? undefined : Math.max(0, filters.minimumScore - 1),
     minEpisodes: filters.minimumEpisodes === undefined ? undefined : Math.max(0, filters.minimumEpisodes - 1),

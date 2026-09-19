@@ -1,8 +1,8 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { validateBrowseQuery } from "../electron/browse-validation";
+import { validateBrowseQuery, validateKnownCandidate } from "../electron/browse-validation";
 import { BrowseService } from "../electron/browse-service";
 
 const directories: string[] = [];
@@ -23,7 +23,32 @@ describe("browse validation", () => {
   });
 });
 
+describe("known work validation", () => {
+  it("passes nothing through as nothing and normalizes an identified work", () => {
+    expect(validateKnownCandidate(undefined)).toBeUndefined();
+    expect(validateKnownCandidate(null)).toBeUndefined();
+    expect(validateKnownCandidate({ refs: ["anilist:42", "anilist:42", "mal:7"], title: " Pick ", titles: ["Pick", "Other"], type: "tv", year: 2026, episodes: 12, status: "ongoing", cover: "ignored" }))
+      .toEqual({ refs: ["anilist:42", "mal:7"], title: "Pick", titles: ["Pick", "Other"], type: "TV", year: 2026, episodes: 12, status: "ongoing" });
+  });
+  it("rejects a work without references, with malformed references, or with oversized titles", () => {
+    for (const value of ["text", { refs: [], title: "Pick" }, { refs: ["imdb:1"], title: "Pick" }, { refs: ["anilist:42"], title: "" }, { refs: ["anilist:42"], title: "Pick", titles: ["x".repeat(501)] }]) {
+      expect(() => validateKnownCandidate(value)).toThrow(/Invalid known work/);
+    }
+  });
+});
+
 describe("browse cache", () => {
+  it("discards old pages that were filtered after pagination", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "ani-browse-")); directories.push(directory);
+    const query = validateBrowseQuery({ page: 1, filters: { includeGenres: ["Action", "Drama"], excludeGenres: [], sort: "popularity" } });
+    const path = join(directory, "browse.json");
+    await writeFile(path, JSON.stringify({ version: 1, pages: [[JSON.stringify(query), { query, entries: [], hasNextPage: true, fetchedAt: Date.now() }]] }));
+    const fetchPage = vi.fn().mockResolvedValue({ entries: [], hasNextPage: false });
+    const service = new BrowseService(fetchPage);
+    await service.load(path);
+    expect((await service.browse(query)).hasNextPage).toBe(false);
+    expect(fetchPage).toHaveBeenCalledOnce();
+  });
   it("reuses a fresh page and retains it as stale when refreshing fails", async () => {
     let now = 10_000;
     const query = validateBrowseQuery({ page: 1, filters: { includeGenres: [], excludeGenres: [], sort: "popularity" } });

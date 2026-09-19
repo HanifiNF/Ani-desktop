@@ -4,6 +4,7 @@ import type { AniDesktopApi, AniPlayerApi, AnimeResult, AnimeSource, Episode, Li
 import { animeSources, expandWithLinks, mergeKey, unifyAnimeResults, enabledProviders, providerFromId } from "../shared/catalog";
 import { DEFAULT_STATE } from "../shared/settings";
 import { BACKDROP_POOL } from "../shared/backdrops";
+import { DEV_BROWSE } from "./devBrowseFixtures";
 
 const svg = (bg: string, shapes: string) => `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 300"><rect width="200" height="300" fill="${bg}"/>${shapes}</svg>`)}`;
 const posters = {
@@ -188,7 +189,18 @@ export function installDevApi(): void {
       return { id: entry.id, kind, ...DEV_BACKDROPS[entry.id], src: DEV_BACKDROPS[entry.id].url };
     },
     async browseGenres() { return ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural"]; },
-    async browse(query) { return { query, entries: [], hasNextPage: false, fetchedAt: Date.now() }; },
+    async browse(query) {
+      await wait(500);
+      const { filters, page } = query, lower = (values: string[]) => values.map((value) => value.toLowerCase());
+      const matches = DEV_BROWSE.filter((anime) => lower(filters.includeGenres).every((genre) => lower(anime.genres).includes(genre))
+        && !lower(filters.excludeGenres).some((genre) => lower(anime.genres).includes(genre))
+        && (!filters.year || anime.year === filters.year) && (!filters.season || anime.season === filters.season) && (!filters.status || anime.status === filters.status)
+        && (!filters.format || anime.type === filters.format) && (!filters.minimumScore || (anime.score ?? 0) >= filters.minimumScore)
+        && (!filters.minimumEpisodes || (anime.episodes ?? 0) >= filters.minimumEpisodes) && (!filters.maximumEpisodes || (anime.episodes !== undefined && anime.episodes <= filters.maximumEpisodes)));
+      const sorted = filters.sort === "score" ? [...matches].sort((a, b) => (b.score ?? 0) - (a.score ?? 0)) : filters.sort === "newest" ? [...matches].sort((a, b) => (b.year ?? 0) - (a.year ?? 0))
+        : filters.sort === "title" ? [...matches].sort((a, b) => a.title.localeCompare(b.title)) : matches;
+      return { query, entries: sorted.slice((page - 1) * 24, page * 24), hasNextPage: sorted.length > page * 24, fetchedAt: Date.now() };
+    },
     cancelCatalog() {},
     async availability() { await wait(150); return { sub: true, dub: true, checkedAt: Date.now() }; },
     async streams(episodeId, mode) {

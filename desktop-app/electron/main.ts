@@ -41,7 +41,7 @@ import { loadSparkle } from "./sparkle";
 import { downloadReleaseAsset } from "./update-download";
 import { autoUpdater } from "electron-updater";
 import { BrowseService } from "./browse-service";
-import { validateBrowseQuery } from "./browse-validation";
+import { validateBrowseQuery, validateKnownCandidate } from "./browse-validation";
 
 // Preserve existing settings and library data across the display-name change.
 app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? "Ani Desktop" : "ani-desktop"));
@@ -329,10 +329,13 @@ function registerIpc(): void {
     const validated = validateScheduleAnimeId(animeId);
     return catalogCall(event, request, () => scheduleService.getArtwork(validated, store.snapshot().settings));
   });
-  ipcMain.handle("catalog:search", (event, query: string, provider?: ProviderPreference, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
+  ipcMain.handle("catalog:search", (event, query: string, provider: ProviderPreference | undefined, rawKnown: unknown, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
     const state = store.snapshot();
+    // A work the caller already identified joins every grouping pass, ahead of any title lookup.
+    const known = validateKnownCandidate(rawKnown);
     const rows = await catalogService.search(query, state.settings, provider ?? "auto", [], update,
-      { works: state.works, dismissed: state.dismissedMergeKeys, candidates: () => searchCandidates(query), localCandidates });
+      { works: state.works, dismissed: state.dismissedMergeKeys, candidates: () => searchCandidates(query),
+        localCandidates: (term, titles) => [...(known ? [known] : []), ...localCandidates(term, titles)] });
     // Confident groupings become remembered works, so the next search and the library know them without matching again.
     if (!catalogContext.getStore()?.signal.aborted) void store.recordBindings(rows).catch(() => undefined);
     return rows;

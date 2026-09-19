@@ -1,4 +1,5 @@
-import type { BrowseFilters, BrowseQuery, BrowseSort, MediaType, WorkStatus } from "../shared/contracts";
+import type { BrowseFilters, BrowseQuery, BrowseSort, IdentityCandidate, MediaType, WorkStatus } from "../shared/contracts";
+import { isRef, mediaTypeOf, positiveInteger, unique, yearOf } from "../shared/identity";
 
 const sorts: BrowseSort[] = ["popularity", "score", "newest", "title"];
 const seasons = ["winter", "spring", "summer", "fall"] as const;
@@ -33,4 +34,18 @@ export function validateBrowseQuery(value: unknown): BrowseQuery {
     ...(status === undefined ? {} : { status: status as BrowseFilters["status"] }),
     ...(format === undefined ? {} : { format: format as MediaType }) };
   return { page: integer(raw.page, 1, 10_000) ?? 1, filters };
+}
+
+/** A work the renderer already identified, offered to search as a grouping candidate. Absent when nothing was sent. */
+export function validateKnownCandidate(value: unknown): IdentityCandidate | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object") throw new Error("Invalid known work");
+  const raw = value as Record<string, unknown>;
+  const titles = Array.isArray(raw.titles) ? raw.titles : [];
+  if (typeof raw.title !== "string" || !raw.title.trim() || raw.title.length > 500 || !Array.isArray(raw.refs) || raw.refs.length > 8 || !raw.refs.every(isRef)
+    || !raw.refs.length || titles.length > 100 || !titles.every((title) => typeof title === "string" && title.length <= 500)) throw new Error("Invalid known work");
+  const type = mediaTypeOf(raw.type), year = yearOf(raw.year), episodes = positiveInteger(raw.episodes);
+  const status = statuses.find((item) => item === raw.status);
+  return { refs: unique(raw.refs as string[]), title: raw.title.trim(), titles: unique([raw.title, ...titles as string[]].map((title) => title.trim()).filter(Boolean)),
+    ...(type ? { type } : {}), ...(year ? { year } : {}), ...(episodes ? { episodes } : {}), ...(status ? { status } : {}) };
 }

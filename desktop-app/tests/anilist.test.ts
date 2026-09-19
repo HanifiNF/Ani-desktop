@@ -62,7 +62,7 @@ describe("AniList client", () => {
 
   it("loads one filtered browse page and does not mistake missing rate headers for exhaustion", async () => {
     const fetchMock = vi.fn<typeof fetch>()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { GenreCollection: ["Drama", "Action"] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { GenreCollection: ["Drama", "Hentai", "Action"] } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: { Page: { pageInfo: { hasNextPage: true }, media: [media] } } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     expect(await aniListGenres()).toEqual(["Action", "Drama"]);
@@ -70,6 +70,23 @@ describe("AniList client", () => {
     const result = await browseAniList(query);
     expect(result.hasNextPage).toBe(true);
     expect(result.entries[0]).toMatchObject({ anilistId: 146722, title: "JoJo's Bizarre Adventure: STONE OCEAN Part 2", genres: ["Action", "Adventure"], episodes: 26 });
-    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string).variables).toMatchObject({ page: 2, genres: ["Action"], excluded: ["Horror"], score: 69, minEpisodes: 11, maxEpisodes: 31 });
+    const sent = JSON.parse(fetchMock.mock.calls[1][1]!.body as string);
+    expect(sent.variables).toMatchObject({ page: 2, genres: ["Action", "Adventure"], excluded: ["Horror"], score: 69, minEpisodes: 11, maxEpisodes: 31 });
+    expect(sent.variables.startedAfter).toBeUndefined();
+    // Cards need no relations, banner or airing data; the series screen looks the work up itself.
+    expect(sent.query).not.toMatch(/relations|bannerImage|nextAiringEpisode/);
+  });
+
+  it("keeps undated and unreleased titles out of the newest sort unless a status is chosen", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date(2026, 8, 20, 12));
+    const page = () => new Response(JSON.stringify({ data: { Page: { pageInfo: { hasNextPage: false }, media: [] } } }), { status: 200 });
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async () => page());
+    vi.stubGlobal("fetch", fetchMock);
+    const variables = (call: number) => JSON.parse(fetchMock.mock.calls[call][1]!.body as string).variables;
+    await browseAniList({ page: 1, filters: { includeGenres: [], excludeGenres: [], sort: "newest" } });
+    expect(variables(0)).toMatchObject({ sort: ["START_DATE_DESC"], startedAfter: 10_000_000, startedBefore: 20260921 });
+    await browseAniList({ page: 1, filters: { includeGenres: [], excludeGenres: [], sort: "newest", status: "upcoming" } });
+    expect(variables(1)).toMatchObject({ status: "NOT_YET_RELEASED", startedAfter: 10_000_000 });
+    expect(variables(1).startedBefore).toBeUndefined();
   });
 });

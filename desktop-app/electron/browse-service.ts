@@ -5,7 +5,7 @@ import { aniListGenres, browseAniList } from "./anilist";
 import { catalogContext, CatalogNetworkError } from "./catalog-requests";
 
 const FRESH = 30 * 60_000, RETAIN = 7 * 24 * 60 * 60_000, GENRES_FRESH = 7 * 24 * 60 * 60_000, MAX_PAGES = 100, GAP = 2_000;
-interface SavedBrowse { version: 1; genres?: { values: string[]; at: number }; pages: [string, BrowseResult][]; }
+interface SavedBrowse { version: 3; genres?: { values: string[]; at: number }; pages: [string, BrowseResult][]; }
 const keyOf = (query: BrowseQuery) => JSON.stringify(query);
 const safeMessage = (reason: unknown) => reason instanceof CatalogNetworkError ? reason.message : "Could not load the AniList catalog";
 
@@ -22,7 +22,8 @@ export class BrowseService {
     this.path = path;
     try {
       const data = JSON.parse(await readFile(path, "utf8")) as SavedBrowse;
-      if (data.version !== 1 || !Array.isArray(data.pages)) return;
+      // Version 1 paginated by the first genre before filtering the other genres locally. Version 2 listed an adult-only genre that browse can never fill.
+      if (data.version !== 3 || !Array.isArray(data.pages)) return;
       if (data.genres && Array.isArray(data.genres.values) && Number.isFinite(data.genres.at)) this.genres = data.genres;
       for (const [key, value] of data.pages.slice(-MAX_PAGES)) {
         if (typeof key === "string" && value && Number.isFinite(value.fetchedAt) && this.now() - value.fetchedAt <= RETAIN) this.pages.set(key, value);
@@ -76,7 +77,7 @@ export class BrowseService {
   private trim() { while (this.pages.size > MAX_PAGES) this.pages.delete(this.pages.keys().next().value!); }
   private save(): Promise<void> {
     if (!this.path) return Promise.resolve();
-    const body = JSON.stringify({ version: 1, genres: this.genres, pages: [...this.pages] } satisfies SavedBrowse), path = this.path;
+    const body = JSON.stringify({ version: 3, genres: this.genres, pages: [...this.pages] } satisfies SavedBrowse), path = this.path;
     this.writes = this.writes.catch(() => undefined).then(async () => { await mkdir(dirname(path), { recursive: true }); await writeFile(`${path}.new`, body, "utf8"); await rename(`${path}.new`, path); });
     return this.writes;
   }

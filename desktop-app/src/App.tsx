@@ -47,6 +47,7 @@ import { SiteFooter, type FooterScreen } from "./SiteFooter";
 import { updatePending } from "./UpdateUI";
 import BrowseScreen, { DEFAULT_BROWSE_STATE, type BrowseViewState } from "./BrowseScreen";
 import BrowseDetail from "./BrowseDetail";
+import { findBrowseSource, identified, knownCandidate, rememberedBrowseAnime } from "./browse-source";
 
 type Screen = "home" | "browse" | "catalog-detail" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
@@ -430,13 +431,19 @@ function App() {
     const id = catalogRequestId("browse-open"); catalogTasks.current.add(id);
     let providerErrors: Partial<Record<ProviderName, string>> = {};
     try {
-      const results = await window.aniDesktop.search(anime.title, "auto", { id, priority: "selected", refresh: retry, checkNow: retry }, (progress) => { providerErrors = progress.errors; });
+      const current = await window.aniDesktop.getState();
       if (token !== openToken.current) return;
-      const refs = new Set(anime.refs);
-      const normalized = anime.titles.map((title) => title.toLocaleLowerCase());
-      const match = results.find((result) => result.refs?.some((ref) => refs.has(ref)))
-        ?? results.find((result) => normalized.includes(result.title.toLocaleLowerCase()));
-      if (match) { await openAnime(match, { returnTo: "browse" }); return; }
+      const known = retry ? undefined : rememberedBrowseAnime(anime, current.works ?? [], current.settings);
+      let queryIndex = 0;
+      const match = known ?? await findBrowseSource(anime, async (query) => {
+        if (token !== openToken.current) throw new DOMException("Source search cancelled", "AbortError");
+        const results = await window.aniDesktop.search(query, "auto", { id, priority: "selected", refresh: retry, checkNow: retry && queryIndex === 0 }, (progress) => { Object.assign(providerErrors, progress.errors); }, knownCandidate(anime));
+        queryIndex += 1;
+        if (token !== openToken.current) throw new DOMException("Source search cancelled", "AbortError");
+        return results;
+      });
+      if (token !== openToken.current) return;
+      if (match) { await openAnime(identified(anime, match), { returnTo: "browse" }); return; }
       const failures = Object.entries(providerErrors).map(([provider, detail]) => `${provider}: ${detail}`);
       setBrowseResolveError(failures.length ? `Source search was incomplete. ${failures.join(" · ")}` : undefined);
     } catch (reason) {
@@ -764,6 +771,7 @@ function App() {
     if (event.key === "Enter" && target?.closest("button:not(.hit):not(.src-hit)")) return;
     if (screen === "settings") { if (event.key === "Escape") goBack(); return; }
     if (event.key === "Escape") { event.preventDefault(); if (showHints) { setShowHints(false); return; } goBack(); return; }
+    if (screen === "browse" || screen === "catalog-detail") return;
     if (screen === "opening") return;
     if (!typing && event.key === "?") { event.preventDefault(); setShowHints((value) => !value); return; }
     if (!typing && event.key === "/") {
@@ -835,7 +843,7 @@ function App() {
   }, [episodeGroups, progress, selectedAnime, provider]);
   // The update notice lives in Settings; a dot on the gear is its only sign elsewhere.
   const navIcon = (target: Screen, name: "home" | "browse" | "bookmark" | "clock" | "gear", text: string, badge = false) => (
-    <button type="button" className={screen === target ? "on" : ""} title={badge ? `${text} · update available` : text} onClick={() => go(target)}><Icon name={name} />{badge && <i className="nav-badge" aria-hidden="true" />}<span className="sr-only">{badge ? `${text}, update available` : text}</span></button>
+    <button type="button" className={screen === target || (target === "browse" && screen === "catalog-detail") ? "on" : ""} title={badge ? `${text} · update available` : text} onClick={() => go(target)}><Icon name={name} />{badge && <i className="nav-badge" aria-hidden="true" />}<span className="sr-only">{badge ? `${text}, update available` : text}</span></button>
   );
 
   return (
@@ -939,7 +947,8 @@ function App() {
         {screen === "browse" && <BrowseScreen state={browseState} setState={setBrowseState} enabled={appState.settings.animeInfo !== false} onOpen={(anime) => void openBrowseAnime(anime)} />}
 
         {screen === "catalog-detail" && browseAnime && <BrowseDetail anime={browseAnime} resolving={browseResolving} error={browseResolveError}
-          onBack={() => { cancelSeries(); go("browse"); }} onRetry={() => void openBrowseAnime(browseAnime, true)} />}
+          onBack={() => { cancelSeries(); go("browse"); }} onRetry={() => void openBrowseAnime(browseAnime, true)}
+          onSearch={() => { cancelSeries(); go("home"); setQuery(browseAnime.title.slice(0, 120)); window.setTimeout(() => fieldRef.current?.focus(), 0); }} />}
 
         {screen === "saved" && (appState.bookmarks.length === 0
           ? <EmptyLibrary kind="saved" onAction={focusSearch} />
