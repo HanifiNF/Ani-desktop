@@ -1,14 +1,15 @@
+import { execFileSync } from "node:child_process";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ScheduleService } from "../electron/schedule-service";
 import { getAniwaveSchedule, getAniwaveScheduleArtwork } from "../electron/scraper";
-import { chipsThatFit, localDateKey, msUntilNextLocalDay, releaseCountdown, releaseHasPassed, scheduleDays, seasonLabel, seasonScheduleTitle, selectionAfterDayChange, timezoneOffsetEast } from "../src/schedule";
+import { chipsThatFit, localDateKey, msUntilNextLocalDay, releaseCountdown, releaseHasPassed, scheduleDays, seasonLabel, seasonScheduleTitle, selectionAfterDayChange, scheduleDayBounds } from "../src/schedule";
 import type { ScheduleQuery, ScheduleResult } from "../shared/contracts";
 import { validateScheduleAnimeId, validateScheduleQuery } from "../electron/schedule-validation";
 
 vi.mock("../electron/scraper", () => ({ getAniwaveSchedule: vi.fn(), getAniwaveScheduleArtwork: vi.fn() }));
 
 const config = { preferredProvider: "auto" as const, aniwaveBaseUrl: "https://aniwaves.ru", anidbBaseUrl: "https://anidb.app", hianimeBaseUrl: "https://hianimes.se" };
-const query: ScheduleQuery = { date: "2026-09-14", timezoneOffset: 420, mode: "sub" };
+const query: ScheduleQuery = { date: "2026-09-14", utcStart: "2026-09-13T17:00:00.000Z", utcEnd: "2026-09-14T17:00:00.000Z", mode: "sub" };
 const fresh: ScheduleResult = { provider: "aniwave", requestedDate: query.date, entries: [], refreshedAt: "2026-09-13T10:00:00.000Z", status: "fresh" };
 
 beforeEach(() => vi.resetAllMocks());
@@ -31,7 +32,24 @@ describe("local schedule calendar", () => {
     expect(new Set(days.map((day) => day.weekday)).size).toBe(7);
     expect(scheduleDays(new Date(2026, 9, 1, 8)).map((day) => day.date).slice(0, 3)).toEqual(["2026-09-29", "2026-09-30", "2026-10-01"]);
     expect(localDateKey(monday)).toBe("2026-09-14");
-    expect(timezoneOffsetEast(monday)).toBe(-monday.getTimezoneOffset());
+    expect(scheduleDayBounds("2026-09-14")).toEqual({ utcStart: new Date(2026, 8, 14).toISOString(), utcEnd: new Date(2026, 8, 15).toISOString() });
+  });
+
+  it.each([
+    ["Australia/Brisbane", "2026-09-21", "2026-09-20T14:00:00.000Z", "2026-09-21T14:00:00.000Z"],
+    ["Asia/Kathmandu", "2026-01-01", "2025-12-31T18:15:00.000Z", "2026-01-01T18:15:00.000Z"],
+    ["Australia/Sydney", "2026-10-04", "2026-10-03T14:00:00.000Z", "2026-10-04T13:00:00.000Z"],
+    ["Australia/Sydney", "2026-04-05", "2026-04-04T13:00:00.000Z", "2026-04-05T14:00:00.000Z"],
+    ["America/New_York", "2026-11-01", "2026-11-01T04:00:00.000Z", "2026-11-02T05:00:00.000Z"]
+  ])("uses the selected day's midnight boundaries in %s on %s", (zone, date, utcStart, utcEnd) => {
+    // A child process gives each case a real system time zone on both Windows and macOS.
+    const moduleUrl = new URL("../src/schedule.ts", import.meta.url).href;
+    const code = `import { scheduleDayBounds } from ${JSON.stringify(moduleUrl)}; process.stdout.write(JSON.stringify(scheduleDayBounds(${JSON.stringify(date)})));`;
+    const result = JSON.parse(execFileSync(process.execPath, ["--experimental-strip-types", "--input-type=module", "-e", code], {
+      env: { ...process.env, TZ: zone, NODE_NO_WARNINGS: "1" }, encoding: "utf8"
+    }));
+    expect(result).toEqual({ utcStart, utcEnd });
+    expect(validateScheduleQuery({ date, utcStart, utcEnd, mode: "sub" })).toEqual({ date, utcStart, utcEnd, mode: "sub" });
   });
 
   it("moves the selection across a day change only when it was on today or fell off the strip", () => {
@@ -82,9 +100,9 @@ describe("schedule outage retention", () => {
 });
 
 describe("schedule IPC validation", () => {
-  it("accepts only real dates, bounded minute offsets, known modes, and AniWave IDs", () => {
+  it("accepts only real dates, bounded UTC day intervals, known modes, and AniWave IDs", () => {
     expect(validateScheduleQuery(query)).toEqual(query);
-    for (const invalid of [null, { ...query, date: "2026-02-30" }, { ...query, date: "09/14/2026" }, { ...query, timezoneOffset: 841 }, { ...query, timezoneOffset: 1.5 }, { ...query, mode: "raw" }]) {
+    for (const invalid of [null, { ...query, date: "2026-02-30" }, { ...query, date: "09/14/2026" }, { ...query, date: "2026-99-99" }, { ...query, utcStart: "invalid" }, { ...query, utcEnd: undefined }, { ...query, utcEnd: query.utcStart }, { ...query, utcEnd: "2026-09-16T00:00:00.000Z" }, { ...query, utcStart: "2026-09-13T09:00:00.000Z" }, { ...query, mode: "raw" }]) {
       expect(() => validateScheduleQuery(invalid)).toThrow("Invalid schedule request");
     }
     expect(validateScheduleAnimeId("aniwave:test-show-42")).toBe("aniwave:test-show-42");

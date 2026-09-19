@@ -61,7 +61,14 @@ export const releaseHasPassed = (releaseAt: string, now: Date): boolean => {
   return Number.isFinite(timestamp) && timestamp < now.getTime();
 };
 
-export const timezoneOffsetEast = (date: Date): number => -date.getTimezoneOffset();
+/** Construct each local midnight separately so daylight-saving days can span 23 or 25 hours. */
+export function scheduleDayBounds(date: string): { utcStart: string; utcEnd: string } {
+  const start = new Date(`${date}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  end.setHours(0, 0, 0, 0);
+  return { utcStart: start.toISOString(), utcEnd: end.toISOString() };
+}
 
 
 /**

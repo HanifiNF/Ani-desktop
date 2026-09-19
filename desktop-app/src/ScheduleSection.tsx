@@ -3,7 +3,7 @@ import type { AnimeResult, Episode, LibraryEntry, ScheduleArtwork, ScheduleEntry
 import { animeSources } from "../shared/catalog";
 import Art from "./Art";
 import { catalogRequestId } from "./catalog-request";
-import { chipsThatFit, localDateKey, msUntilNextLocalDay, releaseCountdown, releaseHasPassed, scheduleDays, seasonLabel, selectionAfterDayChange, timezoneOffsetEast } from "./schedule";
+import { chipsThatFit, localDateKey, msUntilNextLocalDay, releaseCountdown, releaseHasPassed, scheduleDayBounds, scheduleDays, seasonLabel, selectionAfterDayChange } from "./schedule";
 import { messageFrom } from "./errors";
 import { stagger } from "./transition";
 
@@ -92,10 +92,10 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
   const requestGeneration = useRef(0);
   const todayRef = useRef(localDateKey(now));
   const days = useMemo(() => scheduleDays(now), [localDateKey(now)]);
-  const timezoneOffset = timezoneOffsetEast(now);
+  const { utcStart, utcEnd } = scheduleDayBounds(selectedDate);
   const [mode, setMode] = useState<TranslationMode>(settings.preferredMode);
   const sourceScope = `${settings.aniwaveBaseUrl}|${(settings.disabledSources ?? []).includes("aniwave")}`;
-  const requestIdentity = `${sourceScope}|${selectedDate}|${timezoneOffset}|${mode}`;
+  const requestIdentity = `${sourceScope}|${selectedDate}|${utcStart}|${utcEnd}|${mode}`;
   const result = loaded?.identity === requestIdentity ? loaded.value : undefined;
 
   useEffect(() => setMode(settings.preferredMode), [settings.preferredMode]);
@@ -122,7 +122,7 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
     const id = catalogRequestId("schedule");
     const generation = ++requestGeneration.current;
     setLoading(true); setError(undefined);
-    window.aniDesktop.schedule({ date: selectedDate, timezoneOffset, mode }, { id, priority: "selected", refresh: retry > 0, checkNow: retry > 0 })
+    window.aniDesktop.schedule({ date: selectedDate, utcStart, utcEnd, mode }, { id, priority: "selected", refresh: retry > 0, checkNow: retry > 0 })
       .then((value) => { if (requestGeneration.current === generation) setLoaded({ identity: requestIdentity, value }); },
         (reason) => { if (requestGeneration.current === generation) setError(messageFrom(reason)); })
       .finally(() => { if (requestGeneration.current === generation) setLoading(false); });

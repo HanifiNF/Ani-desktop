@@ -159,8 +159,9 @@ export interface CatalogProgress<T> { value: T; pending: ProviderName[]; errors:
 export interface ScheduleQuery {
   /** Local calendar date in YYYY-MM-DD form. */
   date: string;
-  /** Minutes east of UTC (Jakarta is 420). */
-  timezoneOffset: number;
+  /** Inclusive local-day start and exclusive next-day start, serialized as UTC ISO timestamps. */
+  utcStart: string;
+  utcEnd: string;
   mode: TranslationMode;
 }
 
@@ -168,6 +169,7 @@ export interface ScheduleEntry {
   anime: AnimeResult;
   episode: Episode;
   releaseAt: string;
+  /** Original provider clock label; use releaseAt to display the user's local time. */
   timeLabel: string;
 }
 
