@@ -98,17 +98,13 @@ export async function getAniwaveSchedule(query: ScheduleQuery, config: SourceCon
   const root = sourceBase(config.aniwaveBaseUrl);
   const params = new URLSearchParams({ tz: scheduleTimezone(query.timezoneOffset) });
   if (query.mode === "dub") params.set("dub", "1");
-  const overviewPayload = await fetchJson(`${root}/ajax/schedule?${params}`, "AniWave schedule lookup", `${root}/`);
-  const overview = parseAniwaveSchedule(overviewPayload, query.date, query.timezoneOffset);
-  if (!overview.supportedDates.includes(query.date)) {
-    return { provider: "aniwave", requestedDate: query.date, supportedDates: overview.supportedDates, entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" };
-  }
+  // The date endpoint answers for days well outside the tab strip on the site's schedule page (weeks back, to the end of the listed season), so the strip is not consulted.
   const entries = parseAniwaveSchedule(
     await fetchJson(`${root}/ajax/schedule/date?${new URLSearchParams({ ...Object.fromEntries(params), time: query.date })}`, "AniWave schedule lookup", `${root}/`),
     query.date,
     query.timezoneOffset
-  ).entries;
-  return { provider: "aniwave", requestedDate: query.date, supportedDates: overview.supportedDates, entries, refreshedAt: new Date().toISOString(), status: "fresh" };
+  );
+  return { provider: "aniwave", requestedDate: query.date, entries, refreshedAt: new Date().toISOString(), status: "fresh" };
 }
 
 export async function getAniwaveScheduleArtwork(animeId: string, config: SourceConfig): Promise<ScheduleArtwork> {

@@ -82,7 +82,7 @@ beforeEach(async () => {
     seriesMetadata: vi.fn().mockResolvedValue({ sources: [], genres: [] }),
     episodeMetadata: vi.fn().mockResolvedValue(undefined), clearEpisodeMetadata: vi.fn().mockResolvedValue(undefined),
     sourceStatus: vi.fn().mockResolvedValue([]), checkSource: vi.fn().mockResolvedValue(undefined), fetchBookmarkMetadata: vi.fn(),
-    schedule: vi.fn<AniDesktopApi["schedule"]>(async (query) => ({ provider: "aniwave", requestedDate: query.date, supportedDates: [], entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" })),
+    schedule: vi.fn<AniDesktopApi["schedule"]>(async (query) => ({ provider: "aniwave", requestedDate: query.date, entries: [], refreshedAt: new Date().toISOString(), status: "unavailable" })),
     scheduleArtwork: vi.fn(async (animeId) => ({ animeId, aliases: [] })),
     backdropArt: vi.fn(async () => undefined),
     bookmarkMetadataStatus: vi.fn().mockResolvedValue(undefined), cancelBookmarkMetadata: vi.fn(),

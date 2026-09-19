@@ -175,7 +175,7 @@ export function installDevApi(): void {
           episode: { id: `aniwave:${String(slug).match(/-(\d+)$/)?.[1]}:${episode}`, number: String(episode), provider: "aniwave" as const },
           releaseAt: local.toISOString(), timeLabel: local.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
       });
-      return { provider: "aniwave", requestedDate: query.date, supportedDates: [], entries, refreshedAt: new Date().toISOString(), status: "fresh" };
+      return { provider: "aniwave", requestedDate: query.date, entries, refreshedAt: new Date().toISOString(), status: "fresh" };
     },
     async scheduleArtwork(animeId) { return { animeId, aliases: [] }; },
     // The browser loads the image straight from the CDN here; the desktop app caches a copy on disk.

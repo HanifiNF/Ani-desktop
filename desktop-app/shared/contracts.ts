@@ -174,7 +174,6 @@ export interface ScheduleEntry {
 export interface ScheduleResult {
   provider: "aniwave";
   requestedDate: string;
-  supportedDates: string[];
   entries: ScheduleEntry[];
   refreshedAt: string;
   status: "fresh" | "stale" | "unavailable";

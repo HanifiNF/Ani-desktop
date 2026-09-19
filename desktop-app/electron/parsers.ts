@@ -191,10 +191,9 @@ function releaseTimestamp(date: string, time: string, timezoneOffset: number): s
   return Number.isFinite(value) ? new Date(value).toISOString() : undefined;
 }
 
-/** Parse either the full schedule response or one date response without trusting remote markup in the renderer. */
-export function parseAniwaveSchedule(payload: unknown, requestedDate: string, timezoneOffset: number): { supportedDates: string[]; entries: ScheduleEntry[] } {
+/** Parse a schedule response without trusting remote markup in the renderer. */
+export function parseAniwaveSchedule(payload: unknown, requestedDate: string, timezoneOffset: number): ScheduleEntry[] {
   const html = resultHtml(payload);
-  const supportedDates = [...new Set([...html.matchAll(/\bdata-time=["'](\d{4}-\d{2}-\d{2})["']/gi)].map((match) => match[1]))];
   const entries: ScheduleEntry[] = [];
   const anchors = /<a\b([^>]*\bclass=["'][^"']*\bitem\b[^"']*["'][^>]*)>([\s\S]*?)<\/a>/gi;
   for (const match of html.matchAll(anchors)) {
@@ -220,7 +219,7 @@ export function parseAniwaveSchedule(payload: unknown, requestedDate: string, ti
     });
   }
   entries.sort((left, right) => left.releaseAt.localeCompare(right.releaseAt) || left.anime.title.localeCompare(right.anime.title));
-  return { supportedDates, entries };
+  return entries;
 }
 
 export function parseAniwaveTooltip(html: string, animeId: string): ScheduleArtwork {

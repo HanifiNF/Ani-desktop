@@ -241,11 +241,14 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .section-schedule { padding-bottom: 20px; }
 .section-schedule .section-head { flex-wrap: wrap; row-gap: 8px; }
 .schedule-sub { color: var(--muted); font-size: 13px; }
-.schedule-days { display: flex; gap: 16px; margin-left: auto; }
-.schedule-days button { position: relative; padding: 2px 0; color: var(--muted); font-size: 14px; white-space: nowrap; transition: color .15s; }
+.schedule-days { display: flex; gap: 18px; margin-left: auto; }
+.schedule-days button { position: relative; display: grid; justify-items: center; row-gap: 1px; padding: 2px 0; color: var(--muted); font-size: 14px; white-space: nowrap; transition: color .15s; }
+/* The strip rolls with today, so each tab names its day of the month. */
+.schedule-days button small { color: var(--dim); font-size: 10.5px; font-weight: 400; line-height: 1; font-variant-numeric: tabular-nums; transition: color .15s; }
+.schedule-days button.on small { color: var(--muted); }
 .schedule-days button:hover { color: var(--text); }
 .schedule-days button.on { color: var(--text); font-weight: 500; }
-.schedule-days button.today::after { content: ""; position: absolute; left: 50%; bottom: -6px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--muted); transition: background .15s; }
+.schedule-days button.today::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 4px; height: 4px; margin-left: -2px; border-radius: 50%; background: var(--muted); transition: background .15s; }
 .schedule-days button.on.today::after { background: var(--text); }
 .schedule-audio { display: flex; gap: 12px; margin-left: 22px; padding-left: 22px; border-left: 1px solid var(--rule); }
 .schedule-audio button { color: var(--muted); font-size: 13px; font-weight: 500; transition: color .15s; }

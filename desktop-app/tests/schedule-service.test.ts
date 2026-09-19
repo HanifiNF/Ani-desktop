@@ -6,7 +6,7 @@ vi.mock("../electron/scraper", () => ({ getAniwaveSchedule: vi.fn(), getAniwaveS
 
 const config = { preferredProvider: "auto" as const, aniwaveBaseUrl: "https://aniwave.test", anidbBaseUrl: "https://anidb.test", hianimeBaseUrl: "https://hianime.test" };
 const query = { date: "2026-09-14", timezoneOffset: 420, mode: "sub" as const };
-const result = { provider: "aniwave" as const, requestedDate: query.date, supportedDates: [query.date], entries: [], refreshedAt: "2026-09-14T00:00:00.000Z", status: "fresh" as const };
+const result = { provider: "aniwave" as const, requestedDate: query.date, entries: [], refreshedAt: "2026-09-14T00:00:00.000Z", status: "fresh" as const };
 
 beforeEach(() => vi.resetAllMocks());
 

@@ -3,7 +3,7 @@ import type { AnimeResult, Episode, LibraryEntry, ScheduleArtwork, ScheduleEntry
 import { animeSources } from "../shared/catalog";
 import Art from "./Art";
 import { catalogRequestId } from "./catalog-request";
-import { chipsThatFit, localDateKey, localWeek, releaseCountdown, releaseHasPassed, seasonLabel, timezoneOffsetEast } from "./schedule";
+import { chipsThatFit, localDateKey, msUntilNextLocalDay, releaseCountdown, releaseHasPassed, scheduleDays, seasonLabel, selectionAfterDayChange, timezoneOffsetEast } from "./schedule";
 import { messageFrom } from "./errors";
 import { stagger } from "./transition";
 
@@ -91,7 +91,7 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
   const [retry, setRetry] = useState(0);
   const requestGeneration = useRef(0);
   const todayRef = useRef(localDateKey(now));
-  const week = useMemo(() => localWeek(now), [localDateKey(now)]);
+  const days = useMemo(() => scheduleDays(now), [localDateKey(now)]);
   const timezoneOffset = timezoneOffsetEast(now);
   const [mode, setMode] = useState<TranslationMode>(settings.preferredMode);
   const sourceScope = `${settings.aniwaveBaseUrl}|${(settings.disabledSources ?? []).includes("aniwave")}`;
@@ -104,11 +104,18 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
     const update = () => {
       const value = new Date(), today = localDateKey(value);
       setNow(value);
-      if (today !== todayRef.current) { todayRef.current = today; setSelectedDate(today); }
+      if (today !== todayRef.current) {
+        const previous = todayRef.current; todayRef.current = today;
+        setSelectedDate((selected) => selectionAfterDayChange(selected, previous, value));
+      }
     };
+    // The strip shifts as the local day turns; the minute poll and the focus check cover sleep and clock changes.
+    let midnight: number;
+    const arm = () => { midnight = window.setTimeout(() => { update(); arm(); }, msUntilNextLocalDay(new Date())); };
+    arm();
     const timer = window.setInterval(update, 60_000);
     window.addEventListener("focus", update);
-    return () => { window.clearInterval(timer); window.removeEventListener("focus", update); };
+    return () => { window.clearTimeout(midnight); window.clearInterval(timer); window.removeEventListener("focus", update); };
   }, []);
 
   useEffect(() => {
@@ -135,10 +142,10 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
       <h2 id="schedule-heading">Schedule</h2>
       <span className="schedule-sub">{seasonLabel(now)} · estimated release times · {zone ?? "local time"}</span>
       <div className="schedule-days" role="tablist" aria-label="Schedule day">
-        {week.map((day) => <button type="button" role="tab" key={day.date} aria-selected={day.date === selectedDate}
+        {days.map((day) => <button type="button" role="tab" key={day.date} aria-selected={day.date === selectedDate}
           aria-label={`${day.weekday} ${day.dateLabel}${day.today ? ", today" : ""}`} title={day.dateLabel}
           className={`${day.date === selectedDate ? "on" : ""} ${day.today ? "today" : ""}`} onClick={() => setSelectedDate(day.date)}>
-          {day.weekday}
+          {day.weekday}<small>{day.dayOfMonth}</small>
         </button>)}
       </div>
       <div className="schedule-audio" role="group" aria-label="Schedule audio">
@@ -154,7 +161,7 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
         const genres = metadataFor(anime)?.genres ?? [];
         const past = releaseHasPassed(entry.releaseAt, now);
         const time = clock(entry.releaseAt);
-        const countdown = selectedDate === todayRef.current ? releaseCountdown(entry.releaseAt, now) : "";
+        const countdown = releaseCountdown(entry.releaseAt, now);
         const sub = past ? `Aired · ${time}` : countdown ? `${time} · ${countdown}` : time;
         return <div className={`card schedule-card ${past ? "aired" : "upcoming"}`} key={`${entry.episode.id}:${entry.releaseAt}`} style={stagger(order, 10)}>
           <button type="button" className="hit" onClick={() => onOpen(anime, entry.episode, mode)}
@@ -168,7 +175,7 @@ export default function ScheduleSection({ settings, library, onOpen, metadataFor
       })}
     </div>
     {loading && rows.length === 0 && <div className="schedule-state">Loading schedule ···</div>}
-    {!loading && (unavailable || (!displayError && rows.length === 0)) && <div className="schedule-state">Schedule unavailable for this date.</div>}
+    {!loading && (unavailable || (!displayError && rows.length === 0)) && <div className="schedule-state">{unavailable ? "Schedule unavailable for this date." : "No releases listed for this date."}</div>}
     {displayError && <div className="schedule-state schedule-error">
       <span>{result?.status === "stale" && rows.length ? `Showing saved schedule · ${displayError}` : displayError}</span>
       <button type="button" className="link" onClick={() => setRetry((value) => value + 1)}>Retry</button>
