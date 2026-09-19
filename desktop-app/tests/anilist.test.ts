@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { lookupAniList, plainDescription, resetAniListRateLimit, searchAniList, toCandidate, toWorkInfo } from "../electron/anilist";
+import { aniListGenres, browseAniList, lookupAniList, plainDescription, resetAniListRateLimit, searchAniList, toCandidate, toWorkInfo } from "../electron/anilist";
 
 const media = {
   id: 146722, idMal: 51367, title: { romaji: "JoJo no Kimyou na Bouken: Stone Ocean Part 2", english: "JoJo's Bizarre Adventure: STONE OCEAN Part 2", native: "ジョジョの奇妙な冒険 ストーンオーシャン 2クール" },
@@ -58,5 +58,18 @@ describe("AniList client", () => {
     resetAniListRateLimit();
     await expect(searchAniList("y")).rejects.toThrow(/bad query/);
     expect(await lookupAniList(["kitsu:1"])).toBeUndefined();
+  });
+
+  it("loads one filtered browse page and does not mistake missing rate headers for exhaustion", async () => {
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { GenreCollection: ["Drama", "Action"] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { Page: { pageInfo: { hasNextPage: true }, media: [media] } } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await aniListGenres()).toEqual(["Action", "Drama"]);
+    const query = { page: 2, filters: { includeGenres: ["Action", "Adventure"], excludeGenres: ["Horror"], minimumScore: 70, minimumEpisodes: 12, maximumEpisodes: 30, sort: "popularity" as const } };
+    const result = await browseAniList(query);
+    expect(result.hasNextPage).toBe(true);
+    expect(result.entries[0]).toMatchObject({ anilistId: 146722, title: "JoJo's Bizarre Adventure: STONE OCEAN Part 2", genres: ["Action", "Adventure"], episodes: 26 });
+    expect(JSON.parse(fetchMock.mock.calls[1][1]!.body as string).variables).toMatchObject({ page: 2, genres: ["Action"], excluded: ["Horror"], score: 69, minEpisodes: 11, maxEpisodes: 31 });
   });
 });

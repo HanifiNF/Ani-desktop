@@ -77,7 +77,7 @@ beforeEach(async () => {
       logDiagnostic: vi.fn(), saveStorage: vi.fn().mockResolvedValue(undefined), setFullscreen: vi.fn(async (fullscreen: boolean) => fullscreen),
       openExternal: vi.fn().mockResolvedValue(true), setActive: vi.fn().mockResolvedValue(undefined)
     },
-    search, resolveSources: vi.fn(async (anime) => anime), clearSourceLinks: vi.fn(), getState: vi.fn().mockResolvedValue(state),
+    search, browseGenres: vi.fn().mockResolvedValue([]), browse: vi.fn(async (query) => ({ query, entries: [], hasNextPage: false, fetchedAt: Date.now() })), resolveSources: vi.fn(async (anime) => anime), clearSourceLinks: vi.fn(), getState: vi.fn().mockResolvedValue(state),
     workInfo: vi.fn().mockResolvedValue(undefined), identityIndexStatus: vi.fn().mockResolvedValue({ enabled: false, entries: 0, updating: false }), updateIdentityIndex: vi.fn(), splitSource: vi.fn(), episodes: vi.fn().mockResolvedValue({ groups: [{ provider: "aniwave", episodes: [{ id: "ep-1", number: "1", provider: "aniwave" }] }] }),
     seriesMetadata: vi.fn().mockResolvedValue({ sources: [], genres: [] }),
     episodeMetadata: vi.fn().mockResolvedValue(undefined), clearEpisodeMetadata: vi.fn().mockResolvedValue(undefined),
@@ -271,6 +271,24 @@ describe("built-in player screen", () => {
 });
 
 describe("live catalog search", () => {
+  it("browses AniList without searching providers until a catalog title is opened", async () => {
+    vi.mocked(api.browseGenres).mockResolvedValue(["Action", "Comedy"]);
+    vi.mocked(api.browse).mockImplementation(async (query) => ({ query, hasNextPage: true, fetchedAt: Date.now(), entries: [{
+      anilistId: 42, refs: ["anilist:42"], title: "Catalog Pick", titles: ["Catalog Pick"], cover: "https://img.test/42.jpg",
+      genres: ["Action"], type: "TV", year: 2026, status: "ongoing", score: 80, episodes: 12, studios: []
+    }] }));
+    await click("Browse");
+    await advance(0);
+    expect(api.browse).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }), expect.objectContaining({ priority: "visible" }));
+    expect(api.search).not.toHaveBeenCalled();
+    await act(async () => { container.querySelector<HTMLButtonElement>(".browse-card button")!.click(); });
+    await advance(0);
+    expect(api.search).toHaveBeenCalledWith("Catalog Pick", "auto", expect.objectContaining({ priority: "selected" }), expect.any(Function));
+    expect(container.querySelector(".series h1")?.textContent).toBe("Catalog Pick");
+    expect(container.querySelector(".series .crumb")?.textContent).toBe("Browse");
+    await act(async () => { container.querySelector<HTMLButtonElement>(".series .crumb")!.click(); });
+    expect(container.querySelector(".browse")).not.toBeNull();
+  });
   it("tracks Settings sections and jumps without saving anything", async () => {
     await click("settings");
     const page = container.querySelector<HTMLElement>(".page-settings")!;

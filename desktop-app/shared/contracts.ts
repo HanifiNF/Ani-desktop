@@ -103,6 +103,48 @@ export interface WorkInfo {
   error?: string;
 }
 
+export type BrowseSort = "popularity" | "score" | "newest" | "title";
+export interface BrowseFilters {
+  includeGenres: string[];
+  excludeGenres: string[];
+  year?: number;
+  season?: "winter" | "spring" | "summer" | "fall";
+  status?: Exclude<WorkStatus, "unknown">;
+  format?: MediaType;
+  minimumScore?: number;
+  minimumEpisodes?: number;
+  maximumEpisodes?: number;
+  sort: BrowseSort;
+}
+/** An AniList catalog entry. It deliberately has no streaming-provider id. */
+export interface BrowseAnime {
+  anilistId: number;
+  refs: string[];
+  title: string;
+  titles: string[];
+  cover?: string;
+  genres: string[];
+  type?: MediaType;
+  year?: number;
+  season?: string;
+  status: WorkStatus;
+  score?: number;
+  episodes?: number;
+  description?: string;
+  studios: string[];
+}
+export interface BrowseQuery { filters: BrowseFilters; page: number; }
+export interface BrowseResult {
+  query: BrowseQuery;
+  entries: BrowseAnime[];
+  hasNextPage: boolean;
+  fetchedAt: number;
+  cached?: boolean;
+  stale?: boolean;
+  error?: string;
+  retryAt?: number;
+}
+
 export interface IdentityIndexStatus {
   enabled: boolean;
   entries: number;
@@ -360,6 +402,8 @@ export type PlayerCommand = "play-pause" | "seek-backward" | "seek-forward" | "v
 export interface AniDesktopApi {
   player: AniPlayerApi;
   search(query: string, provider?: ProviderPreference, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult[]>) => void): Promise<AnimeResult[]>;
+  browseGenres(request?: CatalogRequest): Promise<string[]>;
+  browse(query: BrowseQuery, request?: CatalogRequest): Promise<BrowseResult>;
   episodes(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: EpisodeCatalog) => void): Promise<EpisodeCatalog>;
   seriesMetadata(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: SeriesMetadataCatalog) => void): Promise<SeriesMetadataCatalog>;
   /** Look the anime up on every provider it is not yet known on, remembering confident matches. */

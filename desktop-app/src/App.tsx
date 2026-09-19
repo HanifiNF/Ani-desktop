@@ -20,6 +20,7 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import type {
   AnimeResult,
   BackdropArt,
+  BrowseAnime,
   Episode,
   EpisodeGroup,
   EpisodeCatalog,
@@ -44,8 +45,10 @@ import { Icon } from "./icons";
 import { withTransition } from "./transition";
 import { SiteFooter, type FooterScreen } from "./SiteFooter";
 import { updatePending } from "./UpdateUI";
+import BrowseScreen, { DEFAULT_BROWSE_STATE, type BrowseViewState } from "./BrowseScreen";
+import BrowseDetail from "./BrowseDetail";
 
-type Screen = "home" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
+type Screen = "home" | "browse" | "catalog-detail" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
 const loadPlayerScreen = () => import("./PlayerScreen");
 const PlayerScreen = lazy(loadPlayerScreen);
@@ -85,6 +88,10 @@ function App() {
   const [pendingSources, setPendingSources] = useState<ProviderName[]>([]);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>();
   const [updateChecking, setUpdateChecking] = useState(false);
+  const [browseState, setBrowseState] = useState<BrowseViewState>(DEFAULT_BROWSE_STATE);
+  const [browseAnime, setBrowseAnime] = useState<BrowseAnime>();
+  const [browseResolving, setBrowseResolving] = useState(false);
+  const [browseResolveError, setBrowseResolveError] = useState<string>();
   const updateInstall = useUpdateInstall(setError);
 
   const catalogSearch = useAnimeSearch(query, "auto",
@@ -96,6 +103,7 @@ function App() {
   const listRef = useRef<HTMLDivElement>(null);
   const playToken = useRef(0);
   const playbackRequest = useRef<string | undefined>(undefined);
+  const seriesOrigin = useRef<"home" | "browse">("home");
   useEffect(() => () => { if (playbackRequest.current) window.aniDesktop.cancelCatalog(playbackRequest.current); }, []);
   const mergePromptActive = useRef(false);
   const keyHandler = useRef<(event: KeyboardEvent) => void>(() => undefined);
@@ -382,7 +390,8 @@ function App() {
   function goBack() {
     if (screen === "player") { dockPlayer(); return; }
     if (screen === "home") { if (query) setQuery(""); catalogSearch.clear(); return; }
-    if (screen === "series") setSelectedAnime(undefined);
+    if (screen === "catalog-detail") { cancelSeries(); go("browse"); return; }
+    if (screen === "series") { setSelectedAnime(undefined); go(seriesOrigin.current); return; }
     go("home");
   }
 
@@ -410,12 +419,37 @@ function App() {
     catalogTasks.current.clear();
   };
   useEffect(() => {
-    if (screen !== "series" && screen !== "player" && screen !== "opening") { cancelSeries(); setBusy(undefined); setResolving(false); setEpisodesLoading(false); }
+    if (screen !== "series" && screen !== "player" && screen !== "opening" && screen !== "catalog-detail") { cancelSeries(); setBusy(undefined); setResolving(false); setEpisodesLoading(false); }
   }, [screen, sourceScope]);
   useEffect(() => () => cancelSeries(), []);
 
-  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string } = {}): Promise<boolean> {
+  async function openBrowseAnime(anime: BrowseAnime, retry = false): Promise<void> {
     cancelSeries();
+    const token = openToken.current;
+    setBrowseAnime(anime); setBrowseResolving(true); setBrowseResolveError(undefined); setScreen("catalog-detail");
+    const id = catalogRequestId("browse-open"); catalogTasks.current.add(id);
+    let providerErrors: Partial<Record<ProviderName, string>> = {};
+    try {
+      const results = await window.aniDesktop.search(anime.title, "auto", { id, priority: "selected", refresh: retry, checkNow: retry }, (progress) => { providerErrors = progress.errors; });
+      if (token !== openToken.current) return;
+      const refs = new Set(anime.refs);
+      const normalized = anime.titles.map((title) => title.toLocaleLowerCase());
+      const match = results.find((result) => result.refs?.some((ref) => refs.has(ref)))
+        ?? results.find((result) => normalized.includes(result.title.toLocaleLowerCase()));
+      if (match) { await openAnime(match, { returnTo: "browse" }); return; }
+      const failures = Object.entries(providerErrors).map(([provider, detail]) => `${provider}: ${detail}`);
+      setBrowseResolveError(failures.length ? `Source search was incomplete. ${failures.join(" · ")}` : undefined);
+    } catch (reason) {
+      if (token === openToken.current) setBrowseResolveError(messageFrom(reason));
+    } finally {
+      catalogTasks.current.delete(id);
+      if (token === openToken.current) setBrowseResolving(false);
+    }
+  }
+
+  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse" } = {}): Promise<boolean> {
+    cancelSeries();
+    if (!options.refresh) seriesOrigin.current = options.returnTo ?? "home";
     const token = openToken.current;
     const animeProgress = appState.history.find((entry) => overlaps(entry, anime));
     const preferred = animeProgress?.lastProvider ?? (provider === "auto" ? anime.provider : provider);
@@ -800,7 +834,7 @@ function App() {
     return row ? all.find((item) => !item.watched && item.number === row.number) ?? row : undefined;
   }, [episodeGroups, progress, selectedAnime, provider]);
   // The update notice lives in Settings; a dot on the gear is its only sign elsewhere.
-  const navIcon = (target: Screen, name: "home" | "bookmark" | "clock" | "gear", text: string, badge = false) => (
+  const navIcon = (target: Screen, name: "home" | "browse" | "bookmark" | "clock" | "gear", text: string, badge = false) => (
     <button type="button" className={screen === target ? "on" : ""} title={badge ? `${text} · update available` : text} onClick={() => go(target)}><Icon name={name} />{badge && <i className="nav-badge" aria-hidden="true" />}<span className="sr-only">{badge ? `${text}, update available` : text}</span></button>
   );
 
@@ -812,7 +846,7 @@ function App() {
           <button type="button" className="logo" onClick={() => { go("home"); setQuery(""); catalogSearch.clear(); }} aria-label="Home">ANI<em>desktop</em></button>
         </div>
         <div className={`searchbox ${paletteOpen ? "open" : ""}`}>
-          {screen === "settings" || screen === "player"
+          {screen === "settings" || screen === "player" || screen === "browse" || screen === "catalog-detail"
             ? <button type="button" className="search as-button" onClick={() => { go("home"); }}><Icon name="search" /><span>Search anime</span><kbd>{shortcut("K")}</kbd></button>
             : <label className="search">
                 <Icon name="search" />
@@ -836,6 +870,7 @@ function App() {
         </div>
         <nav className="icons" aria-label="Sections">
           {navIcon("home", "home", "home")}
+          {navIcon("browse", "browse", "browse")}
           {navIcon("saved", "bookmark", "saved")}
           {navIcon("recent", "clock", "recent")}
           {navIcon("settings", "gear", "settings", updatePending(updateStatus))}
@@ -901,6 +936,11 @@ function App() {
           </>
         )}
 
+        {screen === "browse" && <BrowseScreen state={browseState} setState={setBrowseState} enabled={appState.settings.animeInfo !== false} onOpen={(anime) => void openBrowseAnime(anime)} />}
+
+        {screen === "catalog-detail" && browseAnime && <BrowseDetail anime={browseAnime} resolving={browseResolving} error={browseResolveError}
+          onBack={() => { cancelSeries(); go("browse"); }} onRetry={() => void openBrowseAnime(browseAnime, true)} />}
+
         {screen === "saved" && (appState.bookmarks.length === 0
           ? <EmptyLibrary kind="saved" onAction={focusSearch} />
           : rows.length === 0
@@ -914,7 +954,7 @@ function App() {
             : cardSection("recent", "Recent"))}
 
         {screen === "series" && selectedAnime && (
-          <SeriesScreen anime={selectedAnime} progress={progress} isSaved={isSaved} player={player}
+          <SeriesScreen anime={selectedAnime} progress={progress} isSaved={isSaved} player={player} backLabel={seriesOrigin.current === "browse" ? "Browse" : undefined}
             mode={mode} quality={quality} lastQuery={lastQuery} busy={busy} resolving={resolving}
             pendingSources={pendingSources} sourceErrors={sourceErrors} episodeGroups={episodeGroups} episodeRows={episodeRows}
             episodeCount={episodeCount} seriesMetadata={seriesMetadata.get(selectedAnime)} info={workInfo.get(linkedAnime(selectedAnime))} nextUp={nextUp} episodeFilter={episodeFilter}
@@ -940,7 +980,7 @@ function App() {
             onOpenLogs={() => { void run("opening player logs", () => window.aniDesktop.openPlayerLogs()); }} />
         )}
 
-        {screen !== "opening" && <SiteFooter current={screen === "home" || screen === "saved" || screen === "recent" || screen === "settings" ? screen : undefined}
+        {screen !== "opening" && <SiteFooter current={screen === "home" || screen === "browse" || screen === "saved" || screen === "recent" || screen === "settings" ? screen : undefined}
           backdrop={backdrop && backdrop.page === backdropPage ? backdrop.art : undefined}
           onNavigate={(next: FooterScreen) => { setQuery(""); catalogSearch.clear(); go(next); }} />}
       </div>}

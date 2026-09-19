@@ -187,6 +187,8 @@ export function installDevApi(): void {
       await wait(150);
       return { id: entry.id, kind, ...DEV_BACKDROPS[entry.id], src: DEV_BACKDROPS[entry.id].url };
     },
+    async browseGenres() { return ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Romance", "Sci-Fi", "Slice of Life", "Sports", "Supernatural"]; },
+    async browse(query) { return { query, entries: [], hasNextPage: false, fetchedAt: Date.now() }; },
     cancelCatalog() {},
     async availability() { await wait(150); return { sub: true, dub: true, checkedAt: Date.now() }; },
     async streams(episodeId, mode) {

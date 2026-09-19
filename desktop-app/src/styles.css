@@ -213,6 +213,33 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .empty { padding: 40px 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
 .empty b { display: block; color: var(--text); font-weight: 600; font-size: 15px; margin-bottom: 4px; }
 
+/* ---- catalog browse --------------------------------------------------- */
+.browse { margin-top: 12px; }
+.browse-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 18px; }
+.browse-heading h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -.02em; }
+.browse-heading p { margin: 4px 0 0; color: var(--muted); }
+.browse-filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; padding: 16px; margin-bottom: 24px; border-radius: 12px; background: var(--raised); }
+.browse-filters label { display: grid; align-content: start; gap: 5px; min-width: 0; color: var(--muted); font-size: 12px; }
+.browse-filters label:first-child, .browse-filters label:nth-child(2) { grid-row: span 2; }
+.browse-filters :is(select, input) { width: 100%; min-height: 34px; padding: 5px 9px; border: 1px solid var(--rule); border-radius: 7px; color: var(--text); background: var(--bg); }
+.browse-filters select[multiple] { min-height: 80px; }
+.browse-filter-actions { display: flex; align-items: end; justify-content: flex-end; gap: 8px; grid-column: -3 / -1; }
+.browse-grid { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 22px 16px; }
+.browse-card { min-width: 0; }
+.browse-card button { display: block; width: 100%; }
+.browse-card .poster { display: block; width: 100%; aspect-ratio: 2 / 3; border-radius: var(--radius); transition: box-shadow .15s; }
+.browse-card button:hover .poster, .browse-card button:focus-visible .poster { box-shadow: 0 0 0 2px var(--cursor); }
+.browse-card button:focus-visible { outline: 0; }
+.browse-card strong { display: -webkit-box; min-height: 2.6em; margin-top: 9px; overflow: hidden; color: var(--text); font-weight: 500; line-height: 1.3; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.browse-card span, .browse-card small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.browse-pages { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 30px 0 12px; }
+.browse-pages > button:not(.btn) { min-width: 30px; height: 30px; padding: 0 8px; border-radius: 7px; color: var(--muted); text-align: center; }
+.browse-pages > button:not(.btn):hover, .browse-pages > button.on { color: var(--text); background: var(--raised); }
+.browse-pages > span { margin-left: 8px; color: var(--muted); font-size: 12px; }
+.browse-state { min-height: 280px; display: grid; place-items: center; color: var(--muted); }
+.browse-detail .meta { margin-bottom: 4px; }
+@media (max-width: 1100px) { .browse-filters { grid-template-columns: repeat(3, minmax(0, 1fr)); } .browse-filter-actions { grid-column: auto; } }
+
 /* ---- empty library: the row keeps the shape of a full one ------------- */
 /* An action tile leads a row of ghost posters that fade out to the right, so the page has the same rhythm before and after the first title. */
 .section-empty .ghosts { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 18px 16px; -webkit-mask-image: linear-gradient(90deg, #000 30%, transparent 96%); mask-image: linear-gradient(90deg, #000 30%, transparent 96%); }

@@ -1,4 +1,4 @@
-import type { IdentityCandidate, MediaType, WorkInfo, WorkRelation, WorkStatus } from "../shared/contracts";
+import type { BrowseAnime, BrowseQuery, IdentityCandidate, MediaType, WorkInfo, WorkRelation, WorkStatus } from "../shared/contracts";
 import { isRef, mediaTypeOf, positiveInteger, ref, unique } from "../shared/identity";
 import { catalogContext, catalogRequests, CatalogNetworkError } from "./catalog-requests";
 import { retryAfterDelay } from "./scraper";
@@ -48,8 +48,10 @@ async function graphql(query: string, variables: Record<string, unknown>, label:
       if (signal.aborted) throw signal.reason;
       throw new CatalogNetworkError(`${label}: ${error instanceof Error ? error.message : String(error)}`);
     }
-    const remaining = Number(response.headers.get("x-ratelimit-remaining"));
-    const reset = Number(response.headers.get("x-ratelimit-reset"));
+    const remainingHeader = response.headers.get("x-ratelimit-remaining");
+    const resetHeader = response.headers.get("x-ratelimit-reset");
+    const remaining = remainingHeader === null ? NaN : Number(remainingHeader);
+    const reset = resetHeader === null ? NaN : Number(resetHeader);
     // Leave a small margin so playback-adjacent requests never hit the limit head-on.
     if (Number.isFinite(remaining) && remaining <= 2) pausedUntil = Number.isFinite(reset) && reset > 0 ? reset * 1000 : Date.now() + 60_000;
     if (response.status === 429) {
@@ -140,6 +142,58 @@ export async function searchAniList(term: string): Promise<IdentityCandidate[]> 
   const query = `query ($search: String) { Page(perPage: 25) { media(search: $search, type: ANIME) { ${MEDIA_FIELDS} } } }`;
   const data = await graphql(query, { search: term }, "AniList search", DAY) as { Page?: { media?: Media[] } } | undefined;
   return (data?.Page?.media ?? []).map(toCandidate).filter((candidate): candidate is IdentityCandidate => Boolean(candidate));
+}
+
+const BROWSE_FIELDS = `${INFO_FIELDS}`;
+const browseSort = { popularity: "POPULARITY_DESC", score: "SCORE_DESC", newest: "START_DATE_DESC", title: "TITLE_ENGLISH" } as const;
+const browseStatus = { finished: "FINISHED", ongoing: "RELEASING", upcoming: "NOT_YET_RELEASED" } as const;
+
+/** The stable genre vocabulary used by the browse filter. */
+export async function aniListGenres(): Promise<string[]> {
+  const data = await graphql("query { GenreCollection }", {}, "AniList genres", 7 * DAY) as { GenreCollection?: unknown } | undefined;
+  return Array.isArray(data?.GenreCollection)
+    ? data.GenreCollection.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim()).sort()
+    : [];
+}
+
+export async function browseAniList(query: BrowseQuery): Promise<{ entries: BrowseAnime[]; hasNextPage: boolean }> {
+  const { filters, page } = query;
+  const document = `query ($page: Int, $genres: [String], $excluded: [String], $year: Int, $season: MediaSeason,
+    $status: MediaStatus, $format: MediaFormat, $score: Int, $minEpisodes: Int, $maxEpisodes: Int, $sort: [MediaSort]) {
+    Page(page: $page, perPage: 24) {
+      pageInfo { hasNextPage }
+      media(type: ANIME, isAdult: false, genre_in: $genres, genre_not_in: $excluded, seasonYear: $year,
+        season: $season, status: $status, format: $format, averageScore_greater: $score,
+        episodes_greater: $minEpisodes, episodes_lesser: $maxEpisodes, sort: $sort) { ${BROWSE_FIELDS} }
+    }
+  }`;
+  const variables = {
+    page,
+    // AniList's list filter is broad on some schema versions. Narrow by one genre, then enforce every selected genre below.
+    genres: filters.includeGenres.length ? [filters.includeGenres[0]] : undefined,
+    excluded: filters.excludeGenres.length ? filters.excludeGenres : undefined,
+    year: filters.year,
+    season: filters.season?.toUpperCase(),
+    status: filters.status ? browseStatus[filters.status] : undefined,
+    format: filters.format,
+    score: filters.minimumScore === undefined ? undefined : Math.max(0, filters.minimumScore - 1),
+    minEpisodes: filters.minimumEpisodes === undefined ? undefined : Math.max(0, filters.minimumEpisodes - 1),
+    maxEpisodes: filters.maximumEpisodes === undefined ? undefined : filters.maximumEpisodes + 1,
+    sort: [browseSort[filters.sort]]
+  };
+  const data = await graphql(document, variables, "AniList browse", 30 * 60_000) as { Page?: { pageInfo?: { hasNextPage?: unknown }; media?: Media[] } } | undefined;
+  const entries = (data?.Page?.media ?? []).flatMap((media): BrowseAnime[] => {
+    const info = toWorkInfo(media);
+    const id = positiveInteger(media.id);
+    if (!info || !id) return [];
+    return [{ anilistId: id, refs: info.refs, title: info.title, titles: unique([info.title, ...Object.values(info.titles), ...info.synonyms].filter((value): value is string => Boolean(value))),
+      cover: info.cover, genres: info.genres, type: info.type, year: info.year, season: info.season, status: info.status,
+      score: info.score, episodes: info.episodes, description: info.description, studios: info.studios }];
+  }).filter((entry) => filters.includeGenres.every((genre) => entry.genres.some((value) => value.toLocaleLowerCase() === genre.toLocaleLowerCase())))
+    .filter((entry) => !filters.excludeGenres.some((genre) => entry.genres.some((value) => value.toLocaleLowerCase() === genre.toLocaleLowerCase())))
+    .filter((entry) => filters.minimumEpisodes === undefined || (entry.episodes !== undefined && entry.episodes >= filters.minimumEpisodes))
+    .filter((entry) => filters.maximumEpisodes === undefined || (entry.episodes !== undefined && entry.episodes <= filters.maximumEpisodes));
+  return { entries, hasNextPage: data?.Page?.pageInfo?.hasNextPage === true };
 }
 
 /** Full information for one work, by its AniList id or, failing that, its MyAnimeList id. */

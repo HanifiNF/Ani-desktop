@@ -13,7 +13,7 @@ import { stagger } from "./transition";
 const SKELETON_ROWS = 6;
 
 interface Props {
-  anime: AnimeResult; progress?: LibraryEntry; isSaved: boolean; player: string;
+  anime: AnimeResult; progress?: LibraryEntry; isSaved: boolean; player: string; backLabel?: string;
   mode: TranslationMode; quality: string; lastQuery: string; busy?: string; resolving: boolean;
   pendingSources: ProviderName[]; sourceErrors: Partial<Record<ProviderName, string>>;
   episodeGroups: EpisodeGroup[]; episodeRows: EpisodeRow[]; episodeCount: number;
@@ -32,7 +32,7 @@ interface Props {
 const STATUS_WORDS: Record<WorkInfo["status"], string> = { finished: "Finished", ongoing: "Airing", upcoming: "Upcoming", unknown: "Unknown" };
 const TYPE_WORDS: Record<NonNullable<WorkInfo["type"]>, string> = { TV: "TV", MOVIE: "Movie", OVA: "OVA", ONA: "ONA", SPECIAL: "Special", MUSIC: "Music" };
 
-export default function SeriesScreen({ anime, progress, isSaved, player, mode, quality, lastQuery, busy, resolving,
+export default function SeriesScreen({ anime, progress, isSaved, player, backLabel, mode, quality, lastQuery, busy, resolving,
   pendingSources, sourceErrors, episodeGroups, episodeRows, seriesMetadata, info, nextUp, episodeFilter, episodeSort,
   jump, playingId, status, metadata, listRef, onPlay, onBookmark, onBack, onMode, onQuality, onCheckSources, onRefreshSources,
   onJump, onWatched, onWatchedAll, onDismissStatus, reorder, onRefreshInfo, onSplitSource }: Props) {
@@ -74,7 +74,7 @@ export default function SeriesScreen({ anime, progress, isSaved, player, mode, q
         </div>
       </aside>
       <div className="main">
-        <button type="button" className="crumb" onClick={onBack}><Icon name="back" />{lastQuery ? `Results for “${lastQuery}”` : "Home"}</button>
+        <button type="button" className="crumb" onClick={onBack}><Icon name="back" />{backLabel ?? (lastQuery ? `Results for “${lastQuery}”` : "Home")}</button>
         <h1>{anime.title}</h1>
         <div className="meta">
           {sources.map((source) => <span className="tag src-tag" key={source.id} title={source.title}>{source.provider}

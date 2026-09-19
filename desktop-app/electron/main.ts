@@ -40,6 +40,8 @@ import { UpdateInstaller, updateInstallCapability } from "./update-installer";
 import { loadSparkle } from "./sparkle";
 import { downloadReleaseAsset } from "./update-download";
 import { autoUpdater } from "electron-updater";
+import { BrowseService } from "./browse-service";
+import { validateBrowseQuery } from "./browse-validation";
 
 // Preserve existing settings and library data across the display-name change.
 app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? "Ani Desktop" : "ani-desktop"));
@@ -70,6 +72,7 @@ const seriesMetadataService = new SeriesMetadataService(
 const scheduleService = new ScheduleService();
 const workInfoService = new WorkInfoService();
 const backdropService = new BackdropService();
+const browseService = new BrowseService();
 let identityIndex: IdentityIndex;
 const backfill = new AbortController();
 /** References the library depends on; the information cache never evicts them. */
@@ -334,6 +337,14 @@ function registerIpc(): void {
     if (!catalogContext.getStore()?.signal.aborted) void store.recordBindings(rows).catch(() => undefined);
     return rows;
   }));
+  ipcMain.handle("catalog:browse-genres", (event, request?: CatalogRequest) => catalogCall(event, request, () => {
+    if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
+    return browseService.genreOptions();
+  }));
+  ipcMain.handle("catalog:browse", (event, query: unknown, request?: CatalogRequest) => catalogCall(event, request, () => {
+    if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
+    return browseService.browse(validateBrowseQuery(query));
+  }));
   ipcMain.handle("catalog:episodes", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, (update) => catalogService.episodes(anime, store.snapshot().settings, update)));
   ipcMain.handle("catalog:series-metadata", (event, anime: AnimeResult, request?: CatalogRequest) => {
     const validated = validateSeriesMetadataRequest(anime);
@@ -518,7 +529,7 @@ app.whenReady().then(async () => {
         try { await access(path, constants.W_OK); await access(dirname(path), constants.W_OK); }
         catch { throw new Error("Move the AppImage to a writable folder, relaunch it, then try again."); }
       }
-      await Promise.all([store.flush(), diagnostics.flush(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush()]);
+      await Promise.all([store.flush(), diagnostics.flush(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), browseService.flush()]);
     }
   });
   backend?.on("download-progress", (progress) => updateInstaller.progress(progress.percent));
@@ -529,6 +540,7 @@ app.whenReady().then(async () => {
   await seriesMetadataService.load(join(app.getPath("userData"), "series-metadata.json"));
   await workInfoService.load(join(app.getPath("userData"), "work-info.json"));
   await backdropService.load(join(app.getPath("userData"), "backdrops"));
+  await browseService.load(join(app.getPath("userData"), "browse-cache.json"));
   identityIndex = new IdentityIndex(join(app.getPath("userData"), "title-index.json"));
   await identityIndex.load();
   if (store.snapshot().settings.offlineIndex && identityIndex.needsUpdate()) void identityIndex.update();
@@ -578,5 +590,5 @@ app.on("before-quit", (event) => {
   bookmarkMetadata.cancel();
   backfill.abort();
   const timeout = setTimeout(() => app.quit(), 2000);
-  void Promise.allSettled([store.flush(), diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
+  void Promise.allSettled([store.flush(), diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), browseService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
 });
