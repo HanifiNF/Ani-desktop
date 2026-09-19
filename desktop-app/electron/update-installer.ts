@@ -7,9 +7,11 @@ export interface UpdateBackend {
   quitAndInstall(silent?: boolean, restart?: boolean): void;
 }
 
-export function updateInstallCapability(packaged: boolean, platform: string, arch: string, appImage?: string): UpdateInstallStatus {
+export function updateInstallCapability(packaged: boolean, platform: string, arch: string, appImage?: string, sparkle = false): UpdateInstallStatus {
   const base = { phase: "idle" as const };
   if (!packaged) return { ...base, mode: "unsupported", detail: "Install updates from a packaged release of ANIdesktop." };
+  if (platform === "darwin" && sparkle) return { ...base, mode: "native",
+    detail: "A macOS update window will guide you through downloading, installing, and restarting ANIdesktop." };
   if (platform === "darwin" && ["arm64", "x64"].includes(arch)) return { ...base, mode: "manual",
     detail: "Download the DMG, open it, then quit ANIdesktop and replace it in Applications." };
   if (platform === "win32" && arch === "x64") return { ...base, mode: "automatic",
@@ -24,6 +26,7 @@ interface InstallerOptions {
   capability: UpdateInstallStatus;
   currentVersion: string;
   backend?: UpdateBackend;
+  nativeCheck?(): void;
   manualDownload(version: string, progress: (percent: number) => void): Promise<string>;
   openFile(path: string): Promise<string>;
   beforeInstall(): Promise<void>;
@@ -61,7 +64,12 @@ export class UpdateInstaller {
   }
   private async runDownload(version: string): Promise<UpdateInstallStatus> {
     try {
-      if (this.status.mode === "automatic") {
+      if (this.status.mode === "native") {
+        if (!this.options.nativeCheck) throw new Error("Native updates are unavailable.");
+        this.options.nativeCheck();
+        this.set({ phase: "idle", percent: undefined, error: undefined });
+        return this.snapshot();
+      } else if (this.status.mode === "automatic") {
         const backend = this.options.backend;
         if (!backend) throw new Error("Automatic updates are unavailable.");
         const result = await backend.checkForUpdates();

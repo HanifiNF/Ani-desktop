@@ -1,5 +1,7 @@
 # Sparkle integration investigation
 
+Implementation now uses the official 2.10.0 framework through a small Node-API bridge and Sparkle’s standard native update window. See [release setup](sparkle-release-setup.md). The findings below record the initial investigation.
+
 Investigated 19 September 2026. Apple Developer Program membership is outside this project's budget.
 
 ## Finding and local proof
@@ -41,4 +43,6 @@ This does not notarize ANIdesktop. Users downloading the initial app may still n
 
 ## Current implementation status
 
-Windows NSIS and Linux AppImage install-and-restart are implemented with `electron-updater`. macOS currently has the functional download-and-open-DMG fallback. Sparkle remains an investigated integration, with the fixture proof above, and is not yet part of the shipped application or release workflow.
+Windows NSIS and Linux AppImage install-and-restart use `electron-updater`. macOS now integrates upstream Sparkle 2.10.0 through a small Objective-C Node-API bridge and the standard Sparkle update window. The release workflow builds per-architecture ZIPs and signs both archives and feeds in a separate job. See the [key setup guide](sparkle-release-setup.md).
+
+Local implementation validation built both Intel and Apple Silicon DMGs and ZIPs, verified their signatures and native architectures, and generated/verified signed feeds using an ephemeral key. On Apple Silicon, a disposable packaged Electron fixture updated from 1.0.0 to 1.1.0 and relaunched successfully. An invalid archive signature produced Sparkle's validation error and retained version 1.0.0. Intel runtime testing and a release-to-release test through public GitHub hosting remain release validation tasks. The CI smoke test uses disposable keys and never accesses production signing material.

@@ -46,7 +46,7 @@ export function UpdatePanel({ status, checking, onCheck, onOpen, onSkip, install
         {available && <button type="button" className={canDownload || ready || busy ? "link" : "btn small primary"} onClick={onOpen}>View release</button>}
         {(canDownload || ready || busy) && <button type="button" className="btn small primary" disabled={checking || busy} onClick={ready ? onInstall : onDownload}>
           {installStatus?.phase === "installing" ? "Opening update…" : installStatus?.phase === "downloading" ? `Downloading ${Math.floor(installStatus.percent ?? 0)}%`
-            : ready ? installStatus?.mode === "automatic" ? "Install and restart" : "Open download" : "Download update"}
+            : ready ? installStatus?.mode === "automatic" ? "Install and restart" : "Open download" : installStatus?.mode === "native" ? "Install update…" : "Download update"}
         </button>}
       </span>
     </div>

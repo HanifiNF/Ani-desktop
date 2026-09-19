@@ -429,6 +429,8 @@ export class StateStore {
     return this.snapshot();
   }
 
+  async flush(): Promise<void> { await this.writeQueue; }
+
   private async persist(): Promise<void> {
     const serialized = `${JSON.stringify(this.state, null, 2)}\n`;
     this.writeQueue = this.writeQueue.catch(() => undefined).then(async () => {

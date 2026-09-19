@@ -37,6 +37,7 @@ import { UpdateService } from "./update-service";
 import { LATEST_RELEASE_URL } from "../shared/update";
 import { validateUpdateCheck, validateUpdateVersion } from "./update-validation";
 import { UpdateInstaller, updateInstallCapability } from "./update-installer";
+import { loadSparkle } from "./sparkle";
 import { downloadReleaseAsset } from "./update-download";
 import { autoUpdater } from "electron-updater";
 
@@ -486,7 +487,10 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(async () => {
-  const capability = updateInstallCapability(app.isPackaged, process.platform, process.arch, process.env.APPIMAGE);
+  let sparkle: ReturnType<typeof loadSparkle>;
+  try { sparkle = loadSparkle(app.isPackaged, process.platform, process.resourcesPath); }
+  catch { console.error("Sparkle could not load; using manual DMG updates."); }
+  const capability = updateInstallCapability(app.isPackaged, process.platform, process.arch, process.env.APPIMAGE, !!sparkle);
   const backend = capability.mode === "automatic" ? autoUpdater : undefined;
   if (backend) {
     backend.autoDownload = false;
@@ -496,7 +500,7 @@ app.whenReady().then(async () => {
     backend.allowDowngrade = false;
   }
   updateInstaller = new UpdateInstaller({
-    capability, currentVersion: app.getVersion(), backend,
+    capability, currentVersion: app.getVersion(), backend, nativeCheck: sparkle?.check,
     publish: (status) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("app:update-install-status", status); },
     manualDownload: async (version, progress) => {
       const asset = await updateService.asset(version, process.platform, process.arch);
@@ -514,7 +518,7 @@ app.whenReady().then(async () => {
         try { await access(path, constants.W_OK); await access(dirname(path), constants.W_OK); }
         catch { throw new Error("Move the AppImage to a writable folder, relaunch it, then try again."); }
       }
-      await Promise.all([diagnostics.flush(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush()]);
+      await Promise.all([store.flush(), diagnostics.flush(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush()]);
     }
   });
   backend?.on("download-progress", (progress) => updateInstaller.progress(progress.percent));
@@ -574,5 +578,5 @@ app.on("before-quit", (event) => {
   bookmarkMetadata.cancel();
   backfill.abort();
   const timeout = setTimeout(() => app.quit(), 2000);
-  void Promise.allSettled([diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
+  void Promise.allSettled([store.flush(), diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
 });

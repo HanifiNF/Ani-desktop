@@ -22,6 +22,21 @@ describe("update installation", () => {
     expect(updateInstallCapability(false, "win32", "x64").mode).toBe("unsupported");
   });
 
+  it("hands macOS updates to Sparkle and allows reopening or retrying its window", async () => {
+    const { options, backend } = setup("darwin");
+    const nativeCheck = vi.fn();
+    const installer = new UpdateInstaller({ ...options, nativeCheck,
+      capability: updateInstallCapability(true, "darwin", "arm64", undefined, true) });
+    expect(await installer.download("1.1.0")).toMatchObject({ mode: "native", phase: "idle" });
+    expect(nativeCheck).toHaveBeenCalledOnce();
+    expect(options.manualDownload).not.toHaveBeenCalled();
+    expect(backend.checkForUpdates).not.toHaveBeenCalled();
+    await expect(installer.install()).rejects.toThrow();
+    nativeCheck.mockImplementationOnce(() => { throw new Error("Native startup failed"); });
+    expect(await installer.download("1.1.0")).toMatchObject({ phase: "error" });
+    expect(await installer.download("1.1.0")).toMatchObject({ phase: "idle" });
+  });
+
   it("shares a download, reports progress, then installs only after an explicit request", async () => {
     const { installer, backend, options } = setup();
     let complete!: (paths: string[]) => void;
@@ -90,6 +105,11 @@ describe("release package selection", () => {
   const release = { tag_name: "v1.1.0", assets: [asset("mac-arm64.dmg"), asset("mac-x64.dmg"), asset("win-x64.exe"), asset("linux-x64.AppImage")] };
   it.each([["darwin", "arm64", "mac-arm64.dmg"], ["darwin", "x64", "mac-x64.dmg"], ["win32", "x64", "win-x64.exe"], ["linux", "x64", "linux-x64.AppImage"]])("selects %s/%s", (platform, arch, suffix) => {
     expect(selectUpdateAsset(release, platform, arch)?.name).toBe(`ANIdesktop-1.1.0-${suffix}`);
+  });
+  it("accepts asset URLs from the renamed repository", () => {
+    const item = asset("mac-arm64.dmg");
+    item.browser_download_url = item.browser_download_url.replace("Ani-cli-aniwave", "Ani-desktop");
+    expect(selectUpdateAsset({ ...release, assets: [item] }, "darwin", "arm64")?.url).toBe(item.browser_download_url);
   });
   it("rejects other hosts, wrong CPUs, prereleases, incomplete uploads, and unsafe names", () => {
     expect(selectUpdateAsset(release, "linux", "arm64")).toBeUndefined();

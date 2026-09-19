@@ -1,6 +1,6 @@
 export const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1_000;
-export const UPDATE_API_URL = "https://api.github.com/repos/HanifiNF/Ani-cli-aniwave/releases/latest";
-export const LATEST_RELEASE_URL = "https://github.com/HanifiNF/Ani-cli-aniwave/releases/latest";
+export const UPDATE_API_URL = "https://api.github.com/repos/HanifiNF/Ani-desktop/releases/latest";
+export const LATEST_RELEASE_URL = "https://github.com/HanifiNF/Ani-desktop/releases/latest";
 
 export interface StableVersion { major: number; minor: number; patch: number; }
 

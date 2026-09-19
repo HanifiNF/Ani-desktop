@@ -36,6 +36,9 @@ describe("update UI", () => {
     await render("error");
     expect(container.querySelector('[role="alert"]')?.textContent).toBe("Update failed");
     expect(button("Download update").disabled).toBe(false);
+    await render("idle", "native");
+    await act(async () => button("Install update…").click());
+    expect(download).toHaveBeenCalledTimes(2);
     await render("idle", "unsupported");
     expect(button("Download update")).toBeUndefined();
     expect(button("View release")).toBeDefined();

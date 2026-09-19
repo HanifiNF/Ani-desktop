@@ -7,3 +7,6 @@ ANIdesktop bundles these open-source libraries through npm:
 - [hls.js](https://github.com/video-dev/hls.js), version 1.7.2 — Apache License 2.0.
 
 Their complete license texts are distributed in the corresponding package directories and remain available from the linked upstream repositories. ANIdesktop does not bundle streamed video, provider websites, VLC, mpv, or IINA.
+
+- [Sparkle](https://github.com/sparkle-project/Sparkle), version 2.10.0, permissive Sparkle license (including its bundled third-party notices). Enabled macOS packages include the full license in `Contents/Resources/sparkle/Sparkle-LICENSE`.
+- [Node-API headers](https://github.com/nodejs/node-api-headers), version 1.9.0, MIT License. Used to compile the macOS bridge; license included alongside it.

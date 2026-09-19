@@ -308,7 +308,7 @@ export interface PersistedState {
 export type UpdateState = "development" | "current" | "available" | "error";
 
 export interface UpdateInstallStatus {
-  mode: "automatic" | "manual" | "unsupported";
+  mode: "automatic" | "native" | "manual" | "unsupported";
   phase: "idle" | "downloading" | "ready" | "installing" | "error";
   detail: string;
   version?: string;

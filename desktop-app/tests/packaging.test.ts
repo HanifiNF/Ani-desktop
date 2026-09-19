@@ -8,7 +8,7 @@ describe("cross-platform desktop packaging", () => {
     expect(pkg.dependencies).toMatchObject({ "@vidstack/react": "1.15.6", "hls.js": "1.7.2" });
     expect(pkg.build.win).toMatchObject({ target: "nsis", icon: "build/icons/icon.ico" });
     expect(pkg.build.mac).toMatchObject({ target: "dmg", icon: "build/icons/icon.icns", identity: "-" });
-    expect(pkg.scripts["dist:mac"]).toContain("--x64 --arm64");
+    expect(pkg.scripts["dist:mac"]).toContain("scripts/package-macos.mjs");
   });
 
   it("generates a macOS icon", async () => {

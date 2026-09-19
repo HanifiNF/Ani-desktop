@@ -28,6 +28,15 @@ for arch in x64 arm64; do
         echo "Expected $expected_arch in $dmg, found $actual_arch" >&2
         exit 1
     fi
+    if [ -n "${SPARKLE_PUBLIC_KEY:-}" ]; then
+        plist="$app/Contents/Info.plist"
+        test "$(plutil -extract SUPublicEDKey raw -o - "$plist")" = "$SPARKLE_PUBLIC_KEY"
+        test "$(plutil -extract SURequireSignedFeed raw -o - "$plist")" = true
+        test "$(plutil -extract SUVerifyUpdateBeforeExtraction raw -o - "$plist")" = true
+        test "$(lipo -archs "$app/Contents/Resources/sparkle/bridge.node")" = "$expected_arch"
+        test -d "$app/Contents/Frameworks/Sparkle.framework"
+        test -s "release/ANIdesktop-$version-mac-$arch.zip"
+    fi
     echo "Verified signature and architecture: $dmg"
     hdiutil detach "$mount_dir" -quiet
     mounted=false

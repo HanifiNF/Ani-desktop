@@ -40,7 +40,7 @@ describe("stable release versions", () => {
     expect(() => validateUpdateCheck("yes")).toThrow("Invalid update check request");
     expect(validateUpdateVersion("v1.2.3")).toBe("1.2.3");
     expect(() => validateUpdateVersion("../latest")).toThrow("Invalid update version");
-    expect(LATEST_RELEASE_URL).toBe("https://github.com/HanifiNF/Ani-cli-aniwave/releases/latest");
+    expect(LATEST_RELEASE_URL).toBe("https://github.com/HanifiNF/Ani-desktop/releases/latest");
   });
 });
 

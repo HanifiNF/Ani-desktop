@@ -13,11 +13,12 @@ export function selectUpdateAsset(release: unknown, platform: string, arch: stri
     : platform === "linux" && arch === "x64" ? "linux-x64.AppImage" : undefined;
   if (!target) return undefined;
   const name = `ANIdesktop-${version}-${target}`;
-  const url = `https://github.com/HanifiNF/Ani-cli-aniwave/releases/download/${raw.tag_name}/${name}`;
+  const urls = ["Ani-desktop", "Ani-cli-aniwave"].map((repo) => `https://github.com/HanifiNF/${repo}/releases/download/${raw.tag_name}/${name}`);
   for (const item of raw.assets) {
     if (!item || typeof item !== "object") continue;
     const asset = item as { name?: unknown; browser_download_url?: unknown; size?: unknown; digest?: unknown; state?: unknown };
-    if (asset.name !== name || asset.browser_download_url !== url || asset.state !== "uploaded"
+    const url = asset.browser_download_url;
+    if (asset.name !== name || typeof url !== "string" || !urls.includes(url) || asset.state !== "uploaded"
       || typeof asset.size !== "number" || !Number.isSafeInteger(asset.size) || asset.size <= 0) continue;
     if (asset.digest != null && (typeof asset.digest !== "string" || !/^sha256:[a-f0-9]{64}$/.test(asset.digest))) continue;
     return { version, name, url, size: asset.size, ...(typeof asset.digest === "string" ? { digest: asset.digest.slice(7) } : {}) };

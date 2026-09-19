@@ -32,6 +32,25 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  sparkle-macos:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: desktop-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop-app/package-lock.json
+      - run: npm ci
+      - name: Create disposable public key for packaging
+        run: |
+          node --input-type=module -e "import { generateKeyPairSync } from 'node:crypto'; console.log('SPARKLE_PUBLIC_KEY=' + generateKeyPairSync('ed25519').publicKey.export({format:'der',type:'spki'}).subarray(-32).toString('base64'))" >> "$GITHUB_ENV"
+      - run: npm run dist:mac
+      - run: node scripts/test-sparkle.mjs --smoke
+
   player-macos:
     runs-on: macos-latest
     defaults:
