@@ -10,7 +10,7 @@ export class ScheduleService {
   private readonly artwork = new Map<string, { value: ScheduleArtwork; at: number }>();
 
   private key(query: ScheduleQuery, config: SourceConfig) {
-    return `${config.aniwaveBaseUrl.replace(/\/$/, "")}|${query.date}|${query.timezoneOffset}|${query.mode}`;
+    return `${config.aniwaveBaseUrl.replace(/\/$/, "")}|${query.date}|${query.utcStart}|${query.utcEnd}|${query.mode}`;
   }
 
   async get(query: ScheduleQuery, config: SourceConfig): Promise<ScheduleResult> {

@@ -39,6 +39,7 @@ describe("Home schedule section", () => {
     await act(async () => { root.render(<ScheduleSection settings={DEFAULT_STATE.settings} library={[]} onOpen={open}
       metadataFor={() => ({ sources: [], genres: ["Fantasy", "Adventure", "Drama", "Comedy"] })} onMetadata={() => undefined} />); });
     expect(container.querySelector("h2")?.textContent).toBe("Schedule");
+    expect(schedule).toHaveBeenLastCalledWith({ date: "2026-09-14", utcStart: new Date(2026, 8, 14).toISOString(), utcEnd: new Date(2026, 8, 15).toISOString(), mode: "sub" }, expect.anything());
     expect(container.querySelector(".schedule-sub")?.textContent).toContain("Summer 2026");
     const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
     expect(tabs).toHaveLength(7);

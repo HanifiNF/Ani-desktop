@@ -92,18 +92,28 @@ export async function searchOne(query: string, provider: ProviderName, config: S
   return parseSearchPage(await fetchText(`${root}/browse?q=${encodeURIComponent(query)}`, "AniDB search", `${root}/`));
 }
 
-const scheduleTimezone = (timezoneOffset: number): string => String(timezoneOffset / 60);
-
 export async function getAniwaveSchedule(query: ScheduleQuery, config: SourceConfig): Promise<ScheduleResult> {
   const root = sourceBase(config.aniwaveBaseUrl);
-  const params = new URLSearchParams({ tz: scheduleTimezone(query.timezoneOffset) });
+  const params = new URLSearchParams({ tz: "0" });
   if (query.mode === "dub") params.set("dub", "1");
-  // The date endpoint answers for days well outside the tab strip on the site's schedule page (weeks back, to the end of the listed season), so the strip is not consulted.
-  const entries = parseAniwaveSchedule(
-    await fetchJson(`${root}/ajax/schedule/date?${new URLSearchParams({ ...Object.fromEntries(params), time: query.date })}`, "AniWave schedule lookup", `${root}/`),
-    query.date,
-    query.timezoneOffset
-  );
+  const start = Date.parse(query.utcStart), end = Date.parse(query.utcEnd);
+  const utcDates: string[] = [];
+  const day = new Date(start); day.setUTCHours(0, 0, 0, 0);
+  for (; day.getTime() < end; day.setUTCDate(day.getUTCDate() + 1)) utcDates.push(day.toISOString().slice(0, 10));
+  // AniWave drops releases crossing midnight when tz is nonzero. Fetch complete UTC days,
+  // then group locally. URLs share the existing request cache across neighboring day tabs.
+  // All dates must succeed so a partial response cannot replace a complete saved schedule.
+  const pages = await Promise.all(utcDates.map(async (date) => parseAniwaveSchedule(
+    await fetchJson(`${root}/ajax/schedule/date?${new URLSearchParams({ ...Object.fromEntries(params), time: date })}`, "AniWave schedule lookup", `${root}/`),
+    date,
+    0
+  )));
+  const unique = new Map<string, ScheduleResult["entries"][number]>();
+  for (const entry of pages.flat()) {
+    const release = Date.parse(entry.releaseAt);
+    if (release >= start && release < end) unique.set(`${entry.episode.id}|${entry.releaseAt}`, entry);
+  }
+  const entries = [...unique.values()].sort((left, right) => left.releaseAt.localeCompare(right.releaseAt) || left.anime.title.localeCompare(right.anime.title));
   return { provider: "aniwave", requestedDate: query.date, entries, refreshedAt: new Date().toISOString(), status: "fresh" };
 }
 
