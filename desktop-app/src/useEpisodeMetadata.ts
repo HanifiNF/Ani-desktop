@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import type { EpisodeAvailability, TranslationMode } from "../shared/contracts";
 import { catalogRequestId } from "./catalog-request";
-import { availabilityFresh, bestQuality, qualityFresh } from "../shared/episode-metadata";
+import { availabilityFresh, bestQuality } from "../shared/episode-metadata";
 
 interface EpisodeMetadata {
   availability?: EpisodeAvailability;
@@ -12,7 +12,6 @@ interface EpisodeMetadata {
   at: number;
 }
 interface Task { key: string; requests: Set<string>; cancelled: boolean; }
-const freshQuality = (value: EpisodeMetadata | undefined) => qualityFresh(value?.qualityCheckedAt === undefined ? undefined : { quality: value.quality, checkedAt: value.qualityCheckedAt });
 
 /** Keep work attached to the current viewport. Electron shares requests and limits traffic per host. */
 export function useEpisodeMetadata(list: RefObject<HTMLDivElement | null>, enabled: boolean, ids: string[], selected: string | undefined, mode: TranslationMode, scope: string) {
@@ -58,7 +57,7 @@ export function useEpisodeMetadata(list: RefObject<HTMLDivElement | null>, enabl
       if (tasks.current.has(key)) continue;
       const cached = cache.current.get(key);
       if (!forced.current.has(key) && cached && (cached.phase === "error" ? Date.now() - cached.at < 10_000
-        : availabilityFresh(cached.availability) && (!cached.availability?.[mode] || freshQuality(cached)))) continue;
+        : availabilityFresh(cached.availability))) continue;
       const task: Task = { key, requests: new Set(), cancelled: false };
       tasks.current.set(key, task);
       const refresh = forced.current.delete(key);
@@ -98,7 +97,8 @@ export function useEpisodeMetadata(list: RefObject<HTMLDivElement | null>, enabl
           if (refresh || !availabilityFresh(availability)) availability = await request("audio", (options) => window.aniDesktop.availability(id, options), id === selected ? "selected" : "visible");
           if (task.cancelled) return;
           if (!availability![mode]) { publish({ phase: "ready", availability, at: Date.now() }); return; }
-          if (!refresh && qualityFresh(qualityCheckedAt === undefined ? undefined : { quality, checkedAt: qualityCheckedAt })) {
+          // Visible rows restore known quality. Video hosts are contacted during playback or an explicit refresh.
+          if (!refresh) {
             publish({ phase: "ready", availability, quality, qualityCheckedAt, at: Date.now() }); return;
           }
           publish({ phase: "quality", availability, quality, qualityCheckedAt, at: Date.now() });

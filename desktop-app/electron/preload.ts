@@ -89,7 +89,11 @@ async function catalogInvoke<T, P = T>(channel: string, args: unknown[], request
 
 const api: AniDesktopApi = {
   player,
-  search: (query, provider, request, update) => catalogInvoke("catalog:search", [query, provider], request, update),
+  search: (query, provider, request, update, known) => catalogInvoke("catalog:search", [query, provider, known], request, update),
+  browseGenres: (request) => catalogInvoke("catalog:browse-genres", [], request),
+  browseTags: (request) => catalogInvoke("catalog:browse-tags", [], request),
+  browse: (query, request, update) => catalogInvoke("catalog:browse", [query], request, update),
+  discoverBrowse: (anime, request) => catalogInvoke("catalog:browse-discover", [anime], request),
   resolveSources: (anime, request, update) => catalogInvoke("catalog:resolve", [anime], request, update),
   workInfo: (anime, request, update) => catalogInvoke("catalog:work-info", [anime], request, update),
   identityIndexStatus: () => ipcRenderer.invoke("identity:index-status"),
@@ -121,6 +125,7 @@ const api: AniDesktopApi = {
   onUpdateInstallStatus: (listener) => subscribe("app:update-install-status", listener),
   downloadUpdate: (version) => ipcRenderer.invoke("app:update-download", version),
   installUpdate: () => ipcRenderer.invoke("app:update-install"),
+  copyText: (text: string) => ipcRenderer.invoke("app:copy-text", text),
   setAppIcon: (pngDataUrl: string) => ipcRenderer.invoke("app:icon", pngDataUrl),
   toggleBookmark: (entry: LibraryEntry) => ipcRenderer.invoke("state:bookmark", entry),
   removeBookmark: (animeId: string) => ipcRenderer.invoke("state:bookmark-remove", animeId),

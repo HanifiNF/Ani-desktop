@@ -1,0 +1,53 @@
+<!doctype html><meta charset="utf-8"><title>Series · back link and title placement</title>
+<!-- Uses the app's stylesheet. The cover comes from AniList's CDN, so capturing needs a connection. -->
+<link rel="stylesheet" href="../../src/styles.css">
+<style>
+:root { --theme-bg: #262626; --theme-text: #EFE6D0; --theme-cursor: #F0BC42; --cursor-text: #1d1a12; }
+html, body { height: auto; }
+body { background:#151515; padding: 40px 0 80px; min-width: 0; display: block; }
+.caption { width: 1000px; margin: 56px 60px 12px; color: #8a8578; font-size: 12.5px; line-height: 1.55; }
+.caption:first-child { margin-top: 0; }
+.caption b { color: #d8cfba; font-weight: 600; }
+.variant { position: relative; width: 1240px; background: var(--bg); padding: 20px 60px 0; height: 640px; overflow: hidden; }
+.variant * { animation: none !important; }
+.variant .side { position: static; }
+
+/* T1, T2 · the page opens with the back link and the title across the full width; the poster and the column start level beneath. */
+.series-top { margin-top: 12px; }
+.series-top .crumb { color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; margin-left: -3px; }
+.series-top .crumb .icon { width: 16px; height: 16px; }
+.series-top h1 { margin: 14px 0 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.series-top + .series { margin-top: 18px; }
+.series-top .meta { display: flex; gap: 8px; color: var(--muted); font-size: 13px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+.series-top .meta .tag { padding: 3px 8px; border-radius: 6px; background: var(--raised); color: var(--text); font-size: 12px; font-weight: 500; }
+.t2 .series .facts { margin-top: 0; }
+</style>
+<body>
+<script>
+const P = { back:'<path d="m15 5-7 7 7 7"/>', play:'<path d="M8 5.5v13l11-6.5z"/>', bookmark:'<path d="M6 4h12v17l-6-4-6 4z"/>', check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>', search:'<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>', up:'<path d="M12 19V5m-6 6 6-6 6 6"/>', down:'<path d="M12 5v14m-6-6 6 6 6-6"/>' };
+const icon = (n, cls = "") => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${P[n]}</svg>`;
+const crumb = `<button type="button" class="crumb">${icon("back")}Browse</button>`;
+const title = `<h1>Frieren: Beyond Journey's End</h1>`;
+const meta = `<div class="meta"><span class="tag src-tag">aniwave</span><span class="tag src-tag">hianime</span><span>Sousou no Frieren</span></div>`;
+const side = `<aside class="side">
+  <img class="poster" src="https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg" style="display:block;object-fit:cover">
+  <div class="stack"><button class="btn primary">Play Ep 7${icon("play")}</button><button class="btn">Save${icon("bookmark")}</button><button class="btn">Mark all watched${icon("check")}</button></div>
+  <div class="genre-bubbles"><span>Adventure</span><span>Award Winning</span><span>Drama</span><span>Fantasy</span><span>Shounen</span></div>
+</aside>`;
+const fact = (k, v) => `<div><small>${k}</small>${v}</div>`;
+const rest = `<div class="facts">${fact("Format", "TV · Fall 2023")}${fact("Status", "Finished")}${fact("Available episodes", "28")}${fact("Announced total", "28")}${fact("Studio", '<button class="studio-link">MADHOUSE</button>')}${fact("Score", "9.1")}${fact("Progress", "Started 7")}${fact("Last source", "aniwave · sub")}${fact("Plays in", "built-in player")}</div>
+  <section class="about"><p class="synopsis">The adventure is over but life goes on for an elf mage just beginning to learn what living is all about. Elf mage Frieren and her courageous fellow adventurers have defeated the Demon King and brought peace to the land. But Frieren will long outlive the rest of her former party. How will she come to understand what life means to the people around her? Decades after their victory, the funeral of one her friends confronts Frieren with her own near immortality. Frieren sets out to fulfill the last wishes of her comrades and finds herself beginning a new adventure.</p>
+  <div class="about-row"><button class="link">More</button><span class="about-src">AniList<button class="link">Refresh info</button></span></div></section>
+  <section class="series-tags"><h2>Tags</h2><div class="genre-bubbles">${["Travel","Magic","Elf","Female Protagonist","Philosophy","Medieval","Found Family","Kuudere","Demons","Shounen","Foreign","Iyashikei","Adoption","Rural"].map((t) => `<button>${t}</button>`).join("")}</div></section>
+  <div class="ep-head"><h2>Episodes</h2><button class="btn small">Refresh sources</button><span class="chips"><button class="on">All</button><button>Unwatched</button><button>Watched</button></span><label class="jump">${icon("search")}<input placeholder="Jump to"></label><span class="sort"><button>${icon("up")}</button><button class="on">${icon("down")}</button></span></div>
+  <div class="eps">${[28, 27].map((n) => ["aniwave", "hianime"].map((p, i) => `<div class="src-wrap ${i ? "" : "first"}">${i ? "" : `<h4 class="grp-head">Ep ${n}</h4>`}<div class="src"><button class="src-hit"><span class="t">Episode ${n}<small>${p}</small></span><span class="audio-availability">sub · dub</span></button><button class="chk"></button></div></div>`).join("")).join("")}</div>`;
+const variant = (id, cls, caption, body) => `<p class="caption">${caption}</p><div class="variant ${cls}" data-variant="${id}">${body}</div>`;
+document.body.insertAdjacentHTML("beforeend",
+  variant("now", "", "<b>Now.</b> The back link and the title sit inside the right column, so the poster is the first thing at the left edge and the title starts a third of the way across.",
+    `<div class="series">${side}<div class="main">${crumb}${title}${meta}${rest}</div></div>`) +
+  variant("t1", "t1", "<b>T1 · atsu placement.</b> The back link moves to the top-left corner of the page and the title runs the full width beneath it, a little larger and heavier. The poster and the right column then start level. The source tags and the alternate title open the right column, where atsu puts its genre line.",
+    `<div class="series-top">${crumb}${title}</div><div class="series">${side}<div class="main">${meta}${rest}</div></div>`) +
+  variant("t2", "t2", "<b>T2 · atsu placement, tags under the title.</b> Same header, with the source tags and the alternate title kept directly under the title. The right column opens with the facts strip, level with the top of the poster.",
+    `<div class="series-top">${crumb}${title}${meta}</div><div class="series">${side}<div class="main">${rest}</div></div>`)
+);
+</script>

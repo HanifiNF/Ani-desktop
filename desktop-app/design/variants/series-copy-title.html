@@ -1,0 +1,69 @@
+<!doctype html><meta charset="utf-8"><title>Series · copy title</title>
+<!-- Uses the app's stylesheet, so the header is the real one (T2). Each variant shows the same header before hover, on hover, and after the click. -->
+<link rel="stylesheet" href="../../src/styles.css">
+<style>
+:root { --theme-bg: #262626; --theme-text: #EFE6D0; --theme-cursor: #F0BC42; --cursor-text: #1d1a12; }
+html, body { height: auto; }
+body { background:#151515; padding: 40px 0 80px; min-width: 0; display: block; }
+.caption { width: 1000px; margin: 56px 60px 12px; color: #8a8578; font-size: 12.5px; line-height: 1.55; }
+.caption:first-child { margin-top: 0; }
+.caption b { color: #d8cfba; font-weight: 600; }
+.variant { position: relative; width: 1240px; background: var(--bg); padding: 8px 60px 30px; }
+.variant * { animation: none !important; }
+.variant .series { display: block; margin-top: 0; }
+.state { display: block; margin: 26px 0 0; color: #8a8578; font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+.state + .series-top { margin-top: 10px; padding-bottom: 22px; border-bottom: 1px dashed color-mix(in oklab, var(--bg), var(--text) 9%); }
+.variant .series-top:last-child { border-bottom: 0; padding-bottom: 0; }
+.narrow { width: 560px; }
+
+/* K1, K2 · an icon button that flows after the title's last word, so a wrapped title keeps it on the final line */
+.copy { display: inline-grid; place-items: center; width: 30px; height: 30px; margin-left: 8px; border-radius: 8px; color: var(--dim); vertical-align: 3px; transition: background .16s, color .16s, opacity .16s; }
+.copy .icon { width: 17px; height: 17px; }
+.copy.hover { background: var(--raised); color: var(--text); }
+.copy.done { color: var(--text); }
+.k2 .copy { opacity: 0; }
+.k2 .copy.hover, .k2 .copy.done { opacity: 1; }
+.tip { position: absolute; transform: translate(-50%, 34px); padding: 4px 8px; border-radius: 6px; background: var(--raised2); color: var(--text); font-size: 12px; font-weight: 500; letter-spacing: 0; line-height: 1.2; white-space: nowrap; box-shadow: 0 6px 18px rgb(0 0 0 / 30%); }
+.copy { position: relative; }
+.copy .tip { left: 50%; top: 0; }
+
+/* K3 · the title is the button */
+.k3 h1 button { font: inherit; letter-spacing: inherit; color: inherit; text-align: left; cursor: copy; }
+.k3 h1 .hover { text-decoration: underline; text-decoration-color: var(--dim); text-decoration-thickness: 2px; text-underline-offset: 6px; }
+.k3 .hint { margin-left: 12px; color: var(--muted); font-size: 13px; font-weight: 500; letter-spacing: 0; display: inline-flex; align-items: center; gap: 5px; vertical-align: 4px; }
+.k3 .hint .icon { width: 14px; height: 14px; }
+.k3 .hint.done { color: var(--text); }
+
+/* K4 · a quiet word at the end of the tags line */
+.k4 .meta .copy-word { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 13px; }
+.k4 .meta .copy-word::before { content: ""; width: 1px; height: 12px; margin-right: 7px; background: var(--rule); }
+.k4 .meta .copy-word .icon { width: 13px; height: 13px; }
+.k4 .meta .copy-word.hover, .k4 .meta .copy-word.done { color: var(--text); }
+</style>
+<body>
+<script>
+const P = { back:'<path d="m15 5-7 7 7 7"/>', check:'<path d="m5 12.5 4.5 4.5L19 7.5"/>', copy:'<rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M5 15V6.5A2.5 2.5 0 0 1 7.5 4H15"/>' };
+const icon = (n) => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${P[n]}</svg>`;
+const crumb = `<button type="button" class="crumb">${icon("back")}Browse</button>`;
+const SHORT = "Frieren: Beyond Journey's End", LONG = "Reborn as a Vending Machine, I Now Wander the Dungeon Season 2";
+const metaRow = (extra = "") => `<div class="meta"><span class="tag src-tag">aniwave</span><span class="tag src-tag">hianime</span><span>Sousou no Frieren</span>${extra}</div>`;
+const header = (label, h1, extra, narrow) => `<span class="state">${label}</span><header class="series-top ${narrow ? "narrow" : ""}">${crumb}<h1>${h1}</h1>${metaRow(extra)}</header>`;
+const variant = (id, caption, frames) => `<p class="caption">${caption}</p><div class="variant ${id}" data-variant="${id}"><div class="series">${frames.join("")}</div></div>`;
+
+const iconBtn = (state) => `<button class="copy ${state}">${icon(state === "done" ? "check" : "copy")}${state === "hover" ? '<span class="tip">Copy title</span>' : state === "done" ? '<span class="tip">Copied</span>' : ""}</button>`;
+const iconFrames = [
+  header("Before hover", SHORT + iconBtn("")), header("Pointer on the button", SHORT + iconBtn("hover")),
+  header("After the click, for two seconds", SHORT + iconBtn("done")), header("A long title in a narrow window", LONG + iconBtn(""), "", true)];
+const word = (state) => `<button class="copy-word ${state}">${icon(state === "done" ? "check" : "copy")}${state === "done" ? "Copied" : "Copy title"}</button>`;
+
+document.body.insertAdjacentHTML("beforeend",
+  variant("k1", "<b>K1 · Quiet icon after the title.</b> A dim copy icon follows the last word of the title. The pointer brightens it on a small raised square with a tooltip. The click swaps the icon for a check and the tooltip for “Copied”, then it returns after two seconds. The icon flows with the text, so it stays beside the last word of a wrapped title.", iconFrames) +
+  variant("k2", "<b>K2 · Icon on hover only.</b> The same button, hidden until the pointer is over the title line (keyboard focus shows it too). The header at rest is exactly what it is today.", [
+    header("Before hover", SHORT + iconBtn("")), header("Pointer on the title line", SHORT + iconBtn("hover")), header("After the click, for two seconds", SHORT + iconBtn("done"))]) +
+  variant("k3", "<b>K3 · The title is the button.</b> No icon at rest. The pointer underlines the title and shows a small “Copy” beside it. The click copies and the word becomes “Copied” for two seconds.", [
+    header("Before hover", `<button>${SHORT}</button>`), header("Pointer on the title", `<button class="hover">${SHORT}</button><span class="hint">${icon("copy")}Copy</span>`),
+    header("After the click, for two seconds", `<button>${SHORT}</button><span class="hint done">${icon("check")}Copied</span>`)]) +
+  variant("k4", "<b>K4 · A word on the tags line.</b> The title line stays untouched. “Copy title” closes the line of source tags behind a hairline, in the same muted text as the alternate title, and becomes “Copied” for two seconds.", [
+    header("Before hover", SHORT, word("")), header("Pointer on the word", SHORT, word("hover")), header("After the click, for two seconds", SHORT, word("done"))])
+);
+</script>

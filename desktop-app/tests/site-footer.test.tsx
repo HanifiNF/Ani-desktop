@@ -73,7 +73,7 @@ describe("site footer", () => {
   it("copies a Discord handle and confirms briefly", async () => {
     vi.useFakeTimers();
     const writeText = vi.fn(() => Promise.resolve());
-    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    window.aniDesktop = { copyText: writeText } as unknown as typeof window.aniDesktop;
     await act(async () => root.render(<SiteFooter current={undefined} onNavigate={() => undefined} />));
     const button = container.querySelector<HTMLButtonElement>('.creator-socials button[title^="Discord"]')!;
     await act(async () => { button.click(); await Promise.resolve(); });

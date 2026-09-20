@@ -213,6 +213,110 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .empty { padding: 40px 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
 .empty b { display: block; color: var(--text); font-weight: 600; font-size: 15px; margin-bottom: 4px; }
 
+/* ---- catalog browse --------------------------------------------------- */
+/* The heading line works like the schedule's: a quiet note, then plain-text sort on the right. */
+.browse-sub { color: var(--muted); font-size: 13px; }
+.browse-sort { display: flex; gap: 18px; margin-left: auto; }
+.browse-sort button { color: var(--muted); font-size: 14px; transition: color .15s; }
+.browse-sort button:hover { color: var(--text); }
+.browse-sort button.on { color: var(--text); font-weight: 500; }
+/* One field searches the catalog by title or studio; genres, tags, and filters narrow whatever it finds. */
+.browse-search { display: flex; align-items: center; gap: 12px; height: 44px; margin-bottom: 14px; padding: 0 8px 0 16px; border-radius: 12px; background: var(--raised); color: var(--muted); cursor: text; transition: background .15s, box-shadow .15s; }
+.browse-search:focus-within { background: var(--raised2); box-shadow: 0 0 0 1px var(--rule); }
+.browse-search input { flex: 1; min-width: 0; font-size: 15px; color: var(--text); }
+.browse-search input:focus-visible { outline: 0; }
+.browse-search .clear { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; color: var(--muted); transition: background .15s, color .15s; }
+.browse-search .clear:hover { color: var(--text); background: var(--bg); }
+.studio-token { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding-left: 10px; border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13.5px; white-space: nowrap; }
+.studio-token em, .token em { font-style: normal; color: var(--muted); }
+.token em { margin-right: 5px; }
+.studio-token button { width: 24px; height: 28px; color: var(--dim); font-size: 15px; line-height: 1; text-align: center; }
+.studio-token button:hover { color: var(--text); }
+.browse-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0; padding: 2px 2px 14px; }
+.suggest-lab { color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.browse-suggest button { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 9px 0 11px; border-radius: 8px; background: var(--raised); font-size: 13px; }
+.browse-suggest button { transition: background .15s; }
+.browse-suggest button:hover { background: var(--raised2); }
+.browse-suggest button.quiet { color: var(--muted); }
+.browse-suggest button small { color: var(--muted); font-size: 12px; }
+.browse-suggest button .icon { width: 13px; height: 13px; color: var(--muted); }
+.browse-suggest button:focus-visible { outline: 0; box-shadow: 0 0 0 2px var(--cursor); }
+/* Controls step back while a studio's list is read, when they cannot change anything yet. */
+.browse-sort, .browse-steps { transition: opacity .2s; }
+.browse .is-waiting { opacity: .45; pointer-events: none; }
+/* A settled reveal lets the tag list and focus rings reach past the edge that clips it while it moves. */
+.browse .reveal[data-settled="true"] > .reveal-inner { overflow: visible; }
+.browse-reading { display: flex; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12.5px; }
+.browse-reading .track { position: relative; width: 160px; height: 3px; overflow: hidden; border-radius: 2px; background: var(--raised2); }
+.browse-reading .track i { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: 2px; background: var(--cursor); animation: browse-reading 1.4s ease-in-out infinite; }
+@keyframes browse-reading { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+.typeahead-anchor { position: relative; display: inline-flex; }
+.typeahead { display: inline-flex; align-items: center; gap: 10px; }
+.typeahead-box { display: inline-flex; align-items: center; gap: 4px; min-width: 190px; min-height: 30px; padding: 3px 9px 3px 4px; border-radius: 8px; background: var(--raised); cursor: text; }
+.typeahead-box:focus-within { box-shadow: 0 0 0 1px var(--dim) inset; }
+.typeahead-box .token { height: 22px; background: var(--bg); white-space: nowrap; }
+.typeahead-box .token button { height: 22px; }
+.typeahead-box input { flex: 1; width: 90px; min-width: 60px; padding-left: 5px; font-size: 13px; }
+.typeahead-box input:focus-visible { outline: 0; }
+.typeahead-list { position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; display: grid; min-width: max(100%, 250px); padding: 6px; border-radius: 12px; background: color-mix(in oklab, var(--bg), var(--text) 9%); box-shadow: 0 0 0 1px var(--rule), 0 18px 40px rgb(0 0 0 / 45%); }
+.typeahead-list button { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 30px; padding: 0 10px; border-radius: 7px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.typeahead-list button.on { color: var(--text); background: color-mix(in oklab, var(--bg), var(--text) 16%); }
+.typeahead-list button[aria-disabled="true"] { opacity: .5; }
+.typeahead-list small, .typeahead-none { color: var(--dim); font-size: 11.5px; }
+.typeahead-none { padding: 6px 10px; }
+/* A genre chip has three states: off, included (filled), excluded (struck, with a minus). */
+.browse-genres { display: flex; flex-wrap: wrap; gap: 6px; }
+.genre { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 7px; background: var(--raised); color: var(--muted); font-size: 12.5px; transition: background .15s, color .15s; }
+.genre:hover { color: var(--text); background: var(--raised2); }
+.genre.inc { background: var(--cursor); color: var(--cursor-text); }
+.genre.exc { background: none; box-shadow: 0 0 0 1px var(--rule) inset; color: var(--dim); text-decoration: line-through; }
+.genre.exc::before { content: "−"; display: inline-block; color: var(--danger); text-decoration: none; }
+.browse-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 28px; margin-top: 12px; }
+.browse-toggle { display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; color: var(--muted); font-size: 13px; font-weight: 500; }
+.browse-toggle:hover, .browse-toggle.open { color: var(--text); }
+.browse-toggle .icon { width: 13px; height: 13px; transform: rotate(90deg); transition: transform .2s var(--ease); }
+.browse-toggle.open .icon { transform: rotate(-90deg); }
+.token { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding-left: 9px; border-radius: 7px; background: var(--raised); font-size: 12px; }
+.token button { width: 22px; height: 24px; border-radius: 7px; color: var(--dim); font-size: 14px; line-height: 1; text-align: center; }
+.token button { transition: color .15s; }
+.token button:hover { color: var(--text); }
+.browse-clear { margin-left: auto; color: var(--muted); font-size: 12.5px; }
+.browse-clear:hover { color: var(--text); }
+.browse-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; margin-top: 12px; padding: 16px 18px; border-radius: 12px; background: color-mix(in oklab, var(--bg), var(--text) 3%); }
+.browse-panel .chips-row, .browse-field { display: inline-flex; align-items: center; gap: 10px; }
+.browse-range { display: inline-flex; align-items: center; gap: 10px; }
+.browse-field input { width: 58px; height: 30px; padding: 0 9px; border-radius: 8px; background: var(--raised); font-size: 13px; text-align: center; }
+.browse-field input.wide { width: 72px; }
+.browse-field input:focus-visible { outline: 0; box-shadow: 0 0 0 1px var(--dim) inset; }
+.browse-field input[aria-invalid="true"] { box-shadow: 0 0 0 1px var(--danger) inset; }
+.browse-panel .field-problem { flex-basis: 100%; margin-top: -6px; color: var(--danger); font-size: 11.5px; }
+.browse-grid { margin-top: 20px; transition: opacity .15s; }
+.browse-grid.is-loading { opacity: .45; pointer-events: none; }
+.browse .card .hit:hover .poster, .browse .card .hit:focus-visible .poster { box-shadow: 0 0 0 2px var(--cursor); }
+.card .badges.top { top: 8px; bottom: auto; justify-content: flex-end; }
+/* While one title's sources are checked, its card reports it and the rest of the grid steps back. */
+.browse-grid .card { transition: opacity .2s; }
+.browse-grid.is-opening .card { opacity: .45; }
+.browse-grid.is-opening .card.is-resolving { opacity: 1; }
+.browse .card .poster img { transition: opacity .2s ease-out, filter .2s; }
+.card.is-resolving .poster img { filter: brightness(.78); }
+/* The selection ring is the indicator: a bright arc travels around the poster's edge. */
+@property --trace { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.browse .card.is-resolving .hit::before { content: ""; position: absolute; inset: -2px; border-radius: calc(var(--radius) + 2px); background: conic-gradient(from var(--trace), color-mix(in oklab, var(--cursor) 28%, var(--bg)) 0 50%, var(--cursor) 88%, color-mix(in oklab, var(--cursor), #fff 70%) 97%, color-mix(in oklab, var(--cursor) 28%, var(--bg)) 100%); animation: card-trace 1.6s linear infinite, fade .2s ease-out both; }
+.browse .card.is-resolving .poster, .browse .card.is-resolving .hit:is(:hover, :focus-visible) .poster { box-shadow: none; }
+@keyframes card-trace { to { --trace: 360deg; } }
+.browse-ghosts { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 18px 16px; margin-top: 18px; -webkit-mask-image: linear-gradient(#000 10%, transparent 90%); mask-image: linear-gradient(#000 10%, transparent 90%); }
+.browse-more { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 30px; margin-top: 28px; color: var(--dim); font-size: 12.5px; }
+.browse-none { padding: 34px 0 10px; color: var(--muted); }
+.browse-none b { display: block; margin-bottom: 4px; color: var(--text); font-size: 15px; font-weight: 600; }
+.browse-none .fixes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+.browse-none .link { margin-left: 10px; color: var(--text); font-size: 13px; text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 3px; }
+.browse-none .link:hover { text-decoration-color: var(--text); }
+.browse .notice, .browse .msg, .browse-detail .notice, .browse-detail .msg { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 14px 0; color: var(--muted); }
+.browse .msg.err, .browse-detail .msg.err { color: var(--danger); }
+:is(.browse, .browse-detail) :is(.notice, .msg) .link { color: var(--text); text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 3px; }
+:is(.browse, .browse-detail) :is(.notice, .msg) .link:hover { text-decoration-color: var(--text); }
+
 /* ---- empty library: the row keeps the shape of a full one ------------- */
 /* An action tile leads a row of ghost posters that fade out to the right, so the page has the same rhythm before and after the first title. */
 .section-empty .ghosts { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 18px 16px; -webkit-mask-image: linear-gradient(90deg, #000 30%, transparent 96%); mask-image: linear-gradient(90deg, #000 30%, transparent 96%); }
@@ -228,7 +332,7 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .backdrop-credit a { color: inherit; text-decoration: underline; text-decoration-color: color-mix(in oklab, var(--dim), transparent 50%); text-underline-offset: 2px; }
 .backdrop-credit a:hover { color: var(--muted); }
 .footer-foot > span:first-child { min-width: 0; }
-/* The illustration sits behind the bar and the page on home, saved, and recent, never over content, and stays put while the page scrolls. */
+/* The illustration sits behind the bar and the page on home, browse, saved, and recent, never over content, and stays put while the page scrolls. */
 .backdrop { position: absolute; z-index: 0; pointer-events: none; overflow: hidden; animation: fade .5s ease-out both; }
 .backdrop img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .backdrop-wash { inset: 0 0 auto; height: 520px; opacity: .14; -webkit-mask-image: linear-gradient(#000 40%, transparent 100%); mask-image: linear-gradient(#000 40%, transparent 100%); }
@@ -292,27 +396,42 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 /* ---- series ----------------------------------------------------------- */
 /* The series scroll controller owns anchoring, including asynchronous source changes. */
 .page-series { overflow-anchor: none; }
-.series { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 12px; }
-.series .side { position: sticky; top: 0; }
+.series { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px 32px; align-items: start; margin-top: 12px; }
+/* The back link, title, and source tags span the page and scroll away; the panel then holds under the top bar. */
+.series-top { grid-column: 1 / -1; min-width: 0; }
+.series .side { position: sticky; top: 4px; }
 .series .side .poster { width: 100%; aspect-ratio: 2 / 3; border-radius: var(--radius); box-shadow: 0 10px 30px rgb(0 0 0 / 30%); }
 .series .side .stack { display: grid; gap: 6px; margin-top: 12px; }
 .series .side .stack .btn { width: 100%; justify-content: space-between; height: 40px; }
 /* A finished state stays legible: muted text instead of a faded button. */
 .series .side .stack .btn:disabled:not(.primary) { opacity: 1; color: var(--muted); }
 .genre-bubbles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
-.genre-bubbles span { padding: 4px 8px; border-radius: 999px; background: var(--raised); color: var(--muted); font-size: 11px; line-height: 1.2; }
+.genre-bubbles span, .genre-bubbles button { padding: 4px 7px; border-radius: 5px; background: var(--raised); color: var(--muted); font-size: 11px; line-height: 1.2; }
+.genre-bubbles button:hover { background: var(--raised2); color: var(--text); }
+.studio-link { text-decoration: underline; text-decoration-color: var(--dim); text-underline-offset: 3px; }
+.studio-link:hover { text-decoration-color: currentColor; }
+.series-tags { margin-top: 16px; }
+.series-tags h2 { margin: 0; font-size: 12px; font-weight: 500; color: var(--muted); }
+.series-tags .genre-bubbles { margin-top: 6px; }
 .series .side .prefs { display: grid; gap: 12px; margin-top: 16px; }
 .series .side .prefs .chips-row { display: grid; gap: 6px; justify-items: start; }
 .series .side .prefs .chips { flex-wrap: wrap; max-width: 100%; }
 .series .main { min-width: 0; }
-.series .crumb { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.series .crumb { color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; margin-left: -3px; }
 .series .crumb:hover { color: var(--text); }
-.series .crumb .icon { width: 14px; height: 14px; }
-.series h1 { margin: 6px 0 10px; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+.series .crumb .icon { width: 16px; height: 16px; }
+.series h1 { margin: 14px 0 10px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+/* Flows after the title's last word, so a wrapped title keeps it on the final line. */
+.copy-title { position: relative; display: inline-grid; place-items: center; width: 30px; height: 30px; margin-left: 8px; border-radius: 8px; color: var(--dim); vertical-align: 3px; transition: background .16s, color .16s; }
+.copy-title .icon { width: 17px; height: 17px; }
+.copy-title:hover, .copy-title:focus-visible { background: var(--raised); color: var(--text); }
+.copy-title.done { color: var(--text); }
+.copy-title::after { content: attr(data-tip); position: absolute; left: 50%; top: 34px; z-index: 5; transform: translateX(-50%); padding: 4px 8px; border-radius: 6px; background: var(--raised2); color: var(--text); font-size: 12px; font-weight: 500; letter-spacing: 0; line-height: 1.2; white-space: nowrap; box-shadow: 0 6px 18px rgb(0 0 0 / 30%); opacity: 0; pointer-events: none; transition: opacity .16s; }
+.copy-title:hover::after, .copy-title:focus-visible::after, .copy-title.done::after { opacity: 1; }
 .series .meta { display: flex; gap: 8px; color: var(--muted); font-size: 13px; align-items: center; flex-wrap: wrap; }
 .series .meta .tag { padding: 3px 8px; border-radius: 6px; background: var(--raised); color: var(--text); font-size: 12px; font-weight: 500; }
 .series .meta .tag.quiet { background: none; color: var(--muted); font-weight: 400; }
-.series .facts { display: flex; flex-wrap: wrap; gap: 16px 28px; margin-top: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+.series .facts { display: flex; flex-wrap: wrap; gap: 16px 28px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
 .series .facts div { font-size: 14px; }
 .series .facts small { display: block; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .ep-head { display: flex; align-items: center; gap: 12px; margin: 18px 0 12px; }
@@ -469,6 +588,11 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .src-wrap, .hit-row, .card { animation: rise var(--enter) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
 .status, .notice, .msg, .hints, .empty, .schedule-state { animation: rise var(--enter) both; }
 .page { animation: fade .12s ease-out both; }
+.browse-none, .browse-reading, .browse-line .token, .studio-token, .browse-clear, .browse-more > * { animation: rise var(--enter) both; }
+.browse-sort button, .browse-search .clear { animation: fade var(--enter) both; }
+.typeahead-list { animation: pop .16s ease-out both; transform-origin: top left; }
+.browse-ghosts .ghost { animation: shimmer 1.2s ease-in-out infinite; }
+.browse-ghosts .ghost:nth-child(4n + 2) { animation-delay: 80ms; } .browse-ghosts .ghost:nth-child(4n + 3) { animation-delay: 160ms; } .browse-ghosts .ghost:nth-child(4n) { animation-delay: 240ms; }
 .palette { animation: pop .16s ease-out both; transform-origin: top center; }
 .dim { animation: fade .16s ease-out both; }
 .src .q, .src .audio-availability, .src .metadata-status, .src .t em { animation: fade .2s ease-out both; }
@@ -482,9 +606,13 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 ::view-transition-group(player) { animation-duration: .24s; animation-timing-function: cubic-bezier(.2, .7, .2, 1); }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .16s; }
 @media (prefers-reduced-motion: reduce) {
-  .dots, .search-throbber > span, .src-wrap, .hit-row, .card, .status, .notice, .msg, .hints, .empty, .schedule-state, .page, .palette, .dim, .src .q, .src .audio-availability, .src .metadata-status, .src .t em, .src-wrap.skel .t, .backdrop { animation: none; }
+  .dots, .browse-reading .track i, .search-throbber > span, .src-wrap, .hit-row, .card, .status, .notice, .msg, .hints, .empty, .schedule-state, .page, .palette, .dim, .src .q, .src .audio-availability, .src .metadata-status, .src .t em, .src-wrap.skel .t, .backdrop { animation: none; }
   .schedule-days button, .schedule-days button.today::after, .schedule-audio button, .schedule-card .poster { transition: none; }
   .art img { transition: none; }
+  .browse .card.is-resolving .hit::before { animation: none; background: var(--cursor); }
+  .browse-none, .browse-reading, .browse-line .token, .studio-token, .browse-clear, .browse-more > *, .browse-sort button, .browse-search .clear, .typeahead-list, .browse-ghosts .ghost { animation: none; }
+  .browse-search, .browse-search .clear, .browse-suggest button, .browse-sort, .browse-steps, .token button, .browse-grid, .browse-grid .card, .browse .card .poster img, .browse-toggle .icon { transition: none; }
+  .browse .reveal[data-open="true"] > .reveal-inner { overflow: visible; }
   .reveal, .reveal-inner, .rail-pill, .chips button, .settings-section-nav button, .subtitle-sample, .subtitle-sample > span, .subtitle-chevron, .subtitle-editor .r :is(.stepper, .subtitle-swatch), .colour-dots button { transition: none !important; }
   .settings > .group, .settings-section-nav, .save-word, .stepper-value, .update-notice, .nav-badge { animation: none; }
   /* Without the fade, the tick and the bright heading simply stay while the heading holds focus. */

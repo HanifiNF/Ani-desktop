@@ -50,10 +50,11 @@ export function UpdatePanel({ status, checking, onCheck, onOpen, onSkip, install
         </button>}
       </span>
     </div>
+  </div>
     {status?.error && status.state !== "error" && <div className="group-note">{status.error}</div>}
     {(available || ready || busy) && installStatus && <div className="group-note" role="status">
       {ready ? `Version ${installStatus.version} is ready. ` : ""}{installStatus.detail}
       {installStatus.error && <div role="alert">{installStatus.error}</div>}
     </div>}
-  </div></div>;
+  </div>;
 }

@@ -22,7 +22,7 @@ const defaultDownload: Download = (url) => fetch(url, { signal: AbortSignal.time
 const imageFile = (id: number) => `${id}.img`;
 
 /**
- * Illustrations behind the home, saved, and recent pages, kept on disk under the app's data folder. A page gets a random cached image of the
+ * Illustrations behind the home, browse, saved, and recent pages, kept on disk under the app's data folder. A page gets a random cached image of the
  * kind it asked for; at most one new image is downloaded per run so the pool fills in quietly over time.
  */
 export class BackdropService {

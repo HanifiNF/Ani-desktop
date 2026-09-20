@@ -26,29 +26,30 @@ interface Props {
   subtitleAppearance: SubtitleAppearance; onSubtitleAppearance: (value: SubtitleAppearance) => void;
 }
 
-/** The left rail. Library covers the three groups from Defaults down to Episode metadata. */
-const sections = [
-  { id: "settings-playback", label: "Playback" },
-  { id: "settings-defaults", label: "Library" },
-  { id: "settings-appearance", label: "Appearance" },
-  { id: "settings-sources", label: "Sources" },
-  { id: "settings-updates", label: "Updates" }
-] as const;
+interface Section { id: string; label: string }
+
+/** The left rail lists every group heading on the page, so a new group with an id on its h3 joins it unprompted. */
+function readSections(form: HTMLElement): { headings: HTMLElement[]; sections: Section[] } {
+  const headings = [...form.querySelectorAll<HTMLElement>(":scope > .group > h3[id]")];
+  return { headings, sections: headings.map((heading) => ({ id: heading.id, label: heading.textContent?.trim() || heading.id })) };
+}
 
 function useSectionNavigation() {
   const formRef = useRef<HTMLFormElement>(null);
-  const [active, setActive] = useState<string>(sections[0].id);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [active, setActive] = useState<string>("");
   // A jump names its section until the user scrolls by hand: the smooth scroll would otherwise flicker through
   // the sections on the way, and a short last section never reaches the line that decides the current one.
   const pinned = useRef(false);
   useEffect(() => {
     const page = formRef.current?.closest<HTMLElement>(".page-settings");
-    if (!page) return;
-    const headings = sections.map(({ id }) => document.getElementById(id)).filter((node): node is HTMLElement => node instanceof HTMLElement);
+    const form = formRef.current;
+    if (!page || !form) return;
+    let headings: HTMLElement[] = [];
     const update = () => {
-      if (pinned.current) return;
+      if (pinned.current || !headings.length) return;
       const line = page.getBoundingClientRect().top + 76;
-      let current: string = sections[0].id;
+      let current = headings[0].id;
       for (const heading of headings) {
         if (heading.getBoundingClientRect().top <= line) current = heading.id;
       }
@@ -66,9 +67,19 @@ function useSectionNavigation() {
     page.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
-    observer?.observe(page);
-    headings.forEach((heading) => observer?.observe(heading.parentElement ?? heading));
-    update();
+    const scan = () => {
+      const found = readSections(form);
+      headings = found.headings;
+      setSections((previous) => previous.length === found.sections.length && previous.every((section, index) => section.id === found.sections[index].id && section.label === found.sections[index].label) ? previous : found.sections);
+      observer?.disconnect();
+      observer?.observe(page);
+      headings.forEach((heading) => observer?.observe(heading.parentElement ?? heading));
+      update();
+    };
+    // Groups that mount or leave later keep the rail in step with the page.
+    const groups = new MutationObserver(scan);
+    groups.observe(form, { childList: true });
+    scan();
     return () => {
       page.removeEventListener("wheel", release);
       page.removeEventListener("touchmove", release);
@@ -77,6 +88,7 @@ function useSectionNavigation() {
       page.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
       observer?.disconnect();
+      groups.disconnect();
     };
   }, []);
   const jump = (id: string) => {
@@ -96,14 +108,14 @@ function useSectionNavigation() {
     heading.focus({ preventScroll: true });
     page.scrollTo({ top, behavior: reducedMotion ? "instant" : "smooth" });
   };
-  return { formRef, active, jump };
+  return { formRef, sections, active, jump };
 }
 
 const SAVE_WORDS: Record<SettingsSaveState, string> = { idle: "", saved: "Saved", saving: "Saving…", error: "Not saved" };
 
 export default function SettingsScreen({ draft, setDraft, saved, saveState, onRetrySave, bookmarkCount, linkCount, onOpenLogs, onClearLinks,
   updateStatus, updateChecking, onCheckUpdates, onOpenUpdate, onSkipUpdate, updateInstall, onDownloadUpdate, onInstallUpdate, subtitleAppearance, onSubtitleAppearance }: Props) {
-  const { formRef, active, jump } = useSectionNavigation();
+  const { formRef, sections, active, jump } = useSectionNavigation();
   const [subtitlesOpen, setSubtitlesOpen] = useState(false);
   return (
     <div className="settings-layout">
@@ -149,7 +161,7 @@ export default function SettingsScreen({ draft, setDraft, saved, saveState, onRe
             ))}
           </span></div>
         </Reveal>
-        <div className="r"><span className="k">Backdrop art<small>An illustration behind the home, saved, and recent pages, from a hand-picked set on nekosapi.com. Off keeps them plain and fetches nothing</small></span><Switch checked={draft.emptyBackdrop !== false} label="Backdrop art" onChange={(emptyBackdrop) => setDraft({ ...draft, emptyBackdrop })} /></div>
+        <div className="r"><span className="k">Backdrop art<small>An illustration behind the home, browse, saved, and recent pages, from a hand-picked set on nekosapi.com. Off keeps them plain and fetches nothing</small></span><Switch checked={draft.emptyBackdrop !== false} label="Backdrop art" onChange={(emptyBackdrop) => setDraft({ ...draft, emptyBackdrop })} /></div>
       </div></div>
       <IdentityIndexPanel saved={saved} draft={draft} onChange={setDraft} />
       <BookmarkMetadataPanel count={bookmarkCount} saved={saved} draft={draft} />

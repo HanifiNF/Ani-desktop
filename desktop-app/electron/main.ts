@@ -18,7 +18,7 @@ import { spawn } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { app, BrowserWindow, ipcMain, nativeImage, session, shell } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, nativeImage, session, shell } from "electron";
 import type { AnimeResult, CatalogRequest, LibraryEntry, PlayerSession, PlayRequest, ProviderName, ProviderPreference, ScheduleQuery, Settings, TranslationMode } from "../shared/contracts";
 import { playerArguments } from "./player";
 import { assertPlayerSender, registerPlayerFullscreenEvents, setPlayerFullscreen } from "./player-window";
@@ -40,6 +40,9 @@ import { UpdateInstaller, updateInstallCapability } from "./update-installer";
 import { loadSparkle } from "./sparkle";
 import { downloadReleaseAsset } from "./update-download";
 import { autoUpdater } from "electron-updater";
+import { BrowseService } from "./browse-service";
+import { BrowseDiscovery } from "./browse-discovery";
+import { validateBrowseIdentity, validateBrowseQuery, validateKnownCandidate } from "./browse-validation";
 
 // Preserve existing settings and library data across the display-name change.
 app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? "Ani Desktop" : "ani-desktop"));
@@ -70,6 +73,8 @@ const seriesMetadataService = new SeriesMetadataService(
 const scheduleService = new ScheduleService();
 const workInfoService = new WorkInfoService();
 const backdropService = new BackdropService();
+const browseService = new BrowseService();
+const browseDiscovery = new BrowseDiscovery();
 let identityIndex: IdentityIndex;
 const backfill = new AbortController();
 /** References the library depends on; the information cache never evicts them. */
@@ -293,6 +298,12 @@ function registerIpc(): void {
     assertPlayerSender(mainWindow, event);
     await updateInstaller.install();
   });
+  // The renderer's session refuses every permission, clipboard writes included, so copying goes through here.
+  ipcMain.handle("app:copy-text", (event, text: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    if (typeof text !== "string" || !text || text.length > 2000) throw new Error("Invalid clipboard text");
+    clipboard.writeText(text);
+  });
   ipcMain.handle("app:backdrop", (event, kind: unknown) => {
     assertPlayerSender(mainWindow, event);
     if (kind !== "wide" && kind !== "portrait") throw new Error("Unknown backdrop kind");
@@ -326,15 +337,41 @@ function registerIpc(): void {
     const validated = validateScheduleAnimeId(animeId);
     return catalogCall(event, request, () => scheduleService.getArtwork(validated, store.snapshot().settings));
   });
-  ipcMain.handle("catalog:search", (event, query: string, provider?: ProviderPreference, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
+  ipcMain.handle("catalog:search", (event, query: string, provider: ProviderPreference | undefined, rawKnown: unknown, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
     const state = store.snapshot();
+    // A work the caller already identified joins every grouping pass, ahead of any title lookup.
+    const known = validateKnownCandidate(rawKnown);
     const rows = await catalogService.search(query, state.settings, provider ?? "auto", [], update,
-      { works: state.works, dismissed: state.dismissedMergeKeys, candidates: () => searchCandidates(query), localCandidates });
+      { works: state.works, dismissed: state.dismissedMergeKeys, candidates: () => searchCandidates(query),
+        localCandidates: (term, titles) => [...(known ? [known] : []), ...localCandidates(term, titles)] });
     // Confident groupings become remembered works, so the next search and the library know them without matching again.
     if (!catalogContext.getStore()?.signal.aborted) void store.recordBindings(rows).catch(() => undefined);
     return rows;
   }));
+  ipcMain.handle("catalog:browse-genres", (event, request?: CatalogRequest) => catalogCall(event, request, () => {
+    if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
+    return browseService.genreOptions();
+  }));
+  ipcMain.handle("catalog:browse-tags", (event, request?: CatalogRequest) => catalogCall(event, request, () => {
+    if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
+    return browseService.tagOptions();
+  }));
+  ipcMain.handle("catalog:browse", (event, query: unknown, request?: CatalogRequest) => catalogCall(event, request, (update) => {
+    if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
+    return browseService.browse(validateBrowseQuery(query), update);
+  }));
   ipcMain.handle("catalog:episodes", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, (update) => catalogService.episodes(anime, store.snapshot().settings, update)));
+  ipcMain.handle("catalog:browse-discover", (event, raw: unknown, request?: CatalogRequest) => catalogCall(event, request, async () => {
+    const anime = validateBrowseIdentity(raw);
+    const state = store.snapshot();
+    const result = await browseDiscovery.discover(anime, state.settings, {
+      works: state.works, refresh: request?.refresh,
+      hints: state.settings.offlineIndex ? identityIndex.candidatesForRefs(anime.refs) : []
+    });
+    catalogContext.getStore()?.signal.throwIfAborted();
+    if (result.anime) await store.recordBindings([result.anime]);
+    return result;
+  }));
   ipcMain.handle("catalog:series-metadata", (event, anime: AnimeResult, request?: CatalogRequest) => {
     const validated = validateSeriesMetadataRequest(anime);
     return catalogCall(event, request, (update) => seriesMetadataService.metadata(validated, store.snapshot().settings, update));
@@ -518,7 +555,7 @@ app.whenReady().then(async () => {
         try { await access(path, constants.W_OK); await access(dirname(path), constants.W_OK); }
         catch { throw new Error("Move the AppImage to a writable folder, relaunch it, then try again."); }
       }
-      await Promise.all([store.flush(), diagnostics.flush(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush()]);
+      await Promise.all([store.flush(), diagnostics.flush(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), browseService.flush()]);
     }
   });
   backend?.on("download-progress", (progress) => updateInstaller.progress(progress.percent));
@@ -529,6 +566,7 @@ app.whenReady().then(async () => {
   await seriesMetadataService.load(join(app.getPath("userData"), "series-metadata.json"));
   await workInfoService.load(join(app.getPath("userData"), "work-info.json"));
   await backdropService.load(join(app.getPath("userData"), "backdrops"));
+  await browseService.load(join(app.getPath("userData"), "browse-cache.json"));
   identityIndex = new IdentityIndex(join(app.getPath("userData"), "title-index.json"));
   await identityIndex.load();
   if (store.snapshot().settings.offlineIndex && identityIndex.needsUpdate()) void identityIndex.update();
@@ -578,5 +616,5 @@ app.on("before-quit", (event) => {
   bookmarkMetadata.cancel();
   backfill.abort();
   const timeout = setTimeout(() => app.quit(), 2000);
-  void Promise.allSettled([store.flush(), diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
+  void Promise.allSettled([store.flush(), diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), browseService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
 });

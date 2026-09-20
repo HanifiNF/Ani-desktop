@@ -9,6 +9,7 @@
     "build": "npm run typecheck && vite build && tsc -p tsconfig.electron.json && node scripts/generate-icons.mjs",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
     "test": "vitest run",
+    "test:browse": "npm run build && node scripts/run-browse-integration.cjs",
     "dist:win": "npm run build && electron-builder --win nsis --x64 --publish never",
     "dist:mac": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false node scripts/package-macos.mjs && sh scripts/verify-macos-packages.sh",
     "start": "npm run build && electron .",

@@ -6,7 +6,7 @@ import { WorkInfoService } from "../electron/work-info-service";
 import type { AnimeResult, IdentityCandidate, WorkInfo } from "../shared/contracts";
 
 const info = (overrides: Partial<WorkInfo> = {}): WorkInfo => ({ refs: ["anilist:1", "mal:10"], title: "Frieren", titles: { english: "Frieren" }, synonyms: [], status: "finished",
-  genres: ["Fantasy"], studios: ["madhouse"], relations: [], fetchedAt: Date.now(), source: "anilist", ...overrides });
+  genres: ["Fantasy"], tags: [], studios: ["madhouse"], relations: [], fetchedAt: Date.now(), source: "anilist", ...overrides });
 const candidate: IdentityCandidate = { refs: ["anilist:1", "mal:10"], title: "Frieren", titles: ["Frieren", "Sousou no Frieren"], type: "TV", year: 2023, episodes: 28 };
 const anime: AnimeResult = { id: "aniwave:frieren-1", title: "Frieren", provider: "aniwave", sources: [{ id: "aniwave:frieren-1", provider: "aniwave", title: "Frieren", aliases: ["Frieren", "Sousou no Frieren"], type: "TV" }] };
 let directory: string;
@@ -14,6 +14,24 @@ beforeEach(async () => { directory = await mkdtemp(join(tmpdir(), "work-info-"))
 afterEach(async () => { vi.useRealTimers(); await rm(directory, { recursive: true, force: true }); });
 
 describe("WorkInfoService", () => {
+  it("refreshes older cached information to add tags while showing the cached copy", async () => {
+    const lookup = vi.fn(async () => info({ tags: undefined }));
+    const service = new WorkInfoService(vi.fn(async () => []), lookup);
+    await service.load(join(directory, "work-info.json"));
+    const identified = { ...anime, refs: ["mal:10"] };
+    await service.info(identified, { enabled: true });
+    await service.flush();
+    const restored = new WorkInfoService(vi.fn(async () => []), lookup);
+    await restored.load(join(directory, "work-info.json"));
+    lookup.mockResolvedValue(info({ tags: ["Elf"] }));
+    const update = vi.fn();
+    expect((await restored.info(identified, { enabled: true }, update)).info?.tags).toEqual(["Elf"]);
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ title: "Frieren", stale: true }));
+    await restored.info(identified, { enabled: true });
+    expect(lookup).toHaveBeenCalledTimes(2);
+    await restored.flush();
+  });
+
   it("learns references by title search, caches information on disk, and refreshes by age", async () => {
     const search = vi.fn(async () => [candidate]), lookup = vi.fn(async () => info());
     const service = new WorkInfoService(search, lookup);

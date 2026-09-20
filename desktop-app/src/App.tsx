@@ -20,6 +20,9 @@ import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import type {
   AnimeResult,
   BackdropArt,
+  BrowseAnime,
+  BrowseDiscoveryResult,
+  BrowseFilters,
   Episode,
   EpisodeGroup,
   EpisodeCatalog,
@@ -44,8 +47,10 @@ import { Icon } from "./icons";
 import { withTransition } from "./transition";
 import { SiteFooter, type FooterScreen } from "./SiteFooter";
 import { updatePending } from "./UpdateUI";
+import BrowseScreen, { DEFAULT_BROWSE_STATE, type BrowseViewState } from "./BrowseScreen";
+import BrowseDetail from "./BrowseDetail";
 
-type Screen = "home" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
+type Screen = "home" | "browse" | "catalog-detail" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
 const loadPlayerScreen = () => import("./PlayerScreen");
 const PlayerScreen = lazy(loadPlayerScreen);
@@ -85,6 +90,12 @@ function App() {
   const [pendingSources, setPendingSources] = useState<ProviderName[]>([]);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>();
   const [updateChecking, setUpdateChecking] = useState(false);
+  const [browseState, setBrowseState] = useState<BrowseViewState>(DEFAULT_BROWSE_STATE);
+  const [browseAnime, setBrowseAnime] = useState<BrowseAnime>();
+  const [browseResolving, setBrowseResolving] = useState(false);
+  // A title opened from the browse grid is checked in place; the token tells one attempt from the next.
+  const [browseOpening, setBrowseOpening] = useState<{ id: number; token: number }>();
+  const [browseResolveError, setBrowseResolveError] = useState<string>();
   const updateInstall = useUpdateInstall(setError);
 
   const catalogSearch = useAnimeSearch(query, "auto",
@@ -96,6 +107,7 @@ function App() {
   const listRef = useRef<HTMLDivElement>(null);
   const playToken = useRef(0);
   const playbackRequest = useRef<string | undefined>(undefined);
+  const seriesOrigin = useRef<"home" | "browse">("home");
   useEffect(() => () => { if (playbackRequest.current) window.aniDesktop.cancelCatalog(playbackRequest.current); }, []);
   const mergePromptActive = useRef(false);
   const keyHandler = useRef<(event: KeyboardEvent) => void>(() => undefined);
@@ -233,8 +245,8 @@ function App() {
     return [];
   }, [screen, paletteOpen, unifiedResults, libraryRows, appState.history, appState.bookmarks, filter]);
 
-  // The home, saved, and recent pages carry an illustration behind them: a wash on home, a wash or a corner figure elsewhere, picked afresh on each visit.
-  const backdropPage: BackdropPage | undefined = screen === "home" || screen === "saved" || screen === "recent" ? screen : undefined;
+  // The home, browse, saved, and recent pages carry an illustration behind them: a wash on home, a wash or a corner figure elsewhere, picked afresh on each visit.
+  const backdropPage: BackdropPage | undefined = screen === "home" || screen === "browse" || screen === "saved" || screen === "recent" ? screen : undefined;
   const backdropsOn = stateLoaded && appState.settings.emptyBackdrop !== false;
   const [backdrop, setBackdrop] = useState<{ page: BackdropPage; variant: BackdropVariant; art: BackdropArt }>();
   useEffect(() => {
@@ -382,7 +394,9 @@ function App() {
   function goBack() {
     if (screen === "player") { dockPlayer(); return; }
     if (screen === "home") { if (query) setQuery(""); catalogSearch.clear(); return; }
-    if (screen === "series") setSelectedAnime(undefined);
+    if (screen === "browse" && browseOpening) { cancelSeries(); setBrowseOpening(undefined); return; }
+    if (screen === "catalog-detail") { cancelSeries(); go("browse"); return; }
+    if (screen === "series") { setSelectedAnime(undefined); go(seriesOrigin.current); return; }
     go("home");
   }
 
@@ -410,12 +424,53 @@ function App() {
     catalogTasks.current.clear();
   };
   useEffect(() => {
-    if (screen !== "series" && screen !== "player" && screen !== "opening") { cancelSeries(); setBusy(undefined); setResolving(false); setEpisodesLoading(false); }
+    if (screen !== "series" && screen !== "player" && screen !== "opening" && screen !== "catalog-detail") { cancelSeries(); setBrowseOpening(undefined); setBusy(undefined); setResolving(false); setEpisodesLoading(false); }
   }, [screen, sourceScope]);
   useEffect(() => () => cancelSeries(), []);
 
-  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string } = {}): Promise<boolean> {
+  /** Hands words from Browse to the source search on Home. */
+  function searchSourcesFor(words: string) { cancelSeries(); go("home"); setQuery(words.slice(0, 120)); window.setTimeout(() => fieldRef.current?.focus(), 0); }
+
+  function browseFor(filters: Partial<BrowseFilters>) {
     cancelSeries();
+    setBrowseState({ ...DEFAULT_BROWSE_STATE, filters: { ...DEFAULT_BROWSE_STATE.filters, ...filters },
+      sortBefore: filters.search ? "popularity" : undefined });
+    setSelectedAnime(undefined);
+    go("browse");
+  }
+
+  async function openBrowseAnime(anime: BrowseAnime, retry = false): Promise<void> {
+    // From the grid the card reports the check, and a second click on it cancels. Only a title without a source lands on the detail page.
+    const inPlace = screen === "browse";
+    if (inPlace && browseOpening?.id === anime.anilistId) { cancelSeries(); setBrowseOpening(undefined); return; }
+    cancelSeries();
+    const token = openToken.current;
+    setBrowseAnime(anime); setBrowseResolving(true); setBrowseResolveError(undefined);
+    if (inPlace) setBrowseOpening({ id: anime.anilistId, token }); else setScreen("catalog-detail");
+    const id = catalogRequestId("browse-open"); catalogTasks.current.add(id);
+    try {
+      const discovery = await window.aniDesktop.discoverBrowse(anime, { id, priority: "selected", refresh: retry, checkNow: retry });
+      if (token !== openToken.current) return;
+      if (discovery.anime) {
+        refreshState();
+        await openAnime({ ...discovery.anime, poster: discovery.anime.poster ?? anime.cover }, { returnTo: "browse", discovery });
+        return;
+      }
+      const failures = Object.entries(discovery.errors).map(([provider, detail]) => `${provider}: ${detail}`);
+      setBrowseResolveError(failures.length ? `Source search was incomplete. ${failures.join(" · ")}` : undefined);
+      setScreen("catalog-detail");
+    } catch (reason) {
+      if (token === openToken.current) { setBrowseResolveError(messageFrom(reason)); setScreen("catalog-detail"); }
+    } finally {
+      catalogTasks.current.delete(id);
+      setBrowseOpening((current) => current?.token === token ? undefined : current);
+      if (token === openToken.current) setBrowseResolving(false);
+    }
+  }
+
+  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse"; discovery?: BrowseDiscoveryResult } = {}): Promise<boolean> {
+    cancelSeries();
+    if (!options.refresh) seriesOrigin.current = options.returnTo ?? "home";
     const token = openToken.current;
     const animeProgress = appState.history.find((entry) => overlaps(entry, anime));
     const preferred = animeProgress?.lastProvider ?? (provider === "auto" ? anime.provider : provider);
@@ -425,7 +480,7 @@ function App() {
     setEpisodesLoading(true);
     if (!options.refresh) { setSelectedEpisodeId(options.focusEpisodeId); seriesScroll.begin(options.focusEpisodeId); }
     if (!options.refresh) setEpisodeGroups([]);
-    setStatus(undefined); setJump(""); setSourceErrors({});
+    setStatus(undefined); setJump(""); setSourceErrors(options.discovery?.errors ?? {});
     setScreen(options.autoPlay ? "opening" : "series");
     if (options.mode) setMode(options.mode);
     setBusy("loading episodes"); setError(undefined); setNotice(undefined);
@@ -440,7 +495,8 @@ function App() {
     const resumeEpisode = (savedProgress?.completed ?? animeProgress?.completed) === false && savedProgress?.lastEpisodeId?.startsWith(`${preferred}:`) && enabledProviders(appState.settings).includes(preferred)
       ? { id: savedProgress.lastEpisodeId, number: savedProgress.lastEpisode, provider: preferred } : undefined;
     const known = new Set(animeSources(anime).map((source) => source.id));
-    const missing = enabledProviders(appState.settings).filter((name) => !animeSources(anime).some((source) => source.provider === name));
+    // Browse has already spent this opening's discovery budget, including failed/missing sources.
+    const missing = options.discovery ? [] : enabledProviders(appState.settings).filter((name) => !animeSources(anime).some((source) => source.provider === name));
     setPendingSources(missing); setResolving(missing.length > 0);
     const request = async <T,>(purpose: string, operation: (request: import("../shared/contracts").CatalogRequest) => Promise<T>) => {
       const id = catalogRequestId(purpose); catalogTasks.current.add(id);
@@ -730,6 +786,7 @@ function App() {
     if (event.key === "Enter" && target?.closest("button:not(.hit):not(.src-hit)")) return;
     if (screen === "settings") { if (event.key === "Escape") goBack(); return; }
     if (event.key === "Escape") { event.preventDefault(); if (showHints) { setShowHints(false); return; } goBack(); return; }
+    if (screen === "browse" || screen === "catalog-detail") return;
     if (screen === "opening") return;
     if (!typing && event.key === "?") { event.preventDefault(); setShowHints((value) => !value); return; }
     if (!typing && event.key === "/") {
@@ -800,8 +857,8 @@ function App() {
     return row ? all.find((item) => !item.watched && item.number === row.number) ?? row : undefined;
   }, [episodeGroups, progress, selectedAnime, provider]);
   // The update notice lives in Settings; a dot on the gear is its only sign elsewhere.
-  const navIcon = (target: Screen, name: "home" | "bookmark" | "clock" | "gear", text: string, badge = false) => (
-    <button type="button" className={screen === target ? "on" : ""} title={badge ? `${text} · update available` : text} onClick={() => go(target)}><Icon name={name} />{badge && <i className="nav-badge" aria-hidden="true" />}<span className="sr-only">{badge ? `${text}, update available` : text}</span></button>
+  const navIcon = (target: Screen, name: "home" | "browse" | "bookmark" | "clock" | "gear", text: string, badge = false) => (
+    <button type="button" className={screen === target || (target === "browse" && screen === "catalog-detail") ? "on" : ""} title={badge ? `${text} · update available` : text} onClick={() => go(target)}><Icon name={name} />{badge && <i className="nav-badge" aria-hidden="true" />}<span className="sr-only">{badge ? `${text}, update available` : text}</span></button>
   );
 
   return (
@@ -812,7 +869,7 @@ function App() {
           <button type="button" className="logo" onClick={() => { go("home"); setQuery(""); catalogSearch.clear(); }} aria-label="Home">ANI<em>desktop</em></button>
         </div>
         <div className={`searchbox ${paletteOpen ? "open" : ""}`}>
-          {screen === "settings" || screen === "player"
+          {screen === "settings" || screen === "player" || screen === "browse" || screen === "catalog-detail"
             ? <button type="button" className="search as-button" onClick={() => { go("home"); }}><Icon name="search" /><span>Search anime</span><kbd>{shortcut("K")}</kbd></button>
             : <label className="search">
                 <Icon name="search" />
@@ -836,6 +893,7 @@ function App() {
         </div>
         <nav className="icons" aria-label="Sections">
           {navIcon("home", "home", "home")}
+          {navIcon("browse", "browse", "browse")}
           {navIcon("saved", "bookmark", "saved")}
           {navIcon("recent", "clock", "recent")}
           {navIcon("settings", "gear", "settings", updatePending(updateStatus))}
@@ -901,6 +959,13 @@ function App() {
           </>
         )}
 
+        {screen === "browse" && <BrowseScreen state={browseState} setState={setBrowseState} enabled={appState.settings.animeInfo !== false}
+          openingId={browseOpening?.id} onOpen={(anime) => void openBrowseAnime(anime)} onSearchSources={searchSourcesFor} />}
+
+        {screen === "catalog-detail" && browseAnime && <BrowseDetail anime={browseAnime} resolving={browseResolving} error={browseResolveError}
+          onBack={() => { cancelSeries(); go("browse"); }} onRetry={() => void openBrowseAnime(browseAnime, true)}
+          onSearch={() => searchSourcesFor(browseAnime.title)} onBrowse={browseFor} />}
+
         {screen === "saved" && (appState.bookmarks.length === 0
           ? <EmptyLibrary kind="saved" onAction={focusSearch} />
           : rows.length === 0
@@ -914,12 +979,12 @@ function App() {
             : cardSection("recent", "Recent"))}
 
         {screen === "series" && selectedAnime && (
-          <SeriesScreen anime={selectedAnime} progress={progress} isSaved={isSaved} player={player}
+          <SeriesScreen anime={selectedAnime} progress={progress} isSaved={isSaved} player={player} backLabel={seriesOrigin.current === "browse" ? "Browse" : undefined}
             mode={mode} quality={quality} lastQuery={lastQuery} busy={busy} resolving={resolving}
             pendingSources={pendingSources} sourceErrors={sourceErrors} episodeGroups={episodeGroups} episodeRows={episodeRows}
             episodeCount={episodeCount} seriesMetadata={seriesMetadata.get(selectedAnime)} info={workInfo.get(linkedAnime(selectedAnime))} nextUp={nextUp} episodeFilter={episodeFilter}
             episodeSort={episodeSort} jump={jump} playingId={playingId} status={status} metadata={metadata} listRef={listRef}
-            onPlay={(episode) => void playEpisode(episode)} onBookmark={() => void toggleBookmark()} onBack={goBack}
+            onPlay={(episode) => void playEpisode(episode)} onBookmark={() => void toggleBookmark()} onBack={goBack} onBrowse={browseFor}
             onMode={setMode} onQuality={setQuality} onCheckSources={() => void openAnime(selectedAnime, { refresh: true, checkNow: true })}
             onRefreshSources={() => {
               void metadata.refresh(episodeGroups.flatMap((group) => group.episodes.map((episode) => episode.id))).catch((error) => setError(messageFrom(error)));
@@ -940,7 +1005,7 @@ function App() {
             onOpenLogs={() => { void run("opening player logs", () => window.aniDesktop.openPlayerLogs()); }} />
         )}
 
-        {screen !== "opening" && <SiteFooter current={screen === "home" || screen === "saved" || screen === "recent" || screen === "settings" ? screen : undefined}
+        {screen !== "opening" && <SiteFooter current={screen === "home" || screen === "browse" || screen === "saved" || screen === "recent" || screen === "settings" ? screen : undefined}
           backdrop={backdrop && backdrop.page === backdropPage ? backdrop.art : undefined}
           onNavigate={(next: FooterScreen) => { setQuery(""); catalogSearch.clear(); go(next); }} />}
       </div>}

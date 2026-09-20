@@ -3,7 +3,7 @@ import { BACKDROP_CREDIT_URL } from "../shared/backdrops";
 
 /** How an illustration sits behind a page: a wash across the top, or a figure peeking from the top-right corner. */
 export type BackdropVariant = "wash" | "corner";
-export type BackdropPage = "home" | "saved" | "recent";
+export type BackdropPage = "home" | "browse" | "saved" | "recent";
 
 /** The illustration itself, placed behind the bar and the page by the app shell. */
 export function Backdrop({ art, variant }: { art: BackdropArt; variant: BackdropVariant }) {

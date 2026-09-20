@@ -1,0 +1,10 @@
+const { spawn } = require('node:child_process');
+const { resolve } = require('node:path');
+const env = { ...process.env };
+delete env.ELECTRON_RUN_AS_NODE;
+delete env.VITE_DEV_SERVER_URL;
+delete env.ANI_DESKTOP_CAPTURE_PATH;
+delete env.ANI_DESKTOP_SMOKE_QUERY;
+const child = spawn(require('electron'), [resolve(__dirname, 'browse-integration.cjs')], { env, stdio: 'inherit' });
+child.on('error', error => { console.error(error); process.exitCode = 1; });
+child.on('exit', code => { process.exitCode = code ?? 1; });

@@ -1,4 +1,4 @@
-import type { IdentityCandidate, MediaType, WorkInfo, WorkRelation, WorkStatus } from "../shared/contracts";
+import type { BrowseAnime, BrowseQuery, BrowseStudio, IdentityCandidate, MediaType, WorkInfo, WorkRelation, WorkStatus } from "../shared/contracts";
 import { isRef, mediaTypeOf, positiveInteger, ref, unique } from "../shared/identity";
 import { catalogContext, catalogRequests, CatalogNetworkError } from "./catalog-requests";
 import { retryAfterDelay } from "./scraper";
@@ -15,6 +15,7 @@ const USER_AGENT = "ANIdesktop (https://github.com/HanifiNF/Ani-cli-aniwave)";
 
 const MEDIA_FIELDS = `id idMal title { romaji english native } synonyms format episodes seasonYear season startDate { year } status`;
 const INFO_FIELDS = `${MEDIA_FIELDS} genres studios(isMain: true) { nodes { name } } averageScore description(asHtml: false)
+  tags { name isAdult isGeneralSpoiler isMediaSpoiler }
   coverImage { extraLarge large } bannerImage nextAiringEpisode { episode airingAt }
   relations { edges { relationType node { id idMal type title { romaji english } format } } }`;
 
@@ -48,8 +49,10 @@ async function graphql(query: string, variables: Record<string, unknown>, label:
       if (signal.aborted) throw signal.reason;
       throw new CatalogNetworkError(`${label}: ${error instanceof Error ? error.message : String(error)}`);
     }
-    const remaining = Number(response.headers.get("x-ratelimit-remaining"));
-    const reset = Number(response.headers.get("x-ratelimit-reset"));
+    const remainingHeader = response.headers.get("x-ratelimit-remaining");
+    const resetHeader = response.headers.get("x-ratelimit-reset");
+    const remaining = remainingHeader === null ? NaN : Number(remainingHeader);
+    const reset = resetHeader === null ? NaN : Number(resetHeader);
     // Leave a small margin so playback-adjacent requests never hit the limit head-on.
     if (Number.isFinite(remaining) && remaining <= 2) pausedUntil = Number.isFinite(reset) && reset > 0 ? reset * 1000 : Date.now() + 60_000;
     if (response.status === 429) {
@@ -129,6 +132,9 @@ export function toWorkInfo(media: Media): WorkInfo | undefined {
     refs: candidate.refs, title: candidate.title, titles: titlesOf(media), synonyms: candidate.titles.filter((title) => !Object.values(titlesOf(media)).includes(title)),
     type: candidate.type, episodes: candidate.episodes, year: candidate.year, season: text(media.season)?.toLowerCase(), status: candidate.status ?? "unknown",
     genres: Array.isArray(media.genres) ? media.genres.filter((value): value is string => typeof value === "string") : [], studios,
+    tags: unique((Array.isArray(media.tags) ? media.tags as Record<string, unknown>[] : [])
+      .filter((tag) => tag && tag.isAdult !== true && tag.isGeneralSpoiler !== true && tag.isMediaSpoiler !== true)
+      .map((tag) => text(tag.name)).filter((value): value is string => Boolean(value))),
     ...(score ? { score } : {}), description: plainDescription(media.description),
     cover: text(cover?.extraLarge) ?? text(cover?.large), banner: text(media.bannerImage), ...(nextAiring ? { nextAiring } : {}),
     relations, fetchedAt: Date.now(), source: "anilist"
@@ -140,6 +146,102 @@ export async function searchAniList(term: string): Promise<IdentityCandidate[]> 
   const query = `query ($search: String) { Page(perPage: 25) { media(search: $search, type: ANIME) { ${MEDIA_FIELDS} } } }`;
   const data = await graphql(query, { search: term }, "AniList search", DAY) as { Page?: { media?: Media[] } } | undefined;
   return (data?.Page?.media ?? []).map(toCandidate).filter((candidate): candidate is IdentityCandidate => Boolean(candidate));
+}
+
+// Cards and the catalog detail need far less than the series screen, which looks the work up itself once it opens.
+const BROWSE_FIELDS = `${MEDIA_FIELDS} genres averageScore description(asHtml: false) coverImage { extraLarge large }`;
+const browseSort = { match: "SEARCH_MATCH", popularity: "POPULARITY_DESC", score: "SCORE_DESC", newest: "START_DATE_DESC", title: "TITLE_ENGLISH" } as const;
+/** AniList's FuzzyDateInt: a date as the number YYYYMMDD. */
+const fuzzyDate = (date: Date): number => date.getFullYear() * 10_000 + (date.getMonth() + 1) * 100 + date.getDate();
+const browseStatus = { finished: "FINISHED", ongoing: "RELEASING", upcoming: "NOT_YET_RELEASED" } as const;
+
+/** The stable genre vocabulary used by the browse filter. Browse never lists adult titles, so the adult-only genre would always be empty. */
+export async function aniListGenres(): Promise<string[]> {
+  const data = await graphql("query { GenreCollection }", {}, "AniList genres", 7 * DAY) as { GenreCollection?: unknown } | undefined;
+  return Array.isArray(data?.GenreCollection)
+    ? data.GenreCollection.filter((value): value is string => typeof value === "string" && value.trim().length > 0).map((value) => value.trim())
+      .filter((value) => value.toLowerCase() !== "hentai").sort()
+    : [];
+}
+
+/** The non-adult tag vocabulary ("Isekai", "Time Travel"), finer than genres. */
+export async function aniListTags(): Promise<string[]> {
+  const data = await graphql("query { MediaTagCollection { name isAdult } }", {}, "AniList tags", 7 * DAY) as { MediaTagCollection?: { name?: unknown; isAdult?: unknown }[] } | undefined;
+  return unique((data?.MediaTagCollection ?? []).filter((tag) => tag?.isAdult !== true).map((tag) => text(tag?.name)).filter((value): value is string => Boolean(value))).sort((a, b) => a.localeCompare(b));
+}
+
+const STUDIO_FIELDS = "id name isAnimationStudio";
+// Companies that animate lead; AniList's own order holds within each group.
+const toStudios = (nodes: unknown): BrowseStudio[] => (Array.isArray(nodes) ? nodes as Record<string, unknown>[] : []).flatMap((node) => {
+  const id = positiveInteger(node?.id), name = text(node?.name);
+  return id && name ? [{ id, name, animation: node.isAnimationStudio === true }] : [];
+}).sort((a, b) => Number(b.animation) - Number(a.animation));
+
+function toBrowseAnime(media: Media): BrowseAnime[] {
+  const info = toWorkInfo(media);
+  const id = positiveInteger(media.id);
+  if (!info || !id) return [];
+  return [{ anilistId: id, refs: info.refs, title: info.title, titleVariants: info.titles, titles: unique([info.title, ...Object.values(info.titles), ...info.synonyms].filter((value): value is string => Boolean(value))),
+    cover: info.cover, genres: info.genres, type: info.type, year: info.year, season: info.season, status: info.status,
+    score: info.score, episodes: info.episodes, description: info.description, studios: info.studios }];
+}
+
+/**
+ * One page of a studio's works, most popular first. A studio's list takes no filters, so browse reads it as ids
+ * and hands them to the ordinary catalog query. The first page also carries card details, to show while the rest is read.
+ */
+export async function aniListStudioPage(studio: BrowseStudio, page: number): Promise<{ ids: number[]; entries: BrowseAnime[]; hasNextPage: boolean }> {
+  const fields = page === 1 ? BROWSE_FIELDS : "id";
+  // A producer is never the main studio of what it funds.
+  const document = `query ($id: Int, $page: Int, $main: Boolean) { Studio(id: $id) { media(isMain: $main, page: $page, perPage: 25, sort: POPULARITY_DESC) { pageInfo { hasNextPage } nodes { type isAdult ${fields} } } } }`;
+  const data = await graphql(document, { id: studio.id, page, main: studio.animation ? true : undefined }, "AniList studio", 7 * DAY) as { Studio?: { media?: { pageInfo?: { hasNextPage?: unknown }; nodes?: Media[] } } } | undefined;
+  const nodes = (data?.Studio?.media?.nodes ?? []).filter((node) => node?.type === "ANIME" && node.isAdult !== true);
+  return { ids: nodes.map((node) => positiveInteger(node.id)).filter((id): id is number => Boolean(id)), entries: page === 1 ? nodes.flatMap(toBrowseAnime) : [], hasNextPage: data?.Studio?.media?.pageInfo?.hasNextPage === true };
+}
+
+/** `ids` narrows the catalog to a studio's works; an empty list means the studio has none. */
+export async function browseAniList(query: BrowseQuery, ids?: number[]): Promise<{ entries: BrowseAnime[]; hasNextPage: boolean; studios?: BrowseStudio[] }> {
+  const { filters, page } = query;
+  if (ids && !ids.length) return { entries: [], hasNextPage: false };
+  // The first page of a title search asks for matching studios in the same request.
+  const withStudios = Boolean(filters.search) && !filters.studio && page === 1;
+  const document = `query ($page: Int, $genres: [String], $excluded: [String], $year: Int, $season: MediaSeason, $search: String, $tags: [String], $ids: [Int],
+    $status: MediaStatus, $startedAfter: FuzzyDateInt, $startedBefore: FuzzyDateInt, $format: MediaFormat, $score: Int, $minEpisodes: Int, $maxEpisodes: Int, $sort: [MediaSort]) {
+    Page(page: $page, perPage: 24) {
+      pageInfo { hasNextPage }
+      media(type: ANIME, isAdult: false, search: $search, tag_in: $tags, id_in: $ids, genre_in: $genres, genre_not_in: $excluded, seasonYear: $year,
+        season: $season, status: $status, startDate_greater: $startedAfter, startDate_lesser: $startedBefore, format: $format, averageScore_greater: $score,
+        episodes_greater: $minEpisodes, episodes_lesser: $maxEpisodes, sort: $sort) { ${BROWSE_FIELDS} }
+    }${withStudios ? `
+    matching: Page(perPage: 6) { studios(search: $search, sort: SEARCH_MATCH) { ${STUDIO_FIELDS} } }` : ""}
+  }`;
+  const variables = {
+    page,
+    search: filters.search,
+    tags: filters.tags?.length ? filters.tags : undefined,
+    ids,
+    genres: filters.includeGenres.length ? filters.includeGenres : undefined,
+    excluded: filters.excludeGenres.length ? filters.excludeGenres : undefined,
+    year: filters.year,
+    season: filters.season?.toUpperCase(),
+    status: filters.status ? browseStatus[filters.status] : undefined,
+    // AniList sorts undated entries first, which would bury every released title under unannounced and cancelled ones.
+    startedAfter: filters.sort === "newest" ? 10_000_000 : undefined,
+    // Without a chosen status, "newest" means released; a day of slack covers time zones ahead of this one.
+    startedBefore: filters.sort === "newest" && !filters.status ? fuzzyDate(new Date(Date.now() + DAY)) : undefined,
+    format: filters.format,
+    score: filters.minimumScore === undefined ? undefined : Math.max(0, filters.minimumScore - 1),
+    minEpisodes: filters.minimumEpisodes === undefined ? undefined : Math.max(0, filters.minimumEpisodes - 1),
+    maxEpisodes: filters.maximumEpisodes === undefined ? undefined : filters.maximumEpisodes + 1,
+    sort: [browseSort[filters.sort === "match" && !filters.search ? "popularity" : filters.sort]]
+  };
+  const data = await graphql(document, variables, "AniList browse", 30 * 60_000) as { Page?: { pageInfo?: { hasNextPage?: unknown }; media?: Media[] }; matching?: { studios?: unknown } } | undefined;
+  const entries = (data?.Page?.media ?? []).flatMap(toBrowseAnime)
+    .filter((entry) => filters.includeGenres.every((genre) => entry.genres.some((value) => value.toLocaleLowerCase() === genre.toLocaleLowerCase())))
+    .filter((entry) => !filters.excludeGenres.some((genre) => entry.genres.some((value) => value.toLocaleLowerCase() === genre.toLocaleLowerCase())))
+    .filter((entry) => filters.minimumEpisodes === undefined || (entry.episodes !== undefined && entry.episodes >= filters.minimumEpisodes))
+    .filter((entry) => filters.maximumEpisodes === undefined || (entry.episodes !== undefined && entry.episodes <= filters.maximumEpisodes));
+  return { entries, hasNextPage: data?.Page?.pageInfo?.hasNextPage === true, ...(withStudios ? { studios: toStudios(data?.matching?.studios) } : {}) };
 }
 
 /** Full information for one work, by its AniList id or, failing that, its MyAnimeList id. */

@@ -76,6 +76,15 @@ export interface IdentityCandidate {
   status?: WorkStatus;
 }
 
+/** Identified catalogue entry used only to discover streaming sources. */
+export interface BrowseIdentity extends IdentityCandidate {
+  titleVariants?: { english?: string; romaji?: string; native?: string };
+}
+export interface BrowseDiscoveryResult {
+  anime?: AnimeResult;
+  errors: Partial<Record<ProviderName, string>>;
+}
+
 export interface WorkRelation { relation: string; refs: string[]; title: string; type?: MediaType; }
 export interface WorkInfo {
   refs: string[];
@@ -88,6 +97,8 @@ export interface WorkInfo {
   season?: string;
   status: WorkStatus;
   genres: string[];
+  /** Non-spoiler AniList tags; absent in older cached information. */
+  tags?: string[];
   studios: string[];
   /** Average score on a 0–100 scale. */
   score?: number;
@@ -102,6 +113,61 @@ export interface WorkInfo {
   stale?: boolean;
   error?: string;
 }
+
+/** "match" orders a title search by closeness and needs a search term. */
+export type BrowseSort = "match" | "popularity" | "score" | "newest" | "title";
+/** A company AniList credits. Only some of them animate; the rest fund or distribute. */
+export interface BrowseStudio { id: number; name: string; animation: boolean; }
+export interface BrowseFilters {
+  includeGenres: string[];
+  excludeGenres: string[];
+  year?: number;
+  season?: "winter" | "spring" | "summer" | "fall";
+  status?: Exclude<WorkStatus, "unknown">;
+  format?: MediaType;
+  minimumScore?: number;
+  minimumEpisodes?: number;
+  maximumEpisodes?: number;
+  /** Matches English, romaji, and native titles and synonyms. */
+  search?: string;
+  tags?: string[];
+  studio?: BrowseStudio;
+  sort: BrowseSort;
+}
+/** An AniList catalog entry. It deliberately has no streaming-provider id. */
+export interface BrowseAnime {
+  anilistId: number;
+  refs: string[];
+  title: string;
+  titles: string[];
+  titleVariants?: BrowseIdentity["titleVariants"];
+  cover?: string;
+  genres: string[];
+  type?: MediaType;
+  year?: number;
+  season?: string;
+  status: WorkStatus;
+  score?: number;
+  episodes?: number;
+  description?: string;
+  studios: string[];
+}
+export interface BrowseQuery { filters: BrowseFilters; page: number; }
+export interface BrowseResult {
+  query: BrowseQuery;
+  entries: BrowseAnime[];
+  hasNextPage: boolean;
+  /** Studios whose names match the search term; first page of a title search only. */
+  studios?: BrowseStudio[];
+  fetchedAt: number;
+  cached?: boolean;
+  stale?: boolean;
+  error?: string;
+  retryAt?: number;
+}
+
+/** Sent while a studio's list of works is read for the first time: how far it is, and its most popular works to show meanwhile. */
+export interface BrowseProgress { studio: string; read: number; entries?: BrowseAnime[]; }
 
 export interface IdentityIndexStatus {
   enabled: boolean;
@@ -273,7 +339,7 @@ export interface Settings {
   animeInfo?: boolean;
   /** Keep a local copy of the anime-offline-database for identity matching without network requests. */
   offlineIndex?: boolean;
-  /** Show an illustration behind the home, saved, and recent pages. On unless turned off. */
+  /** Show an illustration behind the home, browse, saved, and recent pages. On unless turned off. */
   emptyBackdrop?: boolean;
   theme: ThemePreset;
   customTheme: CustomTheme;
@@ -359,7 +425,12 @@ export type PlayerCommand = "play-pause" | "seek-backward" | "seek-forward" | "v
 
 export interface AniDesktopApi {
   player: AniPlayerApi;
-  search(query: string, provider?: ProviderPreference, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult[]>) => void): Promise<AnimeResult[]>;
+  /** `known` names a work the caller has already identified, so matching rows carry its references without a title lookup. */
+  search(query: string, provider?: ProviderPreference, request?: CatalogRequest, onUpdate?: (progress: CatalogProgress<AnimeResult[]>) => void, known?: IdentityCandidate): Promise<AnimeResult[]>;
+  browseGenres(request?: CatalogRequest): Promise<string[]>;
+  browseTags(request?: CatalogRequest): Promise<string[]>;
+  browse(query: BrowseQuery, request?: CatalogRequest, onUpdate?: (progress: BrowseProgress) => void): Promise<BrowseResult>;
+  discoverBrowse(anime: BrowseIdentity, request?: CatalogRequest): Promise<BrowseDiscoveryResult>;
   episodes(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: EpisodeCatalog) => void): Promise<EpisodeCatalog>;
   seriesMetadata(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: SeriesMetadataCatalog) => void): Promise<SeriesMetadataCatalog>;
   /** Look the anime up on every provider it is not yet known on, remembering confident matches. */
@@ -395,6 +466,8 @@ export interface AniDesktopApi {
   onUpdateInstallStatus(listener: (status: UpdateInstallStatus) => void): () => void;
   downloadUpdate(version: string): Promise<UpdateInstallStatus>;
   installUpdate(): Promise<void>;
+  /** Puts plain text on the system clipboard; the renderer itself has no clipboard permission. */
+  copyText(text: string): Promise<void>;
   setAppIcon(pngDataUrl: string): Promise<void>;
   toggleBookmark(entry: LibraryEntry): Promise<PersistedState>;
   removeBookmark(animeId: string): Promise<PersistedState>;

@@ -47,6 +47,10 @@ describe("offline title index", () => {
     await reloaded.load();
     expect(reloaded.size).toBe(1002);
     expect(reloaded.candidatesFor(["sousou no frieren"])).toHaveLength(1);
+    expect(reloaded.candidatesForRefs(["anilist:154587"])).toEqual(reloaded.candidatesFor(["sousou no frieren"]));
+    expect(reloaded.candidatesForRefs(["mal:52991", "anilist:154587"])).toHaveLength(1);
+    expect(reloaded.candidatesForRefs(["mal:52991", "anilist:99"])).toEqual([]);
+    expect(reloaded.candidatesForRefs(["anilist:99999999"])).toEqual([]);
     expect(download).toHaveBeenCalledTimes(1);
   });
 

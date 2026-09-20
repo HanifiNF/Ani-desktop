@@ -1,0 +1,184 @@
+<!doctype html><meta charset="utf-8"><title>Browse · filters, cards, paging, opening</title>
+<!-- Uses the app's stylesheet so each section renders as it does in the app. Covers come from AniList's CDN (the same URLs as src/devBrowseFixtures.ts), so capturing needs a connection. -->
+<link rel="stylesheet" href="../../src/styles.css">
+<style>
+html, body { height: auto; }
+body { background:#121315; padding: 40px 0 80px; min-width: 0; }
+.caption { width: 1000px; margin: 56px 60px 12px; color: #85878c; font-size: 12.5px; line-height: 1.55; }
+.caption:first-child { margin-top: 0; }
+.caption b { color: #d6d7da; font-weight: 600; }
+.caption i { color: #a9abb0; font-style: normal; }
+.variant { position: relative; width: 1240px; background: var(--bg); padding: 22px 60px 34px; }
+.variant .section { margin-top: 0; }
+.variant * { animation: none !important; }
+
+/* ---- shared: heading line with plain-text sort, like the schedule's day tabs ---- */
+.bx-sub { color: var(--muted); font-size: 13px; }
+.bx-sort { display: flex; gap: 18px; margin-left: auto; }
+.bx-sort button { color: var(--muted); font-size: 14px; }
+.bx-sort button:hover { color: var(--text); }
+.bx-sort button.on { color: var(--text); font-weight: 500; }
+.chev { width: 10px; height: 10px; flex: none; opacity: .7; }
+
+/* ---- shared: three-state genre chip (off, include, exclude) ---- */
+.bx-genres { display: flex; flex-wrap: wrap; gap: 6px; }
+.g { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 7px; background: var(--raised); color: var(--muted); font-size: 12.5px; }
+.g:hover { color: var(--text); background: var(--raised2); }
+.g.inc { background: var(--cursor); color: var(--cursor-text); font-weight: 500; }
+.g.exc { background: none; box-shadow: 0 0 0 1px var(--rule) inset; color: var(--dim); text-decoration: line-through; }
+.g.exc::before { content: "−"; text-decoration: none; display: inline-block; color: var(--danger); }
+
+/* ---- shared: card additions on top of .card ---- */
+.bx-grid { margin-top: 20px; }
+.card .badges.top { top: 8px; bottom: auto; justify-content: flex-end; }
+.card.is-resolving .poster { box-shadow: 0 0 0 2px var(--cursor); }
+.card.is-resolving .poster img { filter: brightness(.55); }
+.card.is-waiting { opacity: .45; }
+
+/* ---- shared: load more ---- */
+.bx-more { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 28px; color: var(--dim); font-size: 12.5px; }
+.bx-ghosts { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 18px 16px; margin-top: 18px; -webkit-mask-image: linear-gradient(#000 10%, transparent 90%); mask-image: linear-gradient(#000 10%, transparent 90%); }
+
+/* ---- B1 · quiet strip ---- */
+.b1-line { display: flex; align-items: center; gap: 8px; margin-top: 12px; min-height: 28px; }
+.b1-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; font-weight: 500; }
+.b1-toggle.open, .b1-toggle:hover { color: var(--text); }
+.b1-toggle.open .chev { transform: rotate(180deg); }
+.token { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 6px 0 9px; border-radius: 7px; background: var(--raised); color: var(--text); font-size: 12px; }
+.token span { color: var(--dim); font-size: 13px; line-height: 1; }
+.b1-clear { margin-left: auto; color: var(--muted); font-size: 12.5px; }
+.b1-panel { display: flex; flex-wrap: wrap; gap: 14px 28px; margin-top: 12px; padding: 16px 18px; border-radius: 12px; background: color-mix(in oklab, var(--bg), var(--text) 3%); }
+.b1-panel .chips-row { gap: 10px; }
+.mini { width: 58px; height: 30px; padding: 0 9px; border-radius: 8px; background: var(--raised); color: var(--text); font-size: 13px; text-align: center; }
+.mini.wide { width: 72px; }
+.dash { color: var(--dim); }
+
+/* ---- B2 · pill row with popovers ---- */
+.b2-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.pill { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 12px; border-radius: 9px; background: var(--raised); color: var(--muted); font-size: 13px; }
+.pill:hover { color: var(--text); }
+.pill.set { color: var(--text); background: var(--raised2); }
+.pill.set em { font-style: normal; color: var(--muted); }
+.pill.open { box-shadow: 0 0 0 1px var(--dim) inset; color: var(--text); }
+.pill.right { margin-left: auto; }
+.pill.plain { background: none; padding: 0 4px; }
+.pop { position: absolute; z-index: 5; padding: 14px; border-radius: 12px; background: color-mix(in oklab, var(--bg), var(--text) 9%); box-shadow: 0 0 0 1px var(--rule), 0 18px 40px rgb(0 0 0 / 45%); }
+.pop h5 { margin: 0 0 10px; display: flex; justify-content: space-between; color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.pop h5 span { letter-spacing: 0; text-transform: none; font-weight: 400; }
+.pop .bx-genres { width: 392px; }
+.pop .g { background: color-mix(in oklab, var(--bg), var(--text) 15%); }
+.pop .g.inc { background: var(--cursor); }
+.pop .g.exc { background: none; }
+
+/* ---- B3 · left rail ---- */
+.b3 { display: grid; grid-template-columns: 196px minmax(0, 1fr); gap: 36px; }
+.b3 .cards { --cols: 6; }
+.b3-rail h5 { margin: 20px 0 8px; color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.b3-rail h5:first-child { margin-top: 4px; }
+.b3-list { display: grid; gap: 1px; }
+.b3-list.two { grid-template-columns: 1fr 1fr; column-gap: 4px; }
+.b3-list button { display: flex; align-items: center; gap: 7px; height: 27px; padding: 0 8px; margin-left: -8px; border-radius: 7px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.b3-list button:hover { color: var(--text); background: var(--raised); }
+.b3-list button.on, .b3-list button.inc { color: var(--text); font-weight: 500; }
+.b3-list button.inc::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--cursor); }
+.b3-list button.exc { color: var(--dim); text-decoration: line-through; }
+.b3-list button.exc::before { content: "−"; color: var(--danger); text-decoration: none; display: inline-block; }
+.b3-fields { display: flex; align-items: center; gap: 8px; }
+
+/* ---- B4 · sentence ---- */
+.b4-sentence { margin: 2px 0 0; max-width: 900px; color: var(--muted); font-size: 22px; font-weight: 500; line-height: 1.6; letter-spacing: -.02em; }
+.b4-sentence button { color: var(--text); font-weight: 600; border-bottom: 1px dashed var(--dim); line-height: 1.25; }
+.b4-sentence button:hover, .b4-sentence button.open { border-bottom-color: var(--cursor); border-bottom-style: solid; }
+.b4-sentence button.not { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--danger); }
+.b4-sentence button.add { color: var(--dim); font-weight: 500; border-bottom: 0; font-size: 15px; letter-spacing: 0; margin-left: 6px; }
+.menu { min-width: 150px; padding: 6px; }
+.menu button { display: flex; width: 100%; align-items: center; justify-content: space-between; height: 30px; padding: 0 10px; border-radius: 7px; color: var(--muted); font-size: 13px; }
+.menu button.on { color: var(--text); background: color-mix(in oklab, var(--bg), var(--text) 16%); }
+
+/* ---- states ---- */
+.bx-none { padding: 34px 0 10px; color: var(--muted); }
+.bx-none b { display: block; margin-bottom: 4px; color: var(--text); font-size: 15px; font-weight: 600; }
+.bx-none .fixes { display: flex; gap: 8px; margin-top: 14px; }
+</style>
+<script>
+const D = [
+ ["Frieren: Beyond Journey's End","bx154587-qQTzQnEJJ3oB.jpg","TV",2023,91,28,["Adventure","Drama","Fantasy"]],
+ ["Attack on Titan","bx16498-buvcRTBx4NSm.jpg","TV",2013,85,25,["Action","Drama","Fantasy","Mystery"]],
+ ["Demon Slayer: Kimetsu no Yaiba","bx101922-WBsBl0ClmgYL.jpg","TV",2019,82,26,["Action","Adventure","Drama","Fantasy","Supernatural"]],
+ ["JUJUTSU KAISEN","bx113415-LHBAeoZDIsnF.jpg","TV",2020,84,24,["Action","Drama","Supernatural"]],
+ ["Death Note","bx1535-kUgkcrfOrkUM.jpg","TV",2006,84,37,["Mystery","Psychological","Supernatural","Thriller"]],
+ ["My Hero Academia","bx21459-nYh85uj2Fuwr.jpg","TV",2016,76,13,["Action","Adventure","Comedy"]],
+ ["Hunter x Hunter (2011)","bx11061-y5gsT1hoHuHw.png","TV",2011,89,148,["Action","Adventure","Fantasy"]],
+ ["One-Punch Man","bx21087-B5DHjqZ3kW4b.jpg","TV",2015,83,12,["Action","Comedy","Sci-Fi","Supernatural"]],
+ ["ONE PIECE","bx21-ELSYx3yMPcKM.jpg","TV",1999,87,0,["Action","Adventure","Comedy","Drama","Fantasy"]],
+ ["Tokyo Ghoul","b20605-k665mVkSug8D.jpg","TV",2014,76,12,["Action","Drama","Horror","Mystery"]],
+ ["Attack on Titan Season 2","bx20958-HuFJyr54Mmir.jpg","TV",2017,85,12,["Action","Drama","Fantasy","Mystery"]],
+ ["Fullmetal Alchemist: Brotherhood","bx5114-nSWCgQlmOMtj.jpg","TV",2009,90,64,["Action","Adventure","Drama","Fantasy"]],
+ ["Naruto","bx20-dE6UHbFFg1A5.jpg","TV",2002,80,220,["Action","Adventure","Comedy","Drama","Fantasy"]],
+ ["Sword Art Online","bx11757-SxYDUzdr9rh2.jpg","TV",2012,70,25,["Action","Adventure","Fantasy","Romance"]],
+ ["A Silent Voice","bx20954-sYRfE5jQRtSB.jpg","MOVIE",2016,88,1,["Drama","Romance","Slice of Life"]],
+ ["Your Name.","bx21519-SUo3ZQuCbYhJ.png","MOVIE",2016,85,1,["Drama","Romance","Supernatural"]],
+ ["Attack on Titan Season 3","bx99147-AiPDD8cwlCfi.jpg","TV",2018,86,12,["Action","Drama","Fantasy","Mystery"]],
+ ["Attack on Titan Final Season","bx110277-sKUNXAsWMNFw.jpg","TV",2021,87,16,["Action","Drama","Fantasy","Mystery"]],
+ ["Chainsaw Man","bx127230-DdP4vAdssLoz.png","TV",2022,83,12,["Action","Drama","Horror","Supernatural"]],
+ ["Assassination Classroom","bx20755-dWrhs569YGUO.jpg","TV",2015,79,22,["Action","Comedy","Drama","Supernatural"]],
+ ["Mob Psycho 100","bx21507-6YUSbh2m0N1p.jpg","TV",2016,84,12,["Action","Comedy","Drama","Psychological"]],
+ ["Re:ZERO -Starting Life in Another World-","bx21355-wRVUrGxpvIQQ.jpg","TV",2016,81,25,["Action","Adventure","Drama","Fantasy"]]
+].map(([t,c,k,y,s,e,g]) => ({ t, c:"https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/"+c, k, y, s, e, g }));
+// The filtered example used throughout: Action and Drama, without Horror, TV, scored 8 or higher.
+const F = D.filter(x => x.g.includes("Action") && x.g.includes("Drama") && !x.g.includes("Horror") && x.k==="TV" && x.s>=80);
+const GENRES = ["Action","Adventure","Comedy","Drama","Ecchi","Fantasy","Horror","Mahou Shoujo","Mecha","Music","Mystery","Psychological","Romance","Sci-Fi","Slice of Life","Sports","Supernatural","Thriller"];
+const INC = ["Action","Drama"], EXC = ["Horror"];
+
+const chev = `<svg class="chev" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3.5 5 6.5 8 3.5"/></svg>`;
+const format = k => k==="MOVIE" ? "Movie" : k;
+const card = (x, cls="", badge="") => `<div class="card ${cls}"><button class="hit"><span class="art poster"><img class="in" src="${x.c}"></span><span class="badges top"><span class="badge">${(x.s/10).toFixed(1)}</span></span>${badge?`<span class="badges"><span class="badge hi">${badge}</span></span>`:""}</button><span class="t">${x.t}</span><span class="s">${[format(x.k), x.y, x.e ? (x.e===1?"":x.e+" eps") : "airing"].filter(Boolean).join(" · ")}</span><span class="tags">${x.g.slice(0,2).map(g=>`<span class="tag">${g}</span>`).join("")}${x.g.length>2?`<span class="tag more">+${x.g.length-2}</span>`:""}</span></div>`;
+const grid = (items, n) => `<div class="cards bx-grid">${items.slice(0,n).map(x=>card(x)).join("")}</div>`;
+const sort = (on="Popular") => `<div class="bx-sort">${["Popular","Top rated","Newest","A–Z"].map(s=>`<button class="${s===on?"on":""}">${s}</button>`).join("")}</div>`;
+const head = (sub, right=sort()) => `<div class="section-head"><h2>Browse</h2><span class="bx-sub">${sub}</span>${right}</div>`;
+const genres = (active) => `<div class="bx-genres">${GENRES.map(g=>`<button class="g ${active&&INC.includes(g)?"inc":active&&EXC.includes(g)?"exc":""}">${g}</button>`).join("")}</div>`;
+const more = `<div class="bx-more"><span>24 shown</span><button class="btn small">Show more</button></div>`;
+const V = (name, body) => `<div class="variant" data-variant="${name}"><section class="section">${body}</section></div>`;
+const cap = (html) => `<div class="caption">${html}</div>`;
+const seg = (label, options, on) => `<div class="chips-row"><span class="chips-lab">${label}</span><div class="chips">${options.map(o=>`<button class="${o===on?"on":""}">${o}</button>`).join("")}</div></div>`;
+
+document.write(
+  cap(`<b>B1 · Quiet strip, at rest.</b> The heading line works like Schedule: title, a quiet note, and plain-text sort on the right. Genres sit in the open as chips because they are the filter people reach for first. Everything else waits behind one "Filters" word. Cards are the app's standard card (score badge, format · year · episodes, genre chips), so <i>.browse-card</i> goes away.`) +
+  V("b1-rest", head("AniList catalog") + genres(false) + `<div class="b1-line"><button class="b1-toggle">Filters ${chev}</button></div>` + grid(D, 8)) +
+
+  cap(`<b>B1 · Quiet strip, filtered with the panel open.</b> One click on a genre includes it (filled), a second click excludes it (struck, red minus), a third clears it. That maps straight onto <i>includeGenres</i> and <i>excludeGenres</i>. The panel uses the segmented chips Settings already uses for named options. Every change applies at once; typed fields wait 400 ms. When the panel is closed, the active filters stay visible as removable tokens beside "Filters".`) +
+  V("b1-open", head("AniList catalog") + genres(true) +
+    `<div class="b1-line"><button class="b1-toggle open">Filters ${chev}</button><span class="token">TV <span>×</span></span><span class="token">Score 8+ <span>×</span></span><button class="b1-clear">Clear all</button></div>` +
+    `<div class="b1-panel">${seg("Format", ["Any","TV","Movie","OVA","ONA","Special","Music"], "TV")}${seg("Status", ["Any","Airing","Finished","Upcoming"], "Any")}${seg("Season", ["Any","Winter","Spring","Summer","Fall"], "Any")}<div class="chips-row"><span class="chips-lab">Year</span><input class="mini wide" placeholder="Any"></div><div class="chips-row"><span class="chips-lab">Score from</span><input class="mini" value="8"></div><div class="chips-row"><span class="chips-lab">Episodes</span><input class="mini" placeholder="Any"><span class="dash">to</span><input class="mini" placeholder="Any"></div></div>` +
+    grid(F, 8) + more) +
+
+  cap(`<b>B2 · Pill row.</b> The whole filter bar is one line. Each pill opens a small popover; a pill that holds a value lights up and states it, so the row doubles as the summary. Sort is the last pill. Shown filtered, with the Genres popover open (same three-state chips). Smallest footprint of the four; every filter costs two clicks.`) +
+  V("b2-open", head("AniList catalog", "") +
+    `<div class="b2-row"><button class="pill set open">Action, Drama <em>· not Horror</em> ${chev}</button><button class="pill">Year ${chev}</button><button class="pill">Season ${chev}</button><button class="pill set">TV ${chev}</button><button class="pill">Status ${chev}</button><button class="pill set">Score 8+ ${chev}</button><button class="pill">Episodes ${chev}</button><button class="pill plain">Clear</button><button class="pill right">Popular ${chev}</button></div>` +
+    `<div class="pop" style="left:60px; top:112px;"><h5>Genres <span>click to include, again to exclude</span></h5>${genres(true)}</div>` +
+    grid(F, 8) + more) +
+
+  cap(`<b>B3 · Left rail.</b> The filters live in a sticky column, like the Settings rail and the Series side panel. Nothing is hidden and every filter is one click. The grid drops from eight to six columns, and the rail is taller than a window at 800 px, so it scrolls with the page below the fold.`) +
+  V("b3", head("AniList catalog", "") + `<div class="b3"><aside class="b3-rail">
+      <h5>Sort</h5><div class="b3-list two">${["Popular","Top rated","Newest","A–Z"].map((s,i)=>`<button class="${i?"":"on"}">${s}</button>`).join("")}</div>
+      <h5>Genres</h5><div class="b3-list two">${GENRES.map(g=>`<button class="${INC.includes(g)?"inc":EXC.includes(g)?"exc":""}">${g}</button>`).join("")}</div>
+      <h5>Format</h5><div class="b3-list two">${["Any","TV","Movie","OVA","ONA","Special"].map(s=>`<button class="${s==="TV"?"on":""}">${s}</button>`).join("")}</div>
+      <h5>Status</h5><div class="b3-list two">${["Any","Airing","Finished","Upcoming"].map((s,i)=>`<button class="${i?"":"on"}">${s}</button>`).join("")}</div>
+      <h5>Score from</h5><div class="b3-fields"><input class="mini" value="8"></div>
+    </aside><div><div class="cards">${F.slice(0,12).map(x=>card(x)).join("")}</div>${more}</div></div>`) +
+
+  cap(`<b>B4 · Sentence.</b> The query is written out, and every bright word is a button that opens a small menu. "+ filter" adds a clause (year, season, status, episodes). The page has no form at all. It reads well for two or three filters; a long query wraps to a second line, and a first-time user has to discover that the words are controls.`) +
+  V("b4", `<p class="b4-sentence"><button class="open">Popular</button> <button>TV</button> anime with <button>Action</button> and <button>Drama</button>, without <button class="not">Horror</button>, scored <button>8+</button>.<button class="add">+ filter</button></p>` +
+    `<div class="pop menu" style="left:60px; top:66px;">${["Popular","Top rated","Newest","A–Z"].map((s,i)=>`<button class="${i?"":"on"}">${s}${i?"":"<span>✓</span>"}</button>`).join("")}</div>` +
+    grid(F, 8) + more) +
+
+  cap(`<b>Shared · "Show more" replaces pages.</b> AniList only tells the app whether another page exists (its total is capped at 5000), so the footer states how many titles are on screen and offers the next batch. The next page appends under the grid; while the paced request runs, a fading ghost row holds its place (the ghost posters the empty library already uses). Each batch is still one cached page in <i>BrowseService</i>, so the main process stays as it is; the view state keeps a list of loaded pages in place of <i>page</i> and <i>visited</i>.`) +
+  V("more-loading", `<div class="cards">${F.slice(0,8).map(x=>card(x)).join("")}</div><div class="bx-ghosts">${"<span class='ghost'></span>".repeat(8)}</div><div class="bx-more"><span>24 shown · loading more<span class="dots"> ···</span></span></div>`) +
+
+  cap(`<b>Shared · no matches.</b> The empty state offers the way out: one button per active filter, removing it on click, so the fix is a single click and the request is usually already cached.`) +
+  V("none", head("AniList catalog") + `<div class="bx-none"><b>Nothing matches all of these</b>Included genres must all be present on a title. Try dropping one.<div class="fixes"><button class="btn small">Remove Drama</button><button class="btn small">Remove Score 8+</button><button class="btn small">Remove TV</button><button class="btn small">Clear all</button></div></div>`) +
+
+  cap(`<b>Shared · opening a title in place (O1).</b> Today a click jumps to an interim detail page while sources are checked, then jumps again to the series. Here the card itself reports the check (ring, dimmed poster, badge) and the rest of the grid steps back; a match goes straight to the series page. Only a title with no source lands on the existing detail page, which keeps its synopsis, "Retry source search", and "Search manually". Escape or a second click cancels through the existing <i>cancelCatalog</i>.`) +
+  V("open", `<div class="cards">${F.slice(0,8).map((x,i)=>card(x, i===2?"is-resolving":"is-waiting", i===2?"checking ···":"")).join("")}</div>`)
+);
+</script>
