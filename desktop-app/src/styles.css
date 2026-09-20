@@ -316,7 +316,6 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .browse .msg.err, .browse-detail .msg.err { color: var(--danger); }
 :is(.browse, .browse-detail) :is(.notice, .msg) .link { color: var(--text); text-decoration: underline; text-decoration-color: var(--muted); text-underline-offset: 3px; }
 :is(.browse, .browse-detail) :is(.notice, .msg) .link:hover { text-decoration-color: var(--text); }
-.browse-detail .meta { margin-bottom: 4px; }
 
 /* ---- empty library: the row keeps the shape of a full one ------------- */
 /* An action tile leads a row of ghost posters that fade out to the right, so the page has the same rhythm before and after the first title. */
@@ -397,8 +396,10 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 /* ---- series ----------------------------------------------------------- */
 /* The series scroll controller owns anchoring, including asynchronous source changes. */
 .page-series { overflow-anchor: none; }
-.series { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 32px; align-items: start; margin-top: 12px; }
-.series .side { position: sticky; top: 0; }
+.series { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 18px 32px; align-items: start; margin-top: 12px; }
+/* The back link, title, and source tags span the page and scroll away; the panel then holds under the top bar. */
+.series-top { grid-column: 1 / -1; min-width: 0; }
+.series .side { position: sticky; top: 4px; }
 .series .side .poster { width: 100%; aspect-ratio: 2 / 3; border-radius: var(--radius); box-shadow: 0 10px 30px rgb(0 0 0 / 30%); }
 .series .side .stack { display: grid; gap: 6px; margin-top: 12px; }
 .series .side .stack .btn { width: 100%; justify-content: space-between; height: 40px; }
@@ -416,14 +417,14 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .series .side .prefs .chips-row { display: grid; gap: 6px; justify-items: start; }
 .series .side .prefs .chips { flex-wrap: wrap; max-width: 100%; }
 .series .main { min-width: 0; }
-.series .crumb { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 4px; }
+.series .crumb { color: var(--muted); font-size: 14px; display: inline-flex; align-items: center; gap: 6px; margin-left: -3px; }
 .series .crumb:hover { color: var(--text); }
-.series .crumb .icon { width: 14px; height: 14px; }
-.series h1 { margin: 6px 0 10px; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.15; }
+.series .crumb .icon { width: 16px; height: 16px; }
+.series h1 { margin: 14px 0 10px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
 .series .meta { display: flex; gap: 8px; color: var(--muted); font-size: 13px; align-items: center; flex-wrap: wrap; }
 .series .meta .tag { padding: 3px 8px; border-radius: 6px; background: var(--raised); color: var(--text); font-size: 12px; font-weight: 500; }
 .series .meta .tag.quiet { background: none; color: var(--muted); font-weight: 400; }
-.series .facts { display: flex; flex-wrap: wrap; gap: 16px 28px; margin-top: 16px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+.series .facts { display: flex; flex-wrap: wrap; gap: 16px 28px; padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
 .series .facts div { font-size: 14px; }
 .series .facts small { display: block; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
 .ep-head { display: flex; align-items: center; gap: 12px; margin: 18px 0 12px; }

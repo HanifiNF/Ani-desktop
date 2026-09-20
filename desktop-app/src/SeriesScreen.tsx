@@ -59,6 +59,18 @@ export default function SeriesScreen({ anime, progress, isSaved, player, backLab
   };
   return (
     <div className="series">
+      <header className="series-top">
+        <button type="button" className="crumb" onClick={onBack}><Icon name="back" />{backLabel ?? (lastQuery ? `Results for “${lastQuery}”` : "Home")}</button>
+        <h1>{anime.title}</h1>
+        <div className="meta">
+          {sources.map((source) => <span className="tag src-tag" key={source.id} title={source.title}>{source.provider}
+            {sources.length > 1 && <button type="button" className="split" aria-label={`Split ${source.provider} record “${source.title}” off this series`} title="Not the same anime? Split this source off" onClick={() => onSplitSource(source.id)}><Icon name="x" /></button>}
+          </span>)}
+          {resolving && <span className="tag quiet" role="status">checking other sources{pendingSources.length ? `: ${pendingSources.join(", ")}` : ""}<span className="dots"> ···</span></span>}
+          {anime.tentative && <span className="tag quiet" title="These sources were grouped by title alone. Split one off if it does not belong.">grouped by title</span>}
+          {alias && <span>{alias}</span>}
+        </div>
+      </header>
       <aside className="side">
         <Art src={anime.poster ?? info?.cover} className="poster" />
         <div className="stack">
@@ -75,16 +87,6 @@ export default function SeriesScreen({ anime, progress, isSaved, player, backLab
         </div>
       </aside>
       <div className="main">
-        <button type="button" className="crumb" onClick={onBack}><Icon name="back" />{backLabel ?? (lastQuery ? `Results for “${lastQuery}”` : "Home")}</button>
-        <h1>{anime.title}</h1>
-        <div className="meta">
-          {sources.map((source) => <span className="tag src-tag" key={source.id} title={source.title}>{source.provider}
-            {sources.length > 1 && <button type="button" className="split" aria-label={`Split ${source.provider} record “${source.title}” off this series`} title="Not the same anime? Split this source off" onClick={() => onSplitSource(source.id)}><Icon name="x" /></button>}
-          </span>)}
-          {resolving && <span className="tag quiet" role="status">checking other sources{pendingSources.length ? `: ${pendingSources.join(", ")}` : ""}<span className="dots"> ···</span></span>}
-          {anime.tentative && <span className="tag quiet" title="These sources were grouped by title alone. Split one off if it does not belong.">grouped by title</span>}
-          {alias && <span>{alias}</span>}
-        </div>
         <div className="facts">
           {format && <div><small>Format</small>{format}</div>}
           {info && <div><small>Status</small>{STATUS_WORDS[info.status]}{info.nextAiring ? ` · ep ${info.nextAiring.episode} ${new Date(info.nextAiring.airingAt).toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" })}` : ""}</div>}

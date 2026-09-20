@@ -16,8 +16,11 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
 - Empty pages keep the shape of full ones. Home, Saved, and Recent each show their section head, an action tile (search on home, save or play elsewhere), and a row of ghost posters fading out to the right; Saved and Recent add a one-line note under the row. Behind the Home, Saved, and Recent pages, empty or not, sits an illustration from a hand-picked pool on nekosapi.com (`shared/backdrops.ts`): a wash across the top on home, and on Saved and Recent a wash or a figure peeking from the top-right corner, chosen at random per visit. The pool is curated rather than random because the service's "safe" rating lets explicit images through and it cannot mark generated art. Images are cached under the app's data folder by `electron/backdrop-service.ts`, at most one new download per run; the "Backdrop art" switch in Appearance turns the whole thing off. The credit, with its source link, sits at the right end of the footer's foot line. `design/variants/empty-state.html` holds the mockups (its art references `design/shots/nekos/`, which is not committed).
 - Search: typing in the pill opens a palette over the page with a result count, and thumbnail rows
   carrying artwork and alternate titles. Up and down move, Enter opens, Escape clears and closes.
-- Series: a sticky left panel with the poster, Play next, Save, and audio and quality chips. The right column has the
-  title, source tags, a facts strip, then the episode list with All / Unwatched / Watched chips, a jump box, and sort
+- Series: the back link sits at the top-left of the page with the title across the full width beneath it and the source
+  tags under the title, as atsu does; they scroll away, and the left panel (poster, Play next, Save, audio and quality
+  chips) then holds under the top bar. The Browse detail page shares the header. Mockups:
+  `design/variants/series-title-placement.html` (T2 chosen). The right column has the
+  facts strip, then the episode list with All / Unwatched / Watched chips, a jump box, and sort
   arrows (newest first by default). Episodes are grouped by number with one row per provider. Each row shows the best
   quality that source offers, resolved lazily as rows scroll into view and cached in the app’s metadata store; the checkbox
   records progress through that episode on that provider.

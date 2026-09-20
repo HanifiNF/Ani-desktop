@@ -37,7 +37,7 @@ export function useSeriesScroll(list: RefObject<HTMLDivElement | null>, active: 
     if (current.offset <= 1) return;
     const origin = layoutTop(page);
     const candidates = list.current?.closest(".series")?.querySelectorAll<HTMLElement>(
-      ".main > .crumb, .main > h1, .main > .meta, .main > .facts, .main > .about, .main > .ep-head, [data-episode]"
+      ".series-top > .crumb, .series-top > h1, .series-top > .meta, .main > .facts, .main > .about, .main > .ep-head, [data-episode]"
     ) ?? [];
     let previous: Anchor | undefined;
     for (const element of candidates) {
