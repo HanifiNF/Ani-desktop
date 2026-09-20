@@ -6,11 +6,11 @@ import { stagger } from "./transition";
 
 interface Props {
   results: AnimeResult[]; query: string; lastQuery: string; cursor: number;
-  ready: boolean; pending: boolean; providerErrors: string[]; message?: string; error?: string;
+  ready: boolean; pending: boolean; providerErrors: string[]; message?: string; error?: string; closeHint: string;
   onRetry: () => void; onOpen: (anime: AnimeResult) => void; onFocus: (index: number) => void;
 }
 
-export default function SearchPalette({ results, query, lastQuery, cursor, ready, pending, providerErrors, message, error, onRetry, onOpen, onFocus }: Props) {
+export default function SearchPalette({ results, query, lastQuery, cursor, ready, pending, providerErrors, message, error, closeHint, onRetry, onOpen, onFocus }: Props) {
   return (
     <div className="palette" role="dialog" aria-label="Search results">
       <div className="found" id="results-heading" aria-live="polite">
@@ -41,7 +41,7 @@ export default function SearchPalette({ results, query, lastQuery, cursor, ready
           );
         })}
       </div>
-      <div className="foot-hints"><span><b>↑↓</b> move</span><span><b>↵</b> {query.trim() && !ready ? "search now" : "open"}</span><span><b>esc</b> close</span></div>
+      <div className="foot-hints"><span><b>↑↓</b> move</span><span><b>↵</b> {query.trim() && !ready ? "search now" : "open"}</span><span><b>esc</b> {closeHint}</span></div>
     </div>
   );
 }

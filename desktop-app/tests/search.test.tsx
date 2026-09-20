@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
 import type { AniDesktopApi, AnimeResult, BrowseDiscoveryResult, PersistedState, PlayerSession } from "../shared/contracts";
 import { THEME_PRESETS } from "../shared/theme";
+import { validateSeriesMetadataRequest } from "../electron/series-metadata-validation";
 
 const result = (title: string): AnimeResult[] => [{ id: `aniwave:${title}-1`, title, provider: "aniwave" }];
 function deferred<T>() {
@@ -409,6 +410,53 @@ describe("live catalog search", () => {
     expect(api.streams).toHaveBeenCalledExactlyOnceWith(completed ? "episode-2" : "episode-1", "sub", expect.objectContaining({ priority: "playback" }));
   });
 
+  it.each([false, true])("loads library counts and continues on the last provider across series identities (completed: %s)", async (completed) => {
+    state.history = [{ animeId: "aniwave:fixture-1", title: "Fixture", lastEpisode: "12", mode: "sub", updatedAt: "", completed,
+      lastProvider: "hianime", sources: [
+        { id: "aniwave:fixture-1", provider: "aniwave", title: "Fixture", aliases: ["Fixture"] },
+        { id: "hianime:fixture-2", provider: "hianime", title: "Fixture", aliases: ["Fixture"] }
+      ], progressByProvider: { hianime: { lastEpisode: "12", mode: "sub", updatedAt: "", completed } } }];
+    state.bookmarks = state.history;
+    vi.mocked(api.seriesMetadata).mockImplementation(async (anime) => {
+      validateSeriesMetadataRequest(anime);
+      return { genres: [], sources: [
+        { sourceId: "aniwave:fixture-1", provider: "aniwave", genres: [], availableEpisodes: 13, checkedAt: Date.now() },
+        { sourceId: "hianime:fixture-2", provider: "hianime", genres: [], availableEpisodes: 12, checkedAt: Date.now() }
+      ] };
+    });
+    vi.mocked(api.episodes).mockResolvedValue({ groups: (["aniwave", "hianime"] as const).map((provider) => ({
+      provider,
+      episodes: [12, 13].map((number) => ({ id: `${provider}:episode-${number}`, number: String(number), provider }))
+    })) });
+    vi.mocked(api.streams).mockResolvedValue([{ quality: "1080p", url: "https://video.test/episode.m3u8", provider: "hianime" }]);
+    vi.mocked(api.recordHistory).mockResolvedValue(state);
+    await act(async () => { root.render(<StrictMode><App key="cross-provider" /></StrictMode>); });
+    expect(api.seriesMetadata).toHaveBeenCalledWith(expect.objectContaining({ id: "aniwave:fixture-1", provider: "aniwave" }), expect.any(Object), expect.any(Function));
+    const badges = [...container.querySelectorAll(".card .badge.hi")];
+    expect(badges.length).toBeGreaterThan(0);
+    expect(badges.map((badge) => badge.textContent)).toEqual(badges.map(() => "EP 12/12"));
+    await act(async () => { container.querySelector<HTMLButtonElement>(".section-continue .hit")!.click(); });
+    expect(api.streams).toHaveBeenCalledExactlyOnceWith(`hianime:episode-${completed ? 13 : 12}`, "sub", expect.objectContaining({ priority: "playback" }));
+  });
+
+  it("keeps the saved playback provider when history has been cleared", async () => {
+    state.bookmarks = [{ animeId: "aniwave:fixture-1", title: "Fixture", lastEpisode: "19", mode: "sub", updatedAt: "",
+      lastProvider: "hianime", sources: [
+        { id: "aniwave:fixture-1", provider: "aniwave", title: "Fixture", aliases: ["Fixture"] },
+        { id: "hianime:fixture-2", provider: "hianime", title: "Fixture", aliases: ["Fixture"] }
+      ] }];
+    vi.mocked(api.episodes).mockResolvedValue({ groups: [
+      { provider: "aniwave", episodes: [{ id: "aniwave:episode-1", number: "1", provider: "aniwave" }] },
+      { provider: "hianime", episodes: [{ id: "hianime:episode-20", number: "20", provider: "hianime" }] }
+    ] });
+    await act(async () => { root.render(<StrictMode><App key="saved-provider" /></StrictMode>); });
+    await act(async () => { container.querySelector<HTMLButtonElement>(".section-saved .hit")!.click(); });
+    expect(container.querySelector(".series")).not.toBeNull();
+    expect(api.episodes).toHaveBeenCalledWith(expect.objectContaining({ id: "aniwave:fixture-1", provider: "aniwave" }), expect.any(Object), expect.any(Function));
+    await click("Play Ep 20");
+    expect(api.streams).toHaveBeenCalledExactlyOnceWith("hianime:episode-20", "sub", expect.objectContaining({ priority: "playback" }));
+  });
+
   it("recolours the icon as a theme is picked and keeps the saved theme", async () => {
     const icon = () => decodeURIComponent(document.querySelector<HTMLLinkElement>('link[rel="icon"]')!.href);
     await click("settings"); await click("nord");
@@ -437,10 +485,17 @@ describe("live catalog search", () => {
       await act(async () => { document.activeElement!.dispatchEvent(event); });
       expect(event.defaultPrevented).toBe(false);
     }
+    // The search shortcut reopens the held results over the series; Escape closes them and the series stays.
     for (const modifier of [{ metaKey: true }, { ctrlKey: true }]) {
       const event = new KeyboardEvent("keydown", { key: "k", ...modifier, bubbles: true, cancelable: true });
       await act(async () => { document.activeElement!.dispatchEvent(event); });
-      expect(event.defaultPrevented).toBe(false);
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(input());
+      expect(titles()).toEqual(["frieren"]);
+      expect(container.querySelector(".series")).not.toBeNull();
+      await press("Escape");
+      expect(container.querySelector(".palette")).toBeNull();
+      expect(input().value).toBe("frieren");
     }
     expect(api.streams).not.toHaveBeenCalled();
     expect(api.toggleBookmark).not.toHaveBeenCalled();
@@ -451,7 +506,9 @@ describe("live catalog search", () => {
     await press("ArrowUp"); expect(document.activeElement).toBe(cells[4]);
     await act(async () => { cells[4].click(); });
     expect(api.streams).toHaveBeenCalledExactlyOnceWith("ep-2", "sub", expect.objectContaining({ priority: "playback" }));
+    // Typing searches in place over the series page.
     await type("another title"); await advance(); expect(titles()).toEqual(["another title"]);
+    expect(container.querySelector(".series")).not.toBeNull();
   });
 
   it("keeps provider-native episode lists and plays from the selected source tab", async () => {
