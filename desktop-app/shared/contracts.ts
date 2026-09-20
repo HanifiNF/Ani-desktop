@@ -339,7 +339,7 @@ export interface Settings {
   animeInfo?: boolean;
   /** Keep a local copy of the anime-offline-database for identity matching without network requests. */
   offlineIndex?: boolean;
-  /** Show an illustration behind the home, saved, and recent pages. On unless turned off. */
+  /** Show an illustration behind the home, browse, saved, and recent pages. On unless turned off. */
   emptyBackdrop?: boolean;
   theme: ThemePreset;
   customTheme: CustomTheme;

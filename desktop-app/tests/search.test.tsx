@@ -300,7 +300,7 @@ describe("live catalog search", () => {
     const headings = [...container.querySelectorAll<HTMLElement>('.settings .group h3[id^="settings-"]')];
     const nav = container.querySelector<HTMLElement>('.settings-section-nav')!;
     expect(headings.map((heading) => heading.textContent)).toEqual(["Playback", "Defaults", "Appearance", "Anime information", "Episode metadata", "Sources", "Updates"]);
-    expect([...nav.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["Playback", "Library", "Appearance", "Sources", "Updates"]);
+    expect([...nav.querySelectorAll("button")].map((button) => button.textContent)).toEqual(headings.map((heading) => heading.textContent));
     const positions = new Map(headings.map((heading, index) => [heading.id, 120 + index * 200]));
     vi.spyOn(page, "getBoundingClientRect").mockReturnValue({ top: 0 } as DOMRect);
     for (const heading of headings) vi.spyOn(heading, "getBoundingClientRect").mockImplementation(() => ({ top: positions.get(heading.id)! } as DOMRect));
@@ -308,10 +308,10 @@ describe("live catalog search", () => {
     page.scrollTo = scrollTo;
     await act(async () => page.dispatchEvent(new Event("scroll")));
     expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Playback");
-    // Anime information and Episode metadata sit under the Library entry.
+    // Every heading has its own entry, so the last one past the line is the current section.
     positions.set("settings-defaults", 50); positions.set("settings-anime-information", 60);
     await act(async () => page.dispatchEvent(new Event("scroll")));
-    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Anime information");
     const sourcesButton = [...nav.querySelectorAll("button")].find((button) => button.textContent === "Sources")!;
     await act(async () => sourcesButton.click());
     expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ top: expect.any(Number) }));
@@ -321,17 +321,17 @@ describe("live catalog search", () => {
     await act(async () => page.dispatchEvent(new Event("scroll")));
     expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Sources");
     await act(async () => { page.dispatchEvent(new Event("wheel")); page.dispatchEvent(new Event("scroll")); });
-    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Anime information");
     // A short last section never reaches the line, so the end of the page names it.
     Object.defineProperties(page, { scrollHeight: { value: 3000, configurable: true }, clientHeight: { value: 700, configurable: true }, scrollTop: { value: 2300, configurable: true, writable: true } });
     await act(async () => page.dispatchEvent(new Event("scroll")));
     expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Updates");
     page.scrollTop = 1000;
     await act(async () => page.dispatchEvent(new Event("scroll")));
-    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Library");
+    expect(nav.querySelector('[aria-current="location"]')?.textContent).toBe("Anime information");
     expect(api.saveSettings).not.toHaveBeenCalled();
     const jump = container.querySelector<HTMLSelectElement>("#settings-section-jump")!;
-    expect(jump.options).toHaveLength(5);
+    expect(jump.options).toHaveLength(headings.length);
     await click("home");
     expect(container.querySelector(".settings-section-nav")).toBeNull();
   });

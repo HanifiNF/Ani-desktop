@@ -245,8 +245,8 @@ function App() {
     return [];
   }, [screen, paletteOpen, unifiedResults, libraryRows, appState.history, appState.bookmarks, filter]);
 
-  // The home, saved, and recent pages carry an illustration behind them: a wash on home, a wash or a corner figure elsewhere, picked afresh on each visit.
-  const backdropPage: BackdropPage | undefined = screen === "home" || screen === "saved" || screen === "recent" ? screen : undefined;
+  // The home, browse, saved, and recent pages carry an illustration behind them: a wash on home, a wash or a corner figure elsewhere, picked afresh on each visit.
+  const backdropPage: BackdropPage | undefined = screen === "home" || screen === "browse" || screen === "saved" || screen === "recent" ? screen : undefined;
   const backdropsOn = stateLoaded && appState.settings.emptyBackdrop !== false;
   const [backdrop, setBackdrop] = useState<{ page: BackdropPage; variant: BackdropVariant; art: BackdropArt }>();
   useEffect(() => {

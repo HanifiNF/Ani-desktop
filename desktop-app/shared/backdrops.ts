@@ -7,7 +7,7 @@ export const BACKDROP_API = "https://api.nekosapi.com/v4/images";
 export const BACKDROP_CREDIT_URL = "https://nekosapi.com/";
 
 /**
- * Illustrations shown behind the home, saved, and recent pages, by nekosapi.com image id. The pool is picked by hand rather than
+ * Illustrations shown behind the home, browse, saved, and recent pages, by nekosapi.com image id. The pool is picked by hand rather than
  * requested at random: the service's "safe" rating lets explicit images through, and it has no way to mark or
  * exclude generated art. Wide images suit the wash across the top of a page, portraits the corner.
  */
