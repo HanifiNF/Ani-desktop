@@ -125,6 +125,7 @@ const api: AniDesktopApi = {
   onUpdateInstallStatus: (listener) => subscribe("app:update-install-status", listener),
   downloadUpdate: (version) => ipcRenderer.invoke("app:update-download", version),
   installUpdate: () => ipcRenderer.invoke("app:update-install"),
+  copyText: (text: string) => ipcRenderer.invoke("app:copy-text", text),
   setAppIcon: (pngDataUrl: string) => ipcRenderer.invoke("app:icon", pngDataUrl),
   toggleBookmark: (entry: LibraryEntry) => ipcRenderer.invoke("state:bookmark", entry),
   removeBookmark: (animeId: string) => ipcRenderer.invoke("state:bookmark-remove", animeId),

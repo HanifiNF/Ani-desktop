@@ -19,7 +19,9 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
 - Series: the back link sits at the top-left of the page with the title across the full width beneath it and the source
   tags under the title, as atsu does; they scroll away, and the left panel (poster, Play next, Save, audio and quality
   chips) then holds under the top bar. The Browse detail page shares the header. Mockups:
-  `design/variants/series-title-placement.html` (T2 chosen). The right column has the
+  `design/variants/series-title-placement.html` (T2 chosen). A dim copy icon follows the title's last word (`src/CopyTitle.tsx`): it
+  brightens under the pointer with a "Copy title" tooltip and shows a check with "Copied" for two seconds after the
+  click. Mockups: `design/variants/series-copy-title.html` (K1 chosen). The right column has the
   facts strip, then the episode list with All / Unwatched / Watched chips, a jump box, and sort
   arrows (newest first by default). Episodes are grouped by number with one row per provider. Each row shows the best
   quality that source offers, resolved lazily as rows scroll into view and cached in the app’s metadata store; the checkbox

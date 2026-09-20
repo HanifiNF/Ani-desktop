@@ -254,6 +254,7 @@ export function installDevApi(): void {
     onUpdateInstallStatus() { return () => {}; },
     async downloadUpdate() { throw new Error("Update downloads are available in the desktop app."); },
     async installUpdate() { throw new Error("Update installation is available in the desktop app."); },
+    async copyText(text) { await navigator.clipboard.writeText(text); },
     async setAppIcon() {},
     async toggleBookmark(entry) {
       const index = state.bookmarks.findIndex((item) => item.animeId === entry.animeId);

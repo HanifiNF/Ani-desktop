@@ -18,7 +18,7 @@ import { spawn } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { app, BrowserWindow, ipcMain, nativeImage, session, shell } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, nativeImage, session, shell } from "electron";
 import type { AnimeResult, CatalogRequest, LibraryEntry, PlayerSession, PlayRequest, ProviderName, ProviderPreference, ScheduleQuery, Settings, TranslationMode } from "../shared/contracts";
 import { playerArguments } from "./player";
 import { assertPlayerSender, registerPlayerFullscreenEvents, setPlayerFullscreen } from "./player-window";
@@ -297,6 +297,12 @@ function registerIpc(): void {
   ipcMain.handle("app:update-install", async (event) => {
     assertPlayerSender(mainWindow, event);
     await updateInstaller.install();
+  });
+  // The renderer's session refuses every permission, clipboard writes included, so copying goes through here.
+  ipcMain.handle("app:copy-text", (event, text: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    if (typeof text !== "string" || !text || text.length > 2000) throw new Error("Invalid clipboard text");
+    clipboard.writeText(text);
   });
   ipcMain.handle("app:backdrop", (event, kind: unknown) => {
     assertPlayerSender(mainWindow, event);

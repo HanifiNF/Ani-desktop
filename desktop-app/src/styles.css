@@ -421,6 +421,13 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .series .crumb:hover { color: var(--text); }
 .series .crumb .icon { width: 16px; height: 16px; }
 .series h1 { margin: 14px 0 10px; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+/* Flows after the title's last word, so a wrapped title keeps it on the final line. */
+.copy-title { position: relative; display: inline-grid; place-items: center; width: 30px; height: 30px; margin-left: 8px; border-radius: 8px; color: var(--dim); vertical-align: 3px; transition: background .16s, color .16s; }
+.copy-title .icon { width: 17px; height: 17px; }
+.copy-title:hover, .copy-title:focus-visible { background: var(--raised); color: var(--text); }
+.copy-title.done { color: var(--text); }
+.copy-title::after { content: attr(data-tip); position: absolute; left: 50%; top: 34px; z-index: 5; transform: translateX(-50%); padding: 4px 8px; border-radius: 6px; background: var(--raised2); color: var(--text); font-size: 12px; font-weight: 500; letter-spacing: 0; line-height: 1.2; white-space: nowrap; box-shadow: 0 6px 18px rgb(0 0 0 / 30%); opacity: 0; pointer-events: none; transition: opacity .16s; }
+.copy-title:hover::after, .copy-title:focus-visible::after, .copy-title.done::after { opacity: 1; }
 .series .meta { display: flex; gap: 8px; color: var(--muted); font-size: 13px; align-items: center; flex-wrap: wrap; }
 .series .meta .tag { padding: 3px 8px; border-radius: 6px; background: var(--raised); color: var(--text); font-size: 12px; font-weight: 500; }
 .series .meta .tag.quiet { background: none; color: var(--muted); font-weight: 400; }

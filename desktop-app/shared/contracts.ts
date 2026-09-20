@@ -466,6 +466,8 @@ export interface AniDesktopApi {
   onUpdateInstallStatus(listener: (status: UpdateInstallStatus) => void): () => void;
   downloadUpdate(version: string): Promise<UpdateInstallStatus>;
   installUpdate(): Promise<void>;
+  /** Puts plain text on the system clipboard; the renderer itself has no clipboard permission. */
+  copyText(text: string): Promise<void>;
   setAppIcon(pngDataUrl: string): Promise<void>;
   toggleBookmark(entry: LibraryEntry): Promise<PersistedState>;
   removeBookmark(animeId: string): Promise<PersistedState>;

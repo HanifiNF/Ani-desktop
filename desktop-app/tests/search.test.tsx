@@ -99,6 +99,7 @@ beforeEach(async () => {
     onUpdateInstallStatus: vi.fn().mockReturnValue(() => {}),
     downloadUpdate: vi.fn(),
     installUpdate: vi.fn(),
+    copyText: vi.fn().mockResolvedValue(undefined),
     setAppIcon: vi.fn().mockResolvedValue(undefined),
     toggleBookmark: vi.fn(), removeBookmark: vi.fn(), recordHistory: vi.fn(), removeHistory: vi.fn(), clearHistory: vi.fn(),
     linkSources: vi.fn(), mergeEntries: vi.fn(), dismissMerge: vi.fn()

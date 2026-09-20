@@ -84,7 +84,7 @@ function CopyHandle({ label, value }: { label: string; value: string }) {
     return () => clearTimeout(timer);
   }, [copied]);
   return <button type="button" className={copied ? "copied" : undefined} title={`${label} · ${value} (click to copy)`}
-    onClick={() => { void navigator.clipboard?.writeText(value).then(() => setCopied(true), () => undefined); }}>
+    onClick={() => { void window.aniDesktop.copyText(value).then(() => setCopied(true), () => undefined); }}>
     <Icon name="discord" /><span className="sr-only">{label} {value}</span>
     {copied && <span className="copied-tip" role="status">Copied</span>}
   </button>;

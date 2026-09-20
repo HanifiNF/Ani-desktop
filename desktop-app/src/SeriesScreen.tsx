@@ -7,6 +7,7 @@ import type { PlayStatus } from "./playback";
 import type { useEpisodeMetadata } from "./useEpisodeMetadata";
 import Art from "./Art";
 import Chips from "./Chips";
+import CopyTitle from "./CopyTitle";
 import { Icon } from "./icons";
 import { stagger } from "./transition";
 
@@ -61,7 +62,7 @@ export default function SeriesScreen({ anime, progress, isSaved, player, backLab
     <div className="series">
       <header className="series-top">
         <button type="button" className="crumb" onClick={onBack}><Icon name="back" />{backLabel ?? (lastQuery ? `Results for “${lastQuery}”` : "Home")}</button>
-        <h1>{anime.title}</h1>
+        <h1>{anime.title}<CopyTitle title={anime.title} /></h1>
         <div className="meta">
           {sources.map((source) => <span className="tag src-tag" key={source.id} title={source.title}>{source.provider}
             {sources.length > 1 && <button type="button" className="split" aria-label={`Split ${source.provider} record “${source.title}” off this series`} title="Not the same anime? Split this source off" onClick={() => onSplitSource(source.id)}><Icon name="x" /></button>}
