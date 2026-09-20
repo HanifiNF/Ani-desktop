@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 import { promisify } from "node:util";
 import * as zlib from "node:zlib";
 import type { IdentityCandidate, IdentityIndexStatus, MediaType } from "../shared/contracts";
-import { mediaTypeOf, normalizedTitle, positiveInteger, ref, titleKeys, unique } from "../shared/identity";
+import { conflictingRefs, mediaTypeOf, normalizedTitle, positiveInteger, ref, titleKeys, unique } from "../shared/identity";
 
 /*
  * A local copy of the anime-offline-database (manami-project) trimmed to what identity needs: titles, synonyms,
@@ -59,6 +59,7 @@ export const toCandidate = (entry: IndexEntry): IdentityCandidate => ({
 export class IdentityIndex {
   private entries: IndexEntry[] = [];
   private byKey = new Map<string, number[]>();
+  private byRef = new Map<string, number[]>();
   private updatedAt?: number;
   private updating?: Promise<IdentityIndexStatus>;
   private error?: string;
@@ -77,7 +78,9 @@ export class IdentityIndex {
     this.entries = entries;
     this.updatedAt = updatedAt;
     this.byKey = new Map();
+    this.byRef = new Map();
     entries.forEach((entry, index) => {
+      for (const ref of entry.refs) this.byRef.set(ref, [...(this.byRef.get(ref) ?? []), index]);
       for (const key of titleKeys({ title: entry.t, aliases: entry.s })) {
         const list = this.byKey.get(key);
         if (list) { if (!list.includes(index)) list.push(index); } else this.byKey.set(key, [index]);
@@ -91,6 +94,12 @@ export class IdentityIndex {
 
   get size(): number { return this.entries.length; }
   needsUpdate(): boolean { return !this.updatedAt || Date.now() - this.updatedAt >= WEEK; }
+
+  /** Exact catalogue IDs supply discovery hints without downloading or guessing by title. */
+  candidatesForRefs(refs: string[]): IdentityCandidate[] {
+    return [...new Set(refs.flatMap((ref) => this.byRef.get(ref) ?? []))]
+      .map((index) => this.entries[index]).filter((entry) => !conflictingRefs(refs, entry.refs)).map(toCandidate);
+  }
 
   /** Works the index names for any of these titles, most specific keys first, at most a handful. */
   candidatesFor(titles: string[]): IdentityCandidate[] {

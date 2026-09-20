@@ -1,8 +1,8 @@
-import type { AnimeResult, BrowseAnime, IdentityCandidate, Settings, Work } from "../shared/contracts";
-import { animeSources, enabledProviders, providerFromId } from "../shared/catalog";
-import { conflicting, conflictingRefs, factsOf, normalizedTitle, refsOf, titleKeys, unique } from "../shared/identity";
+import type { AnimeResult, BrowseIdentity, IdentityCandidate, Settings, Work } from "./contracts";
+import { animeSources, enabledProviders, providerFromId } from "./catalog";
+import { conflicting, conflictingRefs, factsOf, normalizedTitle, refsOf, titleKeys, unique } from "./identity";
 
-const sharesRef = (anime: BrowseAnime, result: AnimeResult) => refsOf(result).some((ref) => anime.refs.includes(ref));
+const sharesRef = (anime: BrowseIdentity, result: AnimeResult) => refsOf(result).some((ref) => anime.refs.includes(ref));
 
 /**
  * The one provider row that names a catalogue entry. A shared catalogue id settles identity on its own: catalogues
@@ -10,7 +10,7 @@ const sharesRef = (anime: BrowseAnime, result: AnimeResult) => refsOf(result).so
  * Without an id, titles decide under the same fact rules as every other match, except that the announced episode
  * total is ignored because a provider lists what it has. Ambiguity resolves to nothing.
  */
-export function browseMatch(anime: BrowseAnime, results: AnimeResult[]): AnimeResult | undefined {
+export function browseMatch(anime: BrowseIdentity, results: AnimeResult[]): AnimeResult | undefined {
   const compatible = results.filter((result) => !conflictingRefs(anime.refs, refsOf(result)));
   const referenced = compatible.filter((result) => sharesRef(anime, result));
   if (referenced.length) return referenced.length === 1 ? referenced[0] : undefined;
@@ -27,16 +27,16 @@ export function browseMatch(anime: BrowseAnime, results: AnimeResult[]): AnimeRe
 }
 
 /** The matched row carrying the catalogue entry's references, so series information and the remembered work name the entry that was opened. */
-export function identified(anime: BrowseAnime, match: AnimeResult): AnimeResult {
+export function identified(anime: BrowseIdentity, match: AnimeResult): AnimeResult {
   return { ...match, refs: unique([...(match.refs ?? []), ...anime.refs]) };
 }
 
 /** The catalogue entry as search sees it: a work that is already identified. */
-export function knownCandidate(anime: BrowseAnime): IdentityCandidate {
+export function knownCandidate(anime: BrowseIdentity): IdentityCandidate {
   return { refs: anime.refs, title: anime.title, titles: anime.titles, status: anime.status, ...(anime.type ? { type: anime.type } : {}), ...(anime.year ? { year: anime.year } : {}), ...(anime.episodes ? { episodes: anime.episodes } : {}) };
 }
 
-export function rememberedBrowseAnime(anime: BrowseAnime, works: Work[], settings: Pick<Settings, "disabledSources">): AnimeResult | undefined {
+export function rememberedBrowseAnime(anime: BrowseIdentity & { cover?: string }, works: Work[], settings: Pick<Settings, "disabledSources">): AnimeResult | undefined {
   const providers = enabledProviders(settings);
   const candidates = works.filter((work) => !work.tentative && !conflictingRefs(anime.refs, work.refs)
     && work.refs.some((ref) => anime.refs.includes(ref))).flatMap((work): AnimeResult[] => {
@@ -48,17 +48,23 @@ export function rememberedBrowseAnime(anime: BrowseAnime, works: Work[], setting
   return browseMatch(anime, candidates);
 }
 
-/** Three distinct, complete title spellings bound the provider work for an unresolved catalogue entry. */
-export async function findBrowseSource(anime: BrowseAnime, search: (query: string) => Promise<AnimeResult[]>): Promise<AnimeResult | undefined> {
+export const BROWSE_INITIAL_QUERIES = 3;
+export const BROWSE_FALLBACK_QUERIES = 2;
+export const BROWSE_QUERY_LIMIT = BROWSE_INITIAL_QUERIES + BROWSE_FALLBACK_QUERIES;
+
+const latinTitle = (title: string) => /\p{Script=Latin}/u.test(title)
+  && !/[^\p{Script=Latin}\p{M}\p{N}\p{P}\p{S}\p{Z}]/u.test(title);
+
+/** Complete aliases only. Index titles are retrieval hints, never new matching evidence. */
+export function browseQueries(anime: BrowseIdentity, hints: IdentityCandidate[] = []): string[] {
+  const related = hints.filter((hint) => !conflictingRefs(anime.refs, hint.refs) && hint.refs.some((ref) => anime.refs.includes(ref)));
+  const aliases = [...anime.titles, ...related.flatMap((hint) => hint.titles)];
+  const candidates = [anime.title, anime.titleVariants?.english, anime.titleVariants?.romaji, ...related.map((hint) => hint.title),
+    ...aliases.filter(latinTitle), anime.titleVariants?.native, ...aliases.filter((title) => !latinTitle(title))];
   const seen = new Set<string>();
-  const queries = [anime.title, ...anime.titles].map((title) => title.trim()).filter((title) => {
+  return candidates.filter((title): title is string => typeof title === "string").map((title) => title.trim()).filter((title) => {
     const key = normalizedTitle(title);
     if (!key || title.length > 120 || seen.has(key)) return false;
     seen.add(key); return true;
-  }).slice(0, 3);
-  for (const query of queries) {
-    const match = browseMatch(anime, await search(query));
-    if (match) return match;
-  }
-  return undefined;
+  }).slice(0, BROWSE_QUERY_LIMIT);
 }

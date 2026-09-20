@@ -3,7 +3,7 @@ import { act, StrictMode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../src/App";
-import type { AniDesktopApi, AnimeResult, PersistedState, PlayerSession } from "../shared/contracts";
+import type { AniDesktopApi, AnimeResult, BrowseDiscoveryResult, PersistedState, PlayerSession } from "../shared/contracts";
 import { THEME_PRESETS } from "../shared/theme";
 
 const result = (title: string): AnimeResult[] => [{ id: `aniwave:${title}-1`, title, provider: "aniwave" }];
@@ -77,6 +77,7 @@ beforeEach(async () => {
       logDiagnostic: vi.fn(), saveStorage: vi.fn().mockResolvedValue(undefined), setFullscreen: vi.fn(async (fullscreen: boolean) => fullscreen),
       openExternal: vi.fn().mockResolvedValue(true), setActive: vi.fn().mockResolvedValue(undefined)
     },
+    discoverBrowse: vi.fn(async (anime) => ({ anime: { ...result(anime.title)[0], refs: anime.refs }, errors: {} })),
     search, browseGenres: vi.fn().mockResolvedValue([]), browseTags: vi.fn().mockResolvedValue([]), browse: vi.fn(async (query) => ({ query, entries: [], hasNextPage: false, fetchedAt: Date.now() })), resolveSources: vi.fn(async (anime) => anime), clearSourceLinks: vi.fn(), getState: vi.fn().mockResolvedValue(state),
     workInfo: vi.fn().mockResolvedValue(undefined), identityIndexStatus: vi.fn().mockResolvedValue({ enabled: false, entries: 0, updating: false }), updateIdentityIndex: vi.fn(), splitSource: vi.fn(), episodes: vi.fn().mockResolvedValue({ groups: [{ provider: "aniwave", episodes: [{ id: "ep-1", number: "1", provider: "aniwave" }] }] }),
     seriesMetadata: vi.fn().mockResolvedValue({ sources: [], genres: [] }),
@@ -281,9 +282,12 @@ describe("live catalog search", () => {
     await advance(0);
     expect(api.browse).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }), expect.objectContaining({ priority: "visible" }), expect.any(Function));
     expect(api.search).not.toHaveBeenCalled();
+    expect(api.discoverBrowse).not.toHaveBeenCalled();
     await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
     await advance(0);
-    expect(api.search).toHaveBeenCalledWith("Catalog Pick", "auto", expect.objectContaining({ priority: "selected" }), expect.any(Function), expect.objectContaining({ refs: ["anilist:42"], title: "Catalog Pick", year: 2026 }));
+    expect(api.discoverBrowse).toHaveBeenCalledWith(expect.objectContaining({ refs: ["anilist:42"], title: "Catalog Pick", year: 2026 }), expect.objectContaining({ priority: "selected" }));
+    expect(api.search).not.toHaveBeenCalled();
+    expect(api.episodes).toHaveBeenCalledWith(expect.objectContaining({ poster: "https://img.test/42.jpg" }), expect.anything(), expect.anything());
     expect(container.querySelector(".series h1")?.textContent).toBe("Catalog Pick");
     expect(container.querySelector(".series .crumb")?.textContent).toBe("Browse");
     await act(async () => { container.querySelector<HTMLButtonElement>(".series .crumb")!.click(); });
@@ -1088,7 +1092,7 @@ describe("browse navigation and resolution", () => {
   });
 
   it("opens genre filters from a catalog detail without streaming sources", async () => {
-    await setupBrowse(); search.mockResolvedValue([]);
+    await setupBrowse(); vi.mocked(api.discoverBrowse).mockResolvedValue({ errors: {} });
     await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
     await advance(0);
     expect(container.querySelector(".browse-detail")).not.toBeNull();
@@ -1107,32 +1111,32 @@ describe("browse navigation and resolution", () => {
       expect(event.defaultPrevented).toBe(false);
     }
   });
-  it("rejects a same-title provider hit carrying conflicting IDs", async () => {
+  it("opens a discovered alias with catalogue references and does not start another source budget", async () => {
     await setupBrowse();
-    search.mockResolvedValue([{ id: "aniwave:wrong-1", provider: "aniwave", title: "Catalog Pick", refs: ["anilist:99", "mal:99"] }]);
+    vi.mocked(api.discoverBrowse).mockResolvedValue({ anime: { id: "aniwave:correct-1", provider: "aniwave", title: "Alternate Title", refs: ["anilist:42", "mal:42"] }, errors: { hianime: "503" } });
     await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
     await advance(0);
+    expect(api.discoverBrowse).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ refs: ["anilist:42", "mal:42"], titles: ["Catalog Pick", "Alternate Title"] }), expect.objectContaining({ priority: "selected", refresh: false }));
+    expect(search).not.toHaveBeenCalled();
+    expect(api.resolveSources).not.toHaveBeenCalled();
+    expect(api.episodes).toHaveBeenCalledWith(expect.objectContaining({ id: "aniwave:correct-1", refs: ["anilist:42", "mal:42"] }), expect.anything(), expect.anything());
+    expect(container.textContent).toContain("503");
+  });
+  it("reports incomplete discovery and explicitly retries with a fresh budget", async () => {
+    await setupBrowse();
+    vi.mocked(api.discoverBrowse).mockResolvedValueOnce({ errors: { hianime: "Source discovery timed out after 20 seconds" } });
+    await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
+    await advance(0);
+    expect(container.textContent).toContain("Source search was incomplete");
     expect(api.episodes).not.toHaveBeenCalled();
-    expect(container.querySelector(".browse-detail")).not.toBeNull();
-  });
-  it("tries a known alternate title after an empty display-title search", async () => {
-    await setupBrowse();
-    search.mockImplementation(async (title) => title === "Alternate Title" ? [{ id: "aniwave:correct-1", provider: "aniwave", title, refs: ["anilist:42"] }] : []);
-    await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
-    await advance(0);
-    expect(search.mock.calls.map((call) => call[0])).toEqual(["Catalog Pick", "Alternate Title"]);
-    expect(api.episodes).toHaveBeenCalledWith(expect.objectContaining({ id: "aniwave:correct-1" }), expect.anything(), expect.anything());
-  });
-  it("opens a title-only match under the catalog entry's references", async () => {
-    await setupBrowse();
-    search.mockResolvedValue([{ id: "aniwave:plain-1", provider: "aniwave", title: "Catalog Pick" }]);
-    await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
-    await advance(0);
-    expect(api.episodes).toHaveBeenCalledWith(expect.objectContaining({ id: "aniwave:plain-1", refs: ["anilist:42", "mal:42"] }), expect.anything(), expect.anything());
+    await click("Retry source search"); await advance(0);
+    expect(vi.mocked(api.discoverBrowse).mock.calls[1][1]).toMatchObject({ refresh: true, checkNow: true });
+    expect(container.querySelector(".series")).not.toBeNull();
+    expect(api.resolveSources).not.toHaveBeenCalled();
   });
   it("offers a manual search when no source matches and keeps Browse marked in the navigation", async () => {
     await setupBrowse();
-    search.mockResolvedValue([]);
+    vi.mocked(api.discoverBrowse).mockResolvedValue({ errors: {} });
     await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
     await advance(0);
     expect(container.querySelector('.icons button[title="browse"]')?.className).toBe("on");
@@ -1192,25 +1196,26 @@ describe("browse navigation and resolution", () => {
     expect(container.textContent).not.toContain("Genres could not load");
     expect(api.browse).not.toHaveBeenCalled();
   });
-  it("reads current remembered sources before issuing a provider search", async () => {
+  it("opens remembered sources returned by main-process discovery", async () => {
     await setupBrowse();
-    vi.mocked(api.getState).mockResolvedValue({ ...state, works: [{ id: "work:1234567890123456", title: "Catalog Pick", refs: ["anilist:42"], records: ["aniwave:known-1"], updatedAt: new Date().toISOString() }] });
+    vi.mocked(api.discoverBrowse).mockResolvedValue({ anime: { id: "aniwave:known-1", title: "Catalog Pick", provider: "aniwave", refs: ["anilist:42"] }, errors: {} });
     await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
     await advance(0);
     expect(search).not.toHaveBeenCalled();
+    expect(api.resolveSources).not.toHaveBeenCalled();
     expect(api.episodes).toHaveBeenCalledWith(expect.objectContaining({ id: "aniwave:known-1" }), expect.anything(), expect.anything());
   });
   it("checks sources on the card and cancels the check on Escape without leaving Browse", async () => {
     await setupBrowse();
-    const pending = deferred<AnimeResult[]>(); search.mockReturnValue(pending.promise);
+    const pending = deferred<BrowseDiscoveryResult>(); vi.mocked(api.discoverBrowse).mockReturnValue(pending.promise);
     await act(async () => { container.querySelector<HTMLButtonElement>(".browse .card .hit")!.click(); });
     await advance(0);
     expect(container.querySelector(".browse .card.is-resolving [role=status]")?.textContent).toBe("Checking streaming sources");
     expect(container.querySelector(".browse-detail")).toBeNull();
     await press("Escape");
     expect(container.querySelector(".browse .card.is-resolving")).toBeNull();
-    await act(async () => { pending.resolve([]); });
-    expect(search).toHaveBeenCalledOnce();
+    await act(async () => { pending.resolve({ anime: result("late")[0], errors: {} }); });
+    expect(api.discoverBrowse).toHaveBeenCalledOnce();
     expect(api.cancelCatalog).toHaveBeenCalledWith(expect.stringContaining("browse-open"));
     expect(container.querySelector(".browse")).not.toBeNull();
     expect(container.querySelector(".browse-detail")).toBeNull();

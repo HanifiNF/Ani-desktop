@@ -42,6 +42,10 @@ async function responseBody(url: string, label: string, accept: string, referrer
         signal?.addEventListener("abort", abort, { once: true });
       });
       try {
+        if (/search/.test(label) && context?.searchRequestBudget) {
+          if (context.searchRequestBudget.remaining <= 0) throw new Error("Source search request budget exhausted");
+          context.searchRequestBudget.remaining -= 1;
+        }
         const response = await fetch(url, {
           method: body === undefined ? "GET" : "POST",
           headers: { "User-Agent": USER_AGENT, Accept: accept, ...(body === undefined ? {} : { "Content-Type": "application/json" }), ...(referrer ? { Referer: referrer } : {}) },

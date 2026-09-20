@@ -80,6 +80,7 @@ describe("AniList client", () => {
     const result = await browseAniList(query);
     expect(result.hasNextPage).toBe(true);
     expect(result.entries[0]).toMatchObject({ anilistId: 146722, title: "JoJo's Bizarre Adventure: STONE OCEAN Part 2", genres: ["Action", "Adventure"], episodes: 26 });
+    expect(result.entries[0].titleVariants).toEqual(media.title);
     const sent = JSON.parse(fetchMock.mock.calls[1][1]!.body as string);
     expect(sent.variables).toMatchObject({ page: 2, genres: ["Action", "Adventure"], excluded: ["Horror"], score: 69, minEpisodes: 11, maxEpisodes: 31 });
     expect(sent.variables.startedAfter).toBeUndefined();

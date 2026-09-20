@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { browseMatch, findBrowseSource, identified, knownCandidate, rememberedBrowseAnime } from "../src/browse-source";
+import { describe, expect, it } from "vitest";
+import { browseMatch, browseQueries, identified, knownCandidate, rememberedBrowseAnime } from "../shared/browse-source";
 import type { AnimeResult, BrowseAnime, Work } from "../shared/contracts";
 
 const anime: BrowseAnime = { anilistId: 42, refs: ["anilist:42", "mal:42"], title: "Example Season 2", titles: ["Example Season 2", "Other Name 2", "Another Name 2", "Fourth Name"], genres: [], studios: [], type: "TV", year: 2020, status: "finished" };
@@ -56,22 +56,24 @@ describe("browse identity", () => {
   });
 });
 
-describe("bounded browse discovery", () => {
-  it("tries aliases until a compatible source is found", async () => {
-    const correct = hit(anime.refs, "Other Name 2");
-    const search = vi.fn().mockResolvedValueOnce([]).mockResolvedValueOnce([correct]);
-    expect(await findBrowseSource(anime, search)).toBe(correct);
-    expect(search.mock.calls.map(([query]) => query)).toEqual([anime.title, "Other Name 2"]);
+describe("browse query selection", () => {
+  it("keeps five distinct complete names and ignores repeated, blank, and overlength spellings", () => {
+    expect(browseQueries({ ...anime, titles: [anime.title.toUpperCase(), " ", "x".repeat(121), ...anime.titles, "Fifth Name", "Sixth Name"] }))
+      .toEqual([anime.title, "Other Name 2", "Another Name 2", "Fourth Name", "Fifth Name"]);
   });
-  it("skips repeated and overlength spellings and caps provider searches at three", async () => {
-    const search = vi.fn().mockResolvedValue([]);
-    await findBrowseSource({ ...anime, titles: [anime.title.toUpperCase(), "x".repeat(121), ...anime.titles] }, search);
-    expect(search.mock.calls.map(([query]) => query)).toEqual([anime.title, "Other Name 2", "Another Name 2"]);
+  it("prioritizes labelled English and romaji titles, with native titles retained as fallback", () => {
+    expect(browseQueries({ ...anime, titles: ["例", "Other Name 2", "Another Name 2"], titleVariants: { english: "English Name", romaji: "Romaji Name", native: "例" } }))
+      .toEqual([anime.title, "English Name", "Romaji Name", "Other Name 2", "Another Name 2"]);
+    expect(browseQueries({ ...anime, titles: ["例", "Other Name 2"] })).toEqual([anime.title, "Other Name 2", "例"]);
+    expect(browseQueries({ ...anime, title: "例", titles: ["例", "別名"] })).toEqual(["例", "別名"]);
   });
-  it("stops on cancellation or an all-provider failure", async () => {
-    const error = new DOMException("Cancelled", "AbortError");
-    const search = vi.fn().mockRejectedValue(error);
-    await expect(findBrowseSource(anime, search)).rejects.toBe(error);
-    expect(search).toHaveBeenCalledOnce();
+  it("uses exact-ID index hints while rejecting conflicting or unrelated references", () => {
+    const hint = { refs: anime.refs, title: "Index Name", titles: ["Index Name"] };
+    expect(browseQueries(anime, [hint])).toEqual([anime.title, "Index Name", "Other Name 2", "Another Name 2", "Fourth Name"]);
+    expect(browseQueries(anime, [{ ...hint, refs: ["anilist:99"] }, { ...hint, refs: ["anilist:42", "mal:99"] }])).toEqual(browseQueries(anime));
+  });
+  it("never invents a franchise-only query by stripping the season or subtitle", () => {
+    const title = "Example Season 2: Part 3";
+    expect(browseQueries({ ...anime, title, titles: [title] })).toEqual([title]);
   });
 });

@@ -8,6 +8,8 @@ export interface RequestContext {
   /** A manual action can check each host once, shared across its downstream lookups. */
   recoveryChecks?: Set<string>;
   scope: string;
+  /** Per-source Browse discovery allowance, charged for actual search fetches including retries. */
+  searchRequestBudget?: { remaining: number };
 }
 export const catalogContext = new AsyncLocalStorage<RequestContext>();
 const cancelled = () => new DOMException("Catalog request cancelled", "AbortError");

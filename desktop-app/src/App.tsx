@@ -21,6 +21,7 @@ import type {
   AnimeResult,
   BackdropArt,
   BrowseAnime,
+  BrowseDiscoveryResult,
   BrowseFilters,
   Episode,
   EpisodeGroup,
@@ -48,7 +49,6 @@ import { SiteFooter, type FooterScreen } from "./SiteFooter";
 import { updatePending } from "./UpdateUI";
 import BrowseScreen, { DEFAULT_BROWSE_STATE, type BrowseViewState } from "./BrowseScreen";
 import BrowseDetail from "./BrowseDetail";
-import { findBrowseSource, identified, knownCandidate, rememberedBrowseAnime } from "./browse-source";
 
 type Screen = "home" | "browse" | "catalog-detail" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
@@ -448,22 +448,15 @@ function App() {
     setBrowseAnime(anime); setBrowseResolving(true); setBrowseResolveError(undefined);
     if (inPlace) setBrowseOpening({ id: anime.anilistId, token }); else setScreen("catalog-detail");
     const id = catalogRequestId("browse-open"); catalogTasks.current.add(id);
-    let providerErrors: Partial<Record<ProviderName, string>> = {};
     try {
-      const current = await window.aniDesktop.getState();
+      const discovery = await window.aniDesktop.discoverBrowse(anime, { id, priority: "selected", refresh: retry, checkNow: retry });
       if (token !== openToken.current) return;
-      const known = retry ? undefined : rememberedBrowseAnime(anime, current.works ?? [], current.settings);
-      let queryIndex = 0;
-      const match = known ?? await findBrowseSource(anime, async (query) => {
-        if (token !== openToken.current) throw new DOMException("Source search cancelled", "AbortError");
-        const results = await window.aniDesktop.search(query, "auto", { id, priority: "selected", refresh: retry, checkNow: retry && queryIndex === 0 }, (progress) => { Object.assign(providerErrors, progress.errors); }, knownCandidate(anime));
-        queryIndex += 1;
-        if (token !== openToken.current) throw new DOMException("Source search cancelled", "AbortError");
-        return results;
-      });
-      if (token !== openToken.current) return;
-      if (match) { await openAnime(identified(anime, match), { returnTo: "browse" }); return; }
-      const failures = Object.entries(providerErrors).map(([provider, detail]) => `${provider}: ${detail}`);
+      if (discovery.anime) {
+        refreshState();
+        await openAnime({ ...discovery.anime, poster: discovery.anime.poster ?? anime.cover }, { returnTo: "browse", discovery });
+        return;
+      }
+      const failures = Object.entries(discovery.errors).map(([provider, detail]) => `${provider}: ${detail}`);
       setBrowseResolveError(failures.length ? `Source search was incomplete. ${failures.join(" · ")}` : undefined);
       setScreen("catalog-detail");
     } catch (reason) {
@@ -475,7 +468,7 @@ function App() {
     }
   }
 
-  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse" } = {}): Promise<boolean> {
+  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse"; discovery?: BrowseDiscoveryResult } = {}): Promise<boolean> {
     cancelSeries();
     if (!options.refresh) seriesOrigin.current = options.returnTo ?? "home";
     const token = openToken.current;
@@ -487,7 +480,7 @@ function App() {
     setEpisodesLoading(true);
     if (!options.refresh) { setSelectedEpisodeId(options.focusEpisodeId); seriesScroll.begin(options.focusEpisodeId); }
     if (!options.refresh) setEpisodeGroups([]);
-    setStatus(undefined); setJump(""); setSourceErrors({});
+    setStatus(undefined); setJump(""); setSourceErrors(options.discovery?.errors ?? {});
     setScreen(options.autoPlay ? "opening" : "series");
     if (options.mode) setMode(options.mode);
     setBusy("loading episodes"); setError(undefined); setNotice(undefined);
@@ -502,7 +495,8 @@ function App() {
     const resumeEpisode = (savedProgress?.completed ?? animeProgress?.completed) === false && savedProgress?.lastEpisodeId?.startsWith(`${preferred}:`) && enabledProviders(appState.settings).includes(preferred)
       ? { id: savedProgress.lastEpisodeId, number: savedProgress.lastEpisode, provider: preferred } : undefined;
     const known = new Set(animeSources(anime).map((source) => source.id));
-    const missing = enabledProviders(appState.settings).filter((name) => !animeSources(anime).some((source) => source.provider === name));
+    // Browse has already spent this opening's discovery budget, including failed/missing sources.
+    const missing = options.discovery ? [] : enabledProviders(appState.settings).filter((name) => !animeSources(anime).some((source) => source.provider === name));
     setPendingSources(missing); setResolving(missing.length > 0);
     const request = async <T,>(purpose: string, operation: (request: import("../shared/contracts").CatalogRequest) => Promise<T>) => {
       const id = catalogRequestId(purpose); catalogTasks.current.add(id);

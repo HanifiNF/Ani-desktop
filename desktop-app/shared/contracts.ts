@@ -76,6 +76,15 @@ export interface IdentityCandidate {
   status?: WorkStatus;
 }
 
+/** Identified catalogue entry used only to discover streaming sources. */
+export interface BrowseIdentity extends IdentityCandidate {
+  titleVariants?: { english?: string; romaji?: string; native?: string };
+}
+export interface BrowseDiscoveryResult {
+  anime?: AnimeResult;
+  errors: Partial<Record<ProviderName, string>>;
+}
+
 export interface WorkRelation { relation: string; refs: string[]; title: string; type?: MediaType; }
 export interface WorkInfo {
   refs: string[];
@@ -131,6 +140,7 @@ export interface BrowseAnime {
   refs: string[];
   title: string;
   titles: string[];
+  titleVariants?: BrowseIdentity["titleVariants"];
   cover?: string;
   genres: string[];
   type?: MediaType;
@@ -420,6 +430,7 @@ export interface AniDesktopApi {
   browseGenres(request?: CatalogRequest): Promise<string[]>;
   browseTags(request?: CatalogRequest): Promise<string[]>;
   browse(query: BrowseQuery, request?: CatalogRequest, onUpdate?: (progress: BrowseProgress) => void): Promise<BrowseResult>;
+  discoverBrowse(anime: BrowseIdentity, request?: CatalogRequest): Promise<BrowseDiscoveryResult>;
   episodes(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: EpisodeCatalog) => void): Promise<EpisodeCatalog>;
   seriesMetadata(anime: AnimeResult, request?: CatalogRequest, onUpdate?: (catalog: SeriesMetadataCatalog) => void): Promise<SeriesMetadataCatalog>;
   /** Look the anime up on every provider it is not yet known on, remembering confident matches. */

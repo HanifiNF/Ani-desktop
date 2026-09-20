@@ -24,6 +24,15 @@ const press = async (target: Element, extra: KeyboardEventInit = {}) => {
 };
 
 describe("player keyboard diagnostics", () => {
+  it("forwards identified Browse discovery and its cancellation request ID", async () => {
+    const anime = { title: "Pick", titles: ["Pick", "Alias"], refs: ["anilist:42"], titleVariants: { romaji: "Alias" } };
+    const request = { id: "browse-open-test", priority: "selected" as const, refresh: true, checkNow: true };
+    bridge.invoke.mockResolvedValueOnce({ errors: {} });
+    expect(await bridge.api.discoverBrowse(anime, request)).toEqual({ errors: {} });
+    expect(bridge.invoke).toHaveBeenCalledWith("catalog:browse-discover", anime, request);
+    bridge.api.cancelCatalog(request.id);
+    expect(bridge.send).toHaveBeenCalledWith("catalog:cancel", request.id);
+  });
   it("observes consumed and repeated keys without changing their behavior", async () => {
     toggle(true);
     const consume = (event: KeyboardEvent) => { event.preventDefault(); event.stopImmediatePropagation(); };

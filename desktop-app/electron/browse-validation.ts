@@ -1,5 +1,5 @@
-import type { BrowseFilters, BrowseQuery, BrowseSort, BrowseStudio, IdentityCandidate, MediaType, WorkStatus } from "../shared/contracts";
-import { isRef, mediaTypeOf, positiveInteger, unique, yearOf } from "../shared/identity";
+import type { BrowseFilters, BrowseIdentity, BrowseQuery, BrowseSort, BrowseStudio, IdentityCandidate, MediaType, WorkStatus } from "../shared/contracts";
+import { conflictingRefs, isRef, mediaTypeOf, positiveInteger, unique, yearOf } from "../shared/identity";
 
 const sorts: BrowseSort[] = ["match", "popularity", "score", "newest", "title"];
 const seasons = ["winter", "spring", "summer", "fall"] as const;
@@ -66,4 +66,20 @@ export function validateKnownCandidate(value: unknown): IdentityCandidate | unde
   const status = statuses.find((item) => item === raw.status);
   return { refs: unique(raw.refs as string[]), title: raw.title.trim(), titles: unique([raw.title, ...titles as string[]].map((title) => title.trim()).filter(Boolean)),
     ...(type ? { type } : {}), ...(year ? { year } : {}), ...(episodes ? { episodes } : {}), ...(status ? { status } : {}) };
+}
+
+export function validateBrowseIdentity(value: unknown): BrowseIdentity {
+  const known = validateKnownCandidate(value);
+  if (!known || conflictingRefs(known.refs, known.refs)) throw new Error("Invalid browse identity");
+  const raw = (value as Record<string, unknown>).titleVariants;
+  if (raw === undefined) return known; // Older browse caches contain the flattened titles only.
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid browse titles");
+  const titleVariants: NonNullable<BrowseIdentity["titleVariants"]> = {};
+  for (const key of ["english", "romaji", "native"] as const) {
+    const title = (raw as Record<string, unknown>)[key];
+    if (title === undefined) continue;
+    if (typeof title !== "string" || title.length > 500) throw new Error("Invalid browse titles");
+    if (title.trim()) titleVariants[key] = title.trim();
+  }
+  return { ...known, titles: unique([...known.titles, ...Object.values(titleVariants)]), titleVariants };
 }

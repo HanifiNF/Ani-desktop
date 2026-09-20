@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { validateBrowseQuery, validateKnownCandidate } from "../electron/browse-validation";
+import { validateBrowseIdentity, validateBrowseQuery, validateKnownCandidate } from "../electron/browse-validation";
 import { BrowseService } from "../electron/browse-service";
 
 const directories: string[] = [];
@@ -38,6 +38,16 @@ describe("browse search validation", () => {
 });
 
 describe("known work validation", () => {
+  it("accepts old browse identities and preserves validated title roles in new ones", () => {
+    const entry = { refs: ["anilist:42"], title: "Pick", titles: ["Pick"] };
+    expect(validateBrowseIdentity(entry)).toEqual(entry);
+    expect(validateBrowseIdentity({ ...entry, titleVariants: { english: " Pick ", romaji: "Romaji", native: "原題", ignored: "value" } }))
+      .toEqual({ ...entry, titles: ["Pick", "Romaji", "原題"], titleVariants: { english: "Pick", romaji: "Romaji", native: "原題" } });
+    for (const value of [undefined, { ...entry, refs: ["anilist:42", "anilist:43"] }, { ...entry, titleVariants: [] },
+      { ...entry, titleVariants: { romaji: 42 } }, { ...entry, titleVariants: { native: "x".repeat(501) } }]) {
+      expect(() => validateBrowseIdentity(value)).toThrow(/Invalid browse/);
+    }
+  });
   it("passes nothing through as nothing and normalizes an identified work", () => {
     expect(validateKnownCandidate(undefined)).toBeUndefined();
     expect(validateKnownCandidate(null)).toBeUndefined();

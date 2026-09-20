@@ -3,6 +3,7 @@
 import type { AniDesktopApi, AniPlayerApi, AnimeResult, AnimeSource, Episode, LibraryEntry, PersistedState, PlayerSession, WorkInfo } from "../shared/contracts";
 import { animeSources, expandWithLinks, mergeKey, unifyAnimeResults, enabledProviders, providerFromId } from "../shared/catalog";
 import { DEFAULT_STATE } from "../shared/settings";
+import { browseMatch, browseQueries, identified } from "../shared/browse-source";
 import { BACKDROP_POOL } from "../shared/backdrops";
 import { DEV_BROWSE } from "./devBrowseFixtures";
 
@@ -124,6 +125,13 @@ export function installDevApi(): void {
       await wait(400);
       const enabled = enabledProviders(state.settings);
       return query.toLowerCase().includes("nothing") ? [] : unifyAnimeResults(results.filter((hit) => enabled.includes(hit.provider)), state.providerLinks ?? []);
+    },
+    async discoverBrowse(anime) {
+      for (const query of browseQueries(anime)) {
+        const match = browseMatch(anime, await api.search(query));
+        if (match) return { anime: await api.resolveSources(identified(anime, match)), errors: {} };
+      }
+      return { errors: {} };
     },
     async resolveSources(raw) {
       await wait(900);

@@ -181,7 +181,7 @@ function toBrowseAnime(media: Media): BrowseAnime[] {
   const info = toWorkInfo(media);
   const id = positiveInteger(media.id);
   if (!info || !id) return [];
-  return [{ anilistId: id, refs: info.refs, title: info.title, titles: unique([info.title, ...Object.values(info.titles), ...info.synonyms].filter((value): value is string => Boolean(value))),
+  return [{ anilistId: id, refs: info.refs, title: info.title, titleVariants: info.titles, titles: unique([info.title, ...Object.values(info.titles), ...info.synonyms].filter((value): value is string => Boolean(value))),
     cover: info.cover, genres: info.genres, type: info.type, year: info.year, season: info.season, status: info.status,
     score: info.score, episodes: info.episodes, description: info.description, studios: info.studios }];
 }

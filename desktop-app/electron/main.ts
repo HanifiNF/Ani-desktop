@@ -41,7 +41,8 @@ import { loadSparkle } from "./sparkle";
 import { downloadReleaseAsset } from "./update-download";
 import { autoUpdater } from "electron-updater";
 import { BrowseService } from "./browse-service";
-import { validateBrowseQuery, validateKnownCandidate } from "./browse-validation";
+import { BrowseDiscovery } from "./browse-discovery";
+import { validateBrowseIdentity, validateBrowseQuery, validateKnownCandidate } from "./browse-validation";
 
 // Preserve existing settings and library data across the display-name change.
 app.setPath("userData", join(app.getPath("appData"), app.isPackaged ? "Ani Desktop" : "ani-desktop"));
@@ -73,6 +74,7 @@ const scheduleService = new ScheduleService();
 const workInfoService = new WorkInfoService();
 const backdropService = new BackdropService();
 const browseService = new BrowseService();
+const browseDiscovery = new BrowseDiscovery();
 let identityIndex: IdentityIndex;
 const backfill = new AbortController();
 /** References the library depends on; the information cache never evicts them. */
@@ -353,6 +355,17 @@ function registerIpc(): void {
     return browseService.browse(validateBrowseQuery(query), update);
   }));
   ipcMain.handle("catalog:episodes", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, (update) => catalogService.episodes(anime, store.snapshot().settings, update)));
+  ipcMain.handle("catalog:browse-discover", (event, raw: unknown, request?: CatalogRequest) => catalogCall(event, request, async () => {
+    const anime = validateBrowseIdentity(raw);
+    const state = store.snapshot();
+    const result = await browseDiscovery.discover(anime, state.settings, {
+      works: state.works, refresh: request?.refresh,
+      hints: state.settings.offlineIndex ? identityIndex.candidatesForRefs(anime.refs) : []
+    });
+    catalogContext.getStore()?.signal.throwIfAborted();
+    if (result.anime) await store.recordBindings([result.anime]);
+    return result;
+  }));
   ipcMain.handle("catalog:series-metadata", (event, anime: AnimeResult, request?: CatalogRequest) => {
     const validated = validateSeriesMetadataRequest(anime);
     return catalogCall(event, request, (update) => seriesMetadataService.metadata(validated, store.snapshot().settings, update));
