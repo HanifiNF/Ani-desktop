@@ -437,10 +437,17 @@ describe("live catalog search", () => {
       await act(async () => { document.activeElement!.dispatchEvent(event); });
       expect(event.defaultPrevented).toBe(false);
     }
+    // The search shortcut reopens the held results over the series; Escape closes them and the series stays.
     for (const modifier of [{ metaKey: true }, { ctrlKey: true }]) {
       const event = new KeyboardEvent("keydown", { key: "k", ...modifier, bubbles: true, cancelable: true });
       await act(async () => { document.activeElement!.dispatchEvent(event); });
-      expect(event.defaultPrevented).toBe(false);
+      expect(event.defaultPrevented).toBe(true);
+      expect(document.activeElement).toBe(input());
+      expect(titles()).toEqual(["frieren"]);
+      expect(container.querySelector(".series")).not.toBeNull();
+      await press("Escape");
+      expect(container.querySelector(".palette")).toBeNull();
+      expect(input().value).toBe("frieren");
     }
     expect(api.streams).not.toHaveBeenCalled();
     expect(api.toggleBookmark).not.toHaveBeenCalled();
@@ -451,7 +458,9 @@ describe("live catalog search", () => {
     await press("ArrowUp"); expect(document.activeElement).toBe(cells[4]);
     await act(async () => { cells[4].click(); });
     expect(api.streams).toHaveBeenCalledExactlyOnceWith("ep-2", "sub", expect.objectContaining({ priority: "playback" }));
+    // Typing searches in place over the series page.
     await type("another title"); await advance(); expect(titles()).toEqual(["another title"]);
+    expect(container.querySelector(".series")).not.toBeNull();
   });
 
   it("keeps provider-native episode lists and plays from the selected source tab", async () => {

@@ -98,8 +98,11 @@ function App() {
   const [browseResolveError, setBrowseResolveError] = useState<string>();
   const updateInstall = useUpdateInstall(setError);
 
+  // The series page keeps the query in the field; focusing it reopens the palette over the page.
+  const [seriesSearch, setSeriesSearch] = useState(false);
+  const searchHere = screen === "home" || (screen === "series" && seriesSearch);
   const catalogSearch = useAnimeSearch(query, "auto",
-    [appState.settings.aniwaveBaseUrl, appState.settings.anidbBaseUrl, appState.settings.hianimeBaseUrl, enabledProviders(appState.settings).join(",")], screen === "home" && !composing);
+    [appState.settings.aniwaveBaseUrl, appState.settings.anidbBaseUrl, appState.settings.hianimeBaseUrl, enabledProviders(appState.settings).join(",")], searchHere && !composing);
   const { results, lastQuery } = catalogSearch;
   const unifiedResults = useMemo(() => unifyAnimeResults(results, appState.providerLinks ?? []), [results, appState.providerLinks]);
 
@@ -231,19 +234,19 @@ function App() {
 
   const filter = query.trim().toLowerCase();
   const matches = (entry: LibraryEntry) => !filter || entry.title.toLowerCase().includes(filter);
-  // The search palette covers the home page while a query or its results exist.
-  const paletteOpen = screen === "home" && (Boolean(query.trim()) || unifiedResults.length > 0);
+  // The search palette covers the home page, or the series page once its field is focused, while a query or its results exist.
+  const paletteOpen = searchHere && (Boolean(query.trim()) || unifiedResults.length > 0);
   // The home sections stay on the page behind the palette; the keyboard cursor moves to the results while it is open.
   const libraryRows = useMemo<Row[]>(() => [
     ...appState.history.slice(0, HOME_CARDS).map((entry): Row => ({ kind: "continue", entry })),
     ...appState.bookmarks.slice(0, HOME_CARDS).map((entry): Row => ({ kind: "saved", entry }))
   ], [appState.history, appState.bookmarks]);
   const rows = useMemo<Row[]>(() => {
-    if (screen === "home") return paletteOpen ? unifiedResults.map((anime): Row => ({ kind: "results", anime })) : libraryRows;
+    if (searchHere) return paletteOpen ? unifiedResults.map((anime): Row => ({ kind: "results", anime })) : screen === "home" ? libraryRows : [];
     if (screen === "saved") return appState.bookmarks.filter(matches).map((entry): Row => ({ kind: "saved", entry }));
     if (screen === "recent") return appState.history.filter(matches).map((entry): Row => ({ kind: "recent", entry }));
     return [];
-  }, [screen, paletteOpen, unifiedResults, libraryRows, appState.history, appState.bookmarks, filter]);
+  }, [screen, searchHere, paletteOpen, unifiedResults, libraryRows, appState.history, appState.bookmarks, filter]);
 
   // The home, browse, saved, and recent pages carry an illustration behind them: a wash on home, a wash or a corner figure elsewhere, picked afresh on each visit.
   const backdropPage: BackdropPage | undefined = screen === "home" || screen === "browse" || screen === "saved" || screen === "recent" ? screen : undefined;
@@ -294,11 +297,12 @@ function App() {
     }
     previousResults.current = results;
   }, [results]);
-  useEffect(() => { if (screen !== "series" && screen !== "player") setCursor(0); }, [screen, filter]);
+  useEffect(() => { if ((screen !== "series" || seriesSearch) && screen !== "player") setCursor(0); }, [screen, seriesSearch, filter]);
+  useEffect(() => { if (screen !== "series") setSeriesSearch(false); }, [screen]);
   // Library navigation follows its cursor; series jumps are explicit scroll commands.
   const cursorKey = rows[cursor]?.anime?.id ?? rows[cursor]?.entry?.animeId;
   useEffect(() => {
-    if (screen === "series") return;
+    if (screen === "series" && !seriesSearch) return;
     const selected = document.querySelector<HTMLElement>('[data-cursor="true"]');
     if (!selected) return;
     const list = selected.closest<HTMLElement>(".page, .palette");
@@ -313,7 +317,7 @@ function App() {
     const observer = new ResizeObserver(reveal);
     observer.observe(list);
     return () => observer.disconnect();
-  }, [cursorKey, screen]);
+  }, [cursorKey, screen, seriesSearch]);
   useEffect(() => {
     if (screen !== "series" && screen !== "settings" && screen !== "player") fieldRef.current?.focus();
   }, [screen]);
@@ -394,6 +398,7 @@ function App() {
   function goBack() {
     if (screen === "player") { dockPlayer(); return; }
     if (screen === "home") { if (query) setQuery(""); catalogSearch.clear(); return; }
+    if (screen === "series" && seriesSearch) { closeSeriesSearch(); return; }
     if (screen === "browse" && browseOpening) { cancelSeries(); setBrowseOpening(undefined); return; }
     if (screen === "catalog-detail") { cancelSeries(); go("browse"); return; }
     if (screen === "series") { setSelectedAnime(undefined); go(seriesOrigin.current); return; }
@@ -403,14 +408,12 @@ function App() {
   function changeQuery(value: string) {
     setQuery(value);
     if (!value.trim()) catalogSearch.clear();
-    if (screen === "home" || screen === "series") {
-      setError(undefined); setNotice(undefined);
-      if (screen === "series") {
-        setSelectedAnime(undefined);
-        setScreen("home");
-      }
-    }
+    if (screen === "home") { setError(undefined); setNotice(undefined); }
+    else if (screen === "series") setSeriesSearch(true);
   }
+
+  // Closing the palette over a series leaves the page and the query as they were; the field gives up focus so the next click reopens it.
+  function closeSeriesSearch() { setSeriesSearch(false); fieldRef.current?.blur(); }
 
   const openToken = useRef(0);
   const catalogTasks = useRef(new Set<string>());
@@ -470,6 +473,7 @@ function App() {
 
   async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse"; discovery?: BrowseDiscoveryResult } = {}): Promise<boolean> {
     cancelSeries();
+    if (seriesSearch) closeSeriesSearch();
     if (!options.refresh) seriesOrigin.current = options.returnTo ?? "home";
     const token = openToken.current;
     const animeProgress = appState.history.find((entry) => overlaps(entry, anime));
@@ -772,11 +776,12 @@ function App() {
     const target = event.target as HTMLElement | null;
     const typing = target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement;
     if (event.isComposing || composing || event.keyCode === 229) return;
-    if (screen === "player" || screen === "series") return; // Series uses native controls; the player owns its keys.
+    const searchKey = (event.metaKey || event.ctrlKey) && event.key === "k";
+    if (screen === "player" || (screen === "series" && !seriesSearch && !searchKey)) return; // Series uses native controls until its search opens; the player owns its keys.
     // The backtick expands the docked player while browsing the library or search results.
     if (event.key === "`" && session && screen !== "settings" && !event.metaKey && !event.ctrlKey && !event.altKey) { event.preventDefault(); expandPlayer(); return; }
     if (event.metaKey || event.ctrlKey) {
-      if (event.key === "k" && screen !== "settings") { event.preventDefault(); if (screen !== "home") go("home"); fieldRef.current?.focus(); fieldRef.current?.select(); }
+      if (event.key === "k" && screen !== "settings") { event.preventDefault(); if (!searchHere && screen !== "series") go("home"); fieldRef.current?.focus(); fieldRef.current?.select(); }
       // Library and settings shortcuts resize the docked player, including while typing.
       else if (session && (event.key === "=" || event.key === "+")) { event.preventDefault(); resizeMiniPlayer(miniWidth + MINI_PLAYER_WIDTH.step); }
       else if (session && (event.key === "-" || event.key === "_")) { event.preventDefault(); resizeMiniPlayer(miniWidth - MINI_PLAYER_WIDTH.step); }
@@ -800,7 +805,7 @@ function App() {
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      if (screen === "home" && query.trim() && (!catalogSearch.ready && (catalogSearch.pending || target === fieldRef.current))) {
+      if (searchHere && query.trim() && (!catalogSearch.ready && (catalogSearch.pending || target === fieldRef.current))) {
         catalogSearch.searchNow(); return;
       }
       if (rows[cursor]) void activate(rows[cursor]);
@@ -874,6 +879,8 @@ function App() {
             : <label className="search">
                 <Icon name="search" />
                 <input ref={fieldRef} value={query} onChange={(event) => changeQuery(event.target.value)}
+                  onFocus={(event) => { if (screen === "series" && !seriesSearch) { setSeriesSearch(true); event.target.select(); } }}
+                  onBlur={() => { if (!paletteOpen) setSeriesSearch(false); }}
                   onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)}
                   maxLength={120} placeholder={placeholder} aria-label={placeholder} spellCheck={false} />
                 <span className="search-throbber" aria-hidden="true">
@@ -882,12 +889,12 @@ function App() {
                 <span className="sr-only" role="status">{searching ? "Searching" : catalogSearch.ready ? `${unifiedResults.length} ${unifiedResults.length === 1 ? "title" : "titles"} found for ${lastQuery}` : ""}</span>
                 {paletteOpen || query
                   ? <button type="button" className="clear" aria-label="Clear search" onClick={() => { setQuery(""); catalogSearch.clear(); fieldRef.current?.focus(); }}><Icon name="x" /></button>
-                  : screen !== "series" && <kbd>{shortcut("K")}</kbd>}
+                  : <kbd>{shortcut("K")}</kbd>}
               </label>}
           {paletteOpen && (
             <SearchPalette results={unifiedResults} query={query} lastQuery={lastQuery} cursor={cursor}
               ready={catalogSearch.ready} pending={catalogSearch.pending} providerErrors={catalogSearch.providerErrors}
-              message={searchMessage} error={searchError} onRetry={catalogSearch.retrySources}
+              message={searchMessage} error={searchError} closeHint={screen === "series" ? "back to the series" : "close"} onRetry={catalogSearch.retrySources}
               onOpen={(anime) => void openAnime(anime)} onFocus={setCursor} />
           )}
         </div>
@@ -899,7 +906,7 @@ function App() {
           {navIcon("settings", "gear", "settings", updatePending(updateStatus))}
         </nav>
       </header>
-      {paletteOpen && <div className="dim" onClick={() => { setQuery(""); catalogSearch.clear(); }} />}
+      {paletteOpen && <div className="dim" onClick={() => { if (screen === "series") closeSeriesSearch(); else { setQuery(""); catalogSearch.clear(); } }} />}
 
       <div className="body">
       {session && (
