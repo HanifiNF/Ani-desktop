@@ -6,7 +6,8 @@ export type LibraryKind = "continue" | "saved" | "recent";
 export interface LibraryRow { kind: LibraryKind; entry: LibraryEntry; anime?: never; }
 export type Row = LibraryRow | { kind: "results"; anime: AnimeResult; entry?: never };
 
-export const asAnime = (entry: LibraryEntry): AnimeResult => ({ id: entry.animeId, title: entry.title, poster: entry.poster, provider: entry.lastProvider ?? providerFromId(entry.animeId), sources: animeSources(entry) });
+// The provider identifies the series ID; playback preference stays on the library entry.
+export const asAnime = (entry: LibraryEntry): AnimeResult => ({ id: entry.animeId, title: entry.title, poster: entry.poster, provider: providerFromId(entry.animeId), sources: animeSources(entry) });
 
 export function libraryEntry(anime: AnimeResult, episode: Episode | undefined, mode: TranslationMode): LibraryEntry {
   const lastProvider = episode?.provider ?? anime.provider;

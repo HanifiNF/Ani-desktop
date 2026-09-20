@@ -471,13 +471,13 @@ function App() {
     }
   }
 
-  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse"; discovery?: BrowseDiscoveryResult } = {}): Promise<boolean> {
+  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; preferredProvider?: ProviderName; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse"; discovery?: BrowseDiscoveryResult } = {}): Promise<boolean> {
     cancelSeries();
     if (seriesSearch) closeSeriesSearch();
     if (!options.refresh) seriesOrigin.current = options.returnTo ?? "home";
     const token = openToken.current;
     const animeProgress = appState.history.find((entry) => overlaps(entry, anime));
-    const preferred = animeProgress?.lastProvider ?? (provider === "auto" ? anime.provider : provider);
+    const preferred = animeProgress?.lastProvider ?? (provider === "auto" ? options.preferredProvider ?? anime.provider : provider);
     playToken.current += 1;
     if (playbackRequest.current) window.aniDesktop.cancelCatalog(playbackRequest.current);
     setSelectedAnime(anime);
@@ -690,12 +690,12 @@ function App() {
 
   async function activate(row: Row) {
     if (row.anime) { await openAnime(row.anime); return; }
-    if (row.entry) await openAnime(asAnime(row.entry), { resumeAfter: row.entry.lastEpisode, mode: row.entry.mode, autoPlay: row.kind !== "saved" });
+    if (row.entry) await openAnime(asAnime(row.entry), { resumeAfter: row.entry.lastEpisode, preferredProvider: row.entry.lastProvider, mode: row.entry.mode, autoPlay: row.kind !== "saved" });
   }
 
   async function openRow(row: Row) {
     if (row.anime) await openAnime(row.anime);
-    else if (row.entry) await openAnime(asAnime(row.entry), { resumeAfter: row.entry.lastEpisode, mode: row.entry.mode });
+    else if (row.entry) await openAnime(asAnime(row.entry), { resumeAfter: row.entry.lastEpisode, preferredProvider: row.entry.lastProvider, mode: row.entry.mode });
   }
 
   async function removeRow(row: Row) {
@@ -858,9 +858,10 @@ function App() {
   // Next up follows progress, not the cursor: the episode after the last one watched on the provider used last.
   const nextUp = useMemo(() => {
     const all = episodeRowsOf(episodeGroups, progress, "all", "oldest");
-    const row = all[nextUpIndex(all, episodeGroups, progress, progress?.lastProvider ?? (provider === "auto" ? selectedAnime?.provider : provider) ?? "aniwave")];
+    const saved = selectedAnime && appState.bookmarks.find((entry) => overlaps(entry, selectedAnime));
+    const row = all[nextUpIndex(all, episodeGroups, progress, progress?.lastProvider ?? (provider === "auto" ? saved?.lastProvider ?? selectedAnime?.provider : provider) ?? "aniwave")];
     return row ? all.find((item) => !item.watched && item.number === row.number) ?? row : undefined;
-  }, [episodeGroups, progress, selectedAnime, provider]);
+  }, [episodeGroups, progress, selectedAnime, provider, appState.bookmarks]);
   // The update notice lives in Settings; a dot on the gear is its only sign elsewhere.
   const navIcon = (target: Screen, name: "home" | "browse" | "bookmark" | "clock" | "gear", text: string, badge = false) => (
     <button type="button" className={screen === target || (target === "browse" && screen === "catalog-detail") ? "on" : ""} title={badge ? `${text} · update available` : text} onClick={() => go(target)}><Icon name={name} />{badge && <i className="nav-badge" aria-hidden="true" />}<span className="sr-only">{badge ? `${text}, update available` : text}</span></button>
