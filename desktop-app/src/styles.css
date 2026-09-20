@@ -221,27 +221,31 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .browse-sort button:hover { color: var(--text); }
 .browse-sort button.on { color: var(--text); font-weight: 500; }
 /* One field searches the catalog by title or studio; genres, tags, and filters narrow whatever it finds. */
-.browse-search { display: flex; align-items: center; gap: 12px; height: 44px; margin-bottom: 14px; padding: 0 8px 0 16px; border-radius: 12px; background: var(--raised); color: var(--muted); cursor: text; }
+.browse-search { display: flex; align-items: center; gap: 12px; height: 44px; margin-bottom: 14px; padding: 0 8px 0 16px; border-radius: 12px; background: var(--raised); color: var(--muted); cursor: text; transition: background .15s, box-shadow .15s; }
 .browse-search:focus-within { background: var(--raised2); box-shadow: 0 0 0 1px var(--rule); }
 .browse-search input { flex: 1; min-width: 0; font-size: 15px; color: var(--text); }
 .browse-search input:focus-visible { outline: 0; }
-.browse-search .clear { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; color: var(--muted); }
+.browse-search .clear { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; color: var(--muted); transition: background .15s, color .15s; }
 .browse-search .clear:hover { color: var(--text); background: var(--bg); }
 .studio-token { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding-left: 10px; border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13.5px; white-space: nowrap; }
 .studio-token em, .token em { font-style: normal; color: var(--muted); }
 .token em { margin-right: 5px; }
 .studio-token button { width: 24px; height: 28px; color: var(--dim); font-size: 15px; line-height: 1; text-align: center; }
 .studio-token button:hover { color: var(--text); }
-.browse-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: -4px 0 14px; }
+.browse-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 0; padding: 2px 2px 14px; }
 .suggest-lab { color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .browse-suggest button { display: inline-flex; align-items: center; gap: 8px; height: 30px; padding: 0 9px 0 11px; border-radius: 8px; background: var(--raised); font-size: 13px; }
+.browse-suggest button { transition: background .15s; }
 .browse-suggest button:hover { background: var(--raised2); }
 .browse-suggest button.quiet { color: var(--muted); }
 .browse-suggest button small { color: var(--muted); font-size: 12px; }
 .browse-suggest button .icon { width: 13px; height: 13px; color: var(--muted); }
 .browse-suggest button:focus-visible { outline: 0; box-shadow: 0 0 0 2px var(--cursor); }
 /* Controls step back while a studio's list is read, when they cannot change anything yet. */
+.browse-sort, .browse-steps { transition: opacity .2s; }
 .browse .is-waiting { opacity: .45; pointer-events: none; }
+/* A settled reveal lets the tag list and focus rings reach past the edge that clips it while it moves. */
+.browse .reveal[data-settled="true"] > .reveal-inner { overflow: visible; }
 .browse-reading { display: flex; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); font-size: 12.5px; }
 .browse-reading .track { position: relative; width: 160px; height: 3px; overflow: hidden; border-radius: 2px; background: var(--raised2); }
 .browse-reading .track i { position: absolute; inset: 0 auto 0 0; width: 40%; border-radius: 2px; background: var(--cursor); animation: browse-reading 1.4s ease-in-out infinite; }
@@ -274,6 +278,7 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .browse-toggle.open .icon { transform: rotate(-90deg); }
 .token { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding-left: 9px; border-radius: 7px; background: var(--raised); font-size: 12px; }
 .token button { width: 22px; height: 24px; border-radius: 7px; color: var(--dim); font-size: 14px; line-height: 1; text-align: center; }
+.token button { transition: color .15s; }
 .token button:hover { color: var(--text); }
 .browse-clear { margin-left: auto; color: var(--muted); font-size: 12.5px; }
 .browse-clear:hover { color: var(--text); }
@@ -290,12 +295,14 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .browse .card .hit:hover .poster, .browse .card .hit:focus-visible .poster { box-shadow: 0 0 0 2px var(--cursor); }
 .card .badges.top { top: 8px; bottom: auto; justify-content: flex-end; }
 /* While one title's sources are checked, its card reports it and the rest of the grid steps back. */
-.browse-grid.is-opening .card { opacity: .45; transition: opacity .2s; }
+.browse-grid .card { transition: opacity .2s; }
+.browse-grid.is-opening .card { opacity: .45; }
 .browse-grid.is-opening .card.is-resolving { opacity: 1; }
+.browse .card .poster img { transition: opacity .2s ease-out, filter .2s; }
 .card.is-resolving .poster img { filter: brightness(.78); }
 /* The selection ring is the indicator: a bright arc travels around the poster's edge. */
 @property --trace { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
-.browse .card.is-resolving .hit::before { content: ""; position: absolute; inset: -2px; border-radius: calc(var(--radius) + 2px); background: conic-gradient(from var(--trace), color-mix(in oklab, var(--cursor) 28%, var(--bg)) 0 50%, var(--cursor) 88%, color-mix(in oklab, var(--cursor), #fff 70%) 97%, color-mix(in oklab, var(--cursor) 28%, var(--bg)) 100%); animation: card-trace 1.6s linear infinite; }
+.browse .card.is-resolving .hit::before { content: ""; position: absolute; inset: -2px; border-radius: calc(var(--radius) + 2px); background: conic-gradient(from var(--trace), color-mix(in oklab, var(--cursor) 28%, var(--bg)) 0 50%, var(--cursor) 88%, color-mix(in oklab, var(--cursor), #fff 70%) 97%, color-mix(in oklab, var(--cursor) 28%, var(--bg)) 100%); animation: card-trace 1.6s linear infinite, fade .2s ease-out both; }
 .browse .card.is-resolving .poster, .browse .card.is-resolving .hit:is(:hover, :focus-visible) .poster { box-shadow: none; }
 @keyframes card-trace { to { --trace: 360deg; } }
 .browse-ghosts { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 18px 16px; margin-top: 18px; -webkit-mask-image: linear-gradient(#000 10%, transparent 90%); mask-image: linear-gradient(#000 10%, transparent 90%); }
@@ -573,6 +580,11 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .src-wrap, .hit-row, .card { animation: rise var(--enter) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
 .status, .notice, .msg, .hints, .empty, .schedule-state { animation: rise var(--enter) both; }
 .page { animation: fade .12s ease-out both; }
+.browse-none, .browse-reading, .browse-line .token, .studio-token, .browse-clear, .browse-more > * { animation: rise var(--enter) both; }
+.browse-sort button, .browse-search .clear { animation: fade var(--enter) both; }
+.typeahead-list { animation: pop .16s ease-out both; transform-origin: top left; }
+.browse-ghosts .ghost { animation: shimmer 1.2s ease-in-out infinite; }
+.browse-ghosts .ghost:nth-child(4n + 2) { animation-delay: 80ms; } .browse-ghosts .ghost:nth-child(4n + 3) { animation-delay: 160ms; } .browse-ghosts .ghost:nth-child(4n) { animation-delay: 240ms; }
 .palette { animation: pop .16s ease-out both; transform-origin: top center; }
 .dim { animation: fade .16s ease-out both; }
 .src .q, .src .audio-availability, .src .metadata-status, .src .t em { animation: fade .2s ease-out both; }
@@ -590,6 +602,9 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
   .schedule-days button, .schedule-days button.today::after, .schedule-audio button, .schedule-card .poster { transition: none; }
   .art img { transition: none; }
   .browse .card.is-resolving .hit::before { animation: none; background: var(--cursor); }
+  .browse-none, .browse-reading, .browse-line .token, .studio-token, .browse-clear, .browse-more > *, .browse-sort button, .browse-search .clear, .typeahead-list, .browse-ghosts .ghost { animation: none; }
+  .browse-search, .browse-search .clear, .browse-suggest button, .browse-sort, .browse-steps, .token button, .browse-grid, .browse-grid .card, .browse .card .poster img, .browse-toggle .icon { transition: none; }
+  .browse .reveal[data-open="true"] > .reveal-inner { overflow: visible; }
   .reveal, .reveal-inner, .rail-pill, .chips button, .settings-section-nav button, .subtitle-sample, .subtitle-sample > span, .subtitle-chevron, .subtitle-editor .r :is(.stepper, .subtitle-swatch), .colour-dots button { transition: none !important; }
   .settings > .group, .settings-section-nav, .save-word, .stepper-value, .update-notice, .nav-badge { animation: none; }
   /* Without the fade, the tick and the bright heading simply stay while the heading holds focus. */

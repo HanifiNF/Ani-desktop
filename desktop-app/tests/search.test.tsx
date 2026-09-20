@@ -1279,7 +1279,7 @@ describe("search inside browse", () => {
     expect(lastFilters()).toMatchObject({ studio: toei, sort: "popularity" }); expect(lastFilters().search).toBeUndefined();
     expect(container.querySelector(".studio-token")?.textContent).toContain("Toei Animation");
     expect(field().value).toBe(""); expect(field().placeholder).toBe("Title within Toei Animation");
-    expect(container.querySelector(".browse-suggest")).toBeNull();
+    expect(container.querySelector('.reveal[data-open="true"] .browse-suggest')).toBeNull();
     expect(titles()).toEqual(["ONE PIECE"]);
     await key(container.querySelector(".browse .card .hit")!, "Escape");
     expect(document.activeElement).toBe(field());

@@ -6,6 +6,8 @@ import Chips from "./Chips";
 import { messageFrom } from "./errors";
 import GenreChips from "./GenreChips";
 import { Icon } from "./icons";
+import Reveal from "./Reveal";
+import { stagger } from "./transition";
 import TypeAhead from "./TypeAhead";
 
 export const DEFAULT_BROWSE_FILTERS: BrowseFilters = { includeGenres: [], excludeGenres: [], sort: "popularity" };
@@ -21,6 +23,8 @@ export interface BrowseViewState {
 
 export const DEFAULT_BROWSE_STATE: BrowseViewState = { filters: DEFAULT_BROWSE_FILTERS, pages: [], panelOpen: false, scrollTop: 0 };
 
+/** The suggestion row stays mounted while it closes; only an open one takes focus. */
+const SUGGESTION = '.reveal[data-open="true"] .browse-suggest button';
 const TYPING_PAUSE = 400, SEARCH_PAUSE = 600, SEARCH_MINIMUM = 2;
 const SORTS: [BrowseSort, string][] = [["match", "Best match"], ["popularity", "Popular"], ["score", "Top rated"], ["newest", "Newest"], ["title", "A–Z"]];
 const FORMATS = ["Any", "TV", "MOVIE", "OVA", "ONA", "SPECIAL", "MUSIC"] as const;
@@ -103,7 +107,7 @@ export default function BrowseScreen({ state, setState, enabled, openingId, onOp
   const [tags, setTags] = useState<string[]>(), [tagTerm, setTagTerm] = useState("");
   const request = useRef<string | undefined>(undefined), sequence = useRef(0);
   // The last titles and studio suggestions on screen stay while a changed query loads its first page.
-  const held = useRef<BrowseAnime[]>([]), heldStudios = useRef<BrowseStudio[]>([]);
+  const held = useRef<BrowseAnime[]>([]), heldStudios = useRef<BrowseStudio[]>([]), listedStudios = useRef<BrowseStudio[]>([]);
   const root = useRef<HTMLElement>(null), field = useRef<HTMLInputElement>(null);
   const { filters, pages } = state, problems = problemsOf(texts);
   const load = (page: number, refresh = false) => {
@@ -179,6 +183,9 @@ export default function BrowseScreen({ state, setState, enabled, openingId, onOp
   const last = pages.at(-1), stale = pages.find((page) => page.stale), tokens = tokensOf(filters);
   const waiting = loading && !pages.length, shown = reading?.entries ?? (waiting ? held.current : entries);
   const studios = !filters.studio && termOf(term) ? (pages[0] ? pages[0].studios ?? [] : heldStudios.current) : [];
+  // The suggestion row keeps its last names while it closes, and a page's cards enter in sequence from its own first card.
+  if (studios.length) listedStudios.current = studios;
+  const listed = studios.length ? studios : listedStudios.current, earlier = entries.length - (last?.entries.length ?? 0);
   // The search field already shows the term and the studio.
   const lineTokens = tokens.rest.filter((token) => token.key !== "search" && token.key !== "studio");
   const narrowed = tokens.genres.length + tokens.rest.length - (filters.studio ? 1 : 0) > 0;
@@ -191,7 +198,7 @@ export default function BrowseScreen({ state, setState, enabled, openingId, onOp
     const target = event.target as HTMLElement, key = event.key;
     const done = () => { event.preventDefault(); event.stopPropagation(); };
     if (target === field.current) {
-      if (key === "ArrowDown") { if (focusFirst(".browse-suggest button") || focusFirst(".browse-grid .hit")) done(); }
+      if (key === "ArrowDown") { if (focusFirst(SUGGESTION) || focusFirst(".browse-grid .hit")) done(); }
       else if (key === "Enter") { done(); if (termOf(term) === filters.search && !entries.length && !loading && studios.length) takeStudio(studios[0]); else search(); }
       else if (key === "Escape") { done(); if (term) setTerm(""); else field.current?.blur(); }
       else if (key === "Backspace" && !term && filters.studio) { done(); dropStudio(); }
@@ -210,7 +217,7 @@ export default function BrowseScreen({ state, setState, enabled, openingId, onOp
       const step = key === "ArrowRight" ? 1 : key === "ArrowLeft" ? -1 : key === "ArrowDown" ? columns : key === "ArrowUp" ? -columns : 0;
       if (step) {
         if (at + step >= 0) { done(); cards[Math.min(cards.length - 1, at + step)]?.focus(); }
-        else if (key === "ArrowUp") { done(); if (!focusFirst(".browse-suggest button")) field.current?.focus(); }
+        else if (key === "ArrowUp") { done(); if (!focusFirst(SUGGESTION)) field.current?.focus(); }
       } else if (key === "Escape" && openingId === undefined) { done(); field.current?.focus(); }
     }
   };
@@ -230,16 +237,16 @@ export default function BrowseScreen({ state, setState, enabled, openingId, onOp
           placeholder={filters.studio ? `Title within ${filters.studio.name}` : "Search the AniList catalog by title or studio"} aria-label={filters.studio ? `Title within ${filters.studio.name}` : "Search the AniList catalog by title or studio"} />
         <span className="search-throbber" aria-hidden="true">{loading && !reading && <><span>·</span><span>·</span><span>·</span></>}</span>
         {(term || filters.studio) && <button type="button" className="clear" aria-label="Clear search" onClick={() => { setTerm(""); if (filters.studio && !term) dropStudio(); field.current?.focus(); }}><Icon name="x" /></button>}</label>
-      {studios.length > 0 && <div className="browse-suggest" role="group" aria-label="Matching studios"><span className="suggest-lab">{studios.length > 1 ? "Studios" : "Studio"}</span>
-        {studios.map((studio) => <button type="button" key={studio.id} className={studio.animation ? "" : "quiet"} onClick={() => takeStudio(studio)}>{studio.name}<small>{role(studio)}</small><Icon name="chevron" /></button>)}</div>}
-      <div className={stepBack}>
+      <Reveal open={studios.length > 0}><div className="browse-suggest" role="group" aria-label="Matching studios"><span className="suggest-lab">{listed.length > 1 ? "Studios" : "Studio"}</span>
+        {listed.map((studio) => <button type="button" key={studio.id} className={studio.animation ? "" : "quiet"} onClick={() => takeStudio(studio)}>{studio.name}<small>{role(studio)}</small><Icon name="chevron" /></button>)}</div></Reveal>
+      <div className={`browse-steps ${stepBack}`}>
         {genres.length > 0 && <div className="browse-genres" role="group" aria-label="Genres">{genres.map((genre) => { const mark = genreState(genre); return <button type="button" key={genre} className={`genre ${mark}`}
           aria-pressed={mark === "inc" ? true : mark === "exc" ? "mixed" : false} title={mark === "inc" ? "Included · click to exclude" : mark === "exc" ? "Excluded · click to clear" : "Click to include"} onClick={() => cycleGenre(genre)}>{genre}{mark === "exc" && <span className="sr-only"> excluded</span>}</button>; })}</div>}
         {genreError && <div className="notice">Genres could not load. {genreError} <button type="button" className="link" onClick={() => setGenreAttempt((value) => value + 1)}>Retry</button></div>}
         {!reading && <div className="browse-line"><button type="button" className={`browse-toggle ${state.panelOpen ? "open" : ""}`} aria-expanded={state.panelOpen} aria-controls="browse-panel" onClick={() => setState((previous) => ({ ...previous, panelOpen: !previous.panelOpen }))}>Filters<Icon name="chevron" /></button>
           {lineTokens.map((token) => <span className="token" key={token.key}>{token.label}<button type="button" aria-label={token.remove} onClick={() => remove(token)}>×</button></span>)}
           {(lineTokens.length > 0 || tokens.genres.length > 0) && <button type="button" className="browse-clear" onClick={clear}>Clear all</button>}</div>}
-        {state.panelOpen && !reading && <div className="browse-panel" id="browse-panel">
+        <Reveal open={state.panelOpen && !reading} id="browse-panel"><div className="browse-panel">
           <Chips label="Format" value={filters.format ?? "Any"} options={FORMATS} names={FORMAT_NAMES} onChange={(value) => set("format", value === "Any" ? undefined : value as MediaType)} />
           <Chips label="Status" value={filters.status ?? "Any"} options={STATUSES} names={STATUS_NAMES} onChange={(value) => set("status", value === "Any" ? undefined : value)} />
           <Chips label="Season" value={filters.season ?? "Any"} options={SEASONS} names={SEASON_NAMES} onChange={(value) => set("season", value === "Any" ? undefined : value)} />
@@ -249,12 +256,12 @@ export default function BrowseScreen({ state, setState, enabled, openingId, onOp
             options={tagMatches.map((tag) => ({ key: tag, label: tag, ...(filters.tags?.some((value) => same(value, tag)) ? { note: "already added", disabled: true } : {}) }))}
             onPick={(tag) => { setTagTerm(""); set("tags", [...(filters.tags ?? []), tag]); }} onRemove={(tag) => { const rest = (filters.tags ?? []).filter((value) => !same(value, tag)); set("tags", rest.length ? rest : undefined); }} />
           {(Object.keys(problems) as Field[]).map((name) => <small className="field-problem" id={`browse-${name}-problem`} key={name}>{problems[name]}</small>)}
-        </div>}
+        </div></Reveal>
       </div>
       {reading && <div className="browse-reading" role="status"><span className="track"><i /></span>Fetching {reading.studio}'s catalog · {reading.read} so far · filters ready when done</div>}
       {stale && <div className="notice">Showing cached results. {stale.error} <button type="button" className="link" onClick={() => load(stale.query.page, true)}>Retry</button></div>}
       {error && <div className="msg err" role="alert">{error} <button type="button" className="link" onClick={() => load(pages.length + 1, true)}>Retry</button></div>}
-      {shown.length > 0 && <div className={`cards browse-grid ${waiting && !reading ? "is-loading" : ""} ${openingId !== undefined ? "is-opening" : ""}`} aria-busy={loading}>{shown.map((anime) => { const opening = anime.anilistId === openingId; return <div className={`card ${opening ? "is-resolving" : ""}`} key={anime.anilistId}>
+      {shown.length > 0 && <div className={`cards browse-grid ${waiting && !reading ? "is-loading" : ""} ${openingId !== undefined ? "is-opening" : ""}`} aria-busy={loading}>{shown.map((anime, index) => { const opening = anime.anilistId === openingId; return <div className={`card ${opening ? "is-resolving" : ""}`} key={anime.anilistId} style={stagger(index >= earlier ? index - earlier : index, 10)}>
         <button type="button" className="hit" aria-busy={opening} title={opening ? "Checking streaming sources · click to cancel" : undefined} onClick={() => onOpen(anime)}><Art src={anime.cover} className="poster" />
           {anime.score !== undefined && anime.score > 0 && <span className="badges top"><span className="badge">{(anime.score / 10).toFixed(1)}</span></span>}
           {opening && <span className="sr-only" role="status">Checking streaming sources</span>}</button>
