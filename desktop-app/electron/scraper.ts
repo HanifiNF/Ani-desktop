@@ -32,6 +32,10 @@ export function retryAfterDelay(value: string | null, now = Date.now()): number 
 
 async function responseBody(url: string, label: string, accept: string, referrer?: string, body?: unknown): Promise<string> {
   const context = catalogContext.getStore();
+  // Video CDNs can take 30 s or more to fill a cold edge cache. An aborted request still
+  // warms the cache, so playlists get a longer timeout and one retry after a timeout.
+  const slowOrigin = label === "Video playlist";
+  const timeout = slowOrigin ? 30_000 : 15_000;
   const execute = async (signal?: AbortSignal, recovery = false) => {
     const attempts = recovery ? 1 : 2;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -50,7 +54,7 @@ async function responseBody(url: string, label: string, accept: string, referrer
           method: body === undefined ? "GET" : "POST",
           headers: { "User-Agent": USER_AGENT, Accept: accept, ...(body === undefined ? {} : { "Content-Type": "application/json" }), ...(referrer ? { Referer: referrer } : {}) },
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000)
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout)
         });
         if (response.ok) return await response.text();
         await response.body?.cancel();
@@ -59,6 +63,7 @@ async function responseBody(url: string, label: string, accept: string, referrer
         if (response.status === 429 || retryAfter > 0 || attempt === attempts - 1) throw new CatalogNetworkError(`${label} failed (${response.status})`, retryAfter);
       } catch (error) {
         if (signal?.aborted) throw signal.reason;
+        if (slowOrigin && error instanceof Error && error.name === "TimeoutError" && attempt < attempts - 1) continue;
         if (error instanceof TypeError || (error instanceof Error && error.name === "TimeoutError")) throw new CatalogNetworkError(`${label}: ${error.message}`);
         throw error;
       }

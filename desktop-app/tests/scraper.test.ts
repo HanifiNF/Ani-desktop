@@ -140,6 +140,22 @@ describe("multi-source scraper", () => {
     ]);
   });
 
+  it("retries a video playlist that times out while the CDN fills its cache", async () => {
+    const key = Buffer.from("otaku-embed-v1"), plain = Buffer.from(JSON.stringify({ src: "https://media.test/master.m3u8" })), encoded = Buffer.alloc(plain.length);
+    for (let index = 0; index < plain.length; index += 1) encoded[index] = plain[index] ^ key[index % key.length];
+    let playlistCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/episode/")) return new Response(JSON.stringify({ episode: { link: { sub: ["https://zokoanime.video/stream/test"] } } }), { status: 200, headers: { "content-type": "application/json" } });
+      if (url.startsWith("https://zokoanime.video/")) return new Response(`<script>window.__P="${encoded.toString("base64")}"</script>`, { status: 200 });
+      playlistCalls += 1;
+      if (playlistCalls === 1) throw new DOMException("The operation was aborted due to timeout", "TimeoutError");
+      return new Response("#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=1280x720\n720/index.m3u8", { status: 200 });
+    }));
+    await expect(getStreams("hianime:naruto-episode-1-aaa111", "sub", config)).resolves.toHaveLength(1);
+    expect(playlistCalls).toBe(2);
+  });
+
   it("rejects unsupported HiAnime video hosts", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ episode: { link: { sub: ["https://unknown.test/embed"] } } }), { status: 200, headers: { "content-type": "application/json" } })));
     await expect(getStreams("hianime:naruto-episode-1-aaa111", "sub", config)).rejects.toThrow("unsupported host unknown.test");
