@@ -19,6 +19,11 @@ The renderer follows atsu.moe. The components in `../src/` are the current UI re
   The series page keeps the query in the pill: a click or the search shortcut selects it and reopens the held results over the
   series, typing searches in place, and Escape or the dimmed page closes the palette with the series and the query intact.
   Mockups: `design/variants/search-on-series.html` (Q1 chosen).
+- Notifications: the bell panel pops from the bell's corner and closes with a short reverse pop; its rows and the
+  Notifications page cards rise in turn like other lists. A deleted card slides aside, fades, and closes its gap, and Clear
+  does this row by row. A new notification opens a gap at the top and fades in while the bell swings once and its count
+  pops. Marking read fades the card, shrinks its dot, and folds the check away. Mockups: `design/variants/notifications-motion.html`
+  (C chosen); `design/record-notifications-motion.cjs` records each variant to `design/shots/motion/`.
 - Series: the back link sits at the top-left of the page with the title across the full width beneath it and the source
   tags under the title, as atsu does; they scroll away, and the left panel (poster, Play next, Save, audio and quality
   chips) then holds under the top bar. The Browse detail page shares the header. Mockups:

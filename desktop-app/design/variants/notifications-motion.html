@@ -1,0 +1,454 @@
+<!doctype html><meta charset="utf-8"><title>Notifications motion · variants</title>
+<style>
+:root {
+  --bg:#262626; --text:#EFE6D0; --cursor:#F0BC42; --cursor-text:#1d1a12;
+  --raised: color-mix(in oklab, var(--bg), var(--text) 6%);
+  --raised2: color-mix(in oklab, var(--bg), var(--text) 10%);
+  --rule: color-mix(in oklab, var(--bg), var(--text) 12%);
+  --dim: color-mix(in oklab, var(--bg), var(--text) 36%);
+  --muted: color-mix(in oklab, var(--bg), var(--text) 60%);
+  /* The app's motion tokens (styles.css). */
+  --ease: cubic-bezier(.2, .7, .2, 1); --enter: .28s var(--ease); --stagger: 18ms;
+}
+* { box-sizing: border-box; }
+body { margin:0; background:#151515; color:var(--text); font: 400 14px/1.45 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; letter-spacing:-.005em; padding: 40px 0 80px; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+button:disabled { cursor: default; }
+.caption { width: 1000px; margin: 56px 60px 12px; color: #8a8578; font-size: 12.5px; line-height: 1.55; }
+.caption:first-of-type { margin-top: 0; }
+.caption b { color: #d8cfba; font-weight: 600; }
+.caption code { color: #d8cfba; font-size: 11.5px; }
+.icon { width: 18px; height: 18px; flex: none; }
+.slowmo { position: fixed; top: 14px; right: 14px; z-index: 99; padding: 7px 12px; border-radius: 8px; background: #2e2e2e; color: #cfc6b0; font-size: 12px; box-shadow: 0 6px 18px rgb(0 0 0 / 40%); }
+.slowmo[aria-pressed="true"] { background: var(--cursor); color: var(--cursor-text); }
+
+/* ---- demo frame -------------------------------------------------------- */
+.variant { position: relative; width: 1120px; background: var(--bg); padding-bottom: 26px; }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 40px; background: #1c1c1c; border-bottom: 1px dashed #3a3a3a; }
+.controls button { padding: 5px 10px; border-radius: 7px; background: #2e2e2e; color: #cfc6b0; font-size: 12px; }
+.controls button:hover { background: #383838; }
+.controls .tag { margin-left: auto; align-self: center; color: #8a8578; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.bar { display: flex; align-items: center; justify-content: space-between; height: 68px; padding: 0 40px; }
+.logo { font-weight: 700; letter-spacing: .04em; }
+.logo em { font-style: normal; font-weight: 400; color: var(--muted); margin-left: 2px; }
+.stage { min-height: 600px; padding: 8px 40px 0; }
+.page { width: 640px; }
+
+/* ---- the app's rules, as committed ------------------------------------- */
+.icons { display: flex; gap: 4px; align-items: center; }
+.icons > button { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: var(--muted); }
+.icons > button:hover { color: var(--text); background: var(--raised); }
+.episode-update-count { position: absolute; top: 1px; right: 0; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--cursor); color: var(--bg); font: 700 10px/16px sans-serif; text-align: center; }
+.episode-updates-panel { position: absolute; z-index: 35; top: 108px; right: 40px; width: 390px; max-height: 470px; display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--rule); border-radius: 12px; background: var(--raised); color: var(--text); box-shadow: 0 18px 44px rgb(0 0 0 / 32%); }
+.episode-updates-panel > header { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+.episode-updates-panel > header strong { font-size: 15px; }
+.notification-panel-actions { display: flex; align-items: center; gap: 10px; }
+.notification-panel-actions button { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.notification-panel-actions .icon { width: 14px; height: 14px; }
+.notification-panel-actions button:hover:not(:disabled) { color: var(--text); }
+.notification-panel-actions button:disabled { opacity: .45; }
+.episode-updates-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.notification-preview { display: flex; flex-direction: row-reverse; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
+.notification-preview.read { opacity: .7; }
+.notification-preview-copy { min-width: 0; flex: 1; }
+.notification-preview-copy b { display: block; font-size: 13px; line-height: 1.35; }
+.notification-preview-copy p { margin: 5px 0 6px; color: var(--muted); font-size: 12px; }
+.notification-dot { display: inline-block; width: 6px; height: 6px; margin: 0 5px 2px 0; border-radius: 50%; background: var(--cursor); }
+.notification-preview.read .notification-dot { display: none; }
+.notification-poster { position: relative; flex: none; width: 34px; height: 46px; overflow: hidden; border-radius: 6px; background: var(--raised2); }
+.notification-preview-foot, .notification-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.notification-preview-foot button, .episode-updates-view-all { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); font-size: 12px; }
+.notification-preview-foot button:hover, .episode-updates-view-all:hover { color: var(--text); }
+.notification-preview-foot .icon, .episode-updates-view-all .icon { width: 13px; height: 13px; }
+.notification-preview-foot time, .notification-card-foot time { flex: none; color: var(--dim); font-size: 11px; }
+.episode-updates-view-all { flex: none; justify-content: center; width: 100%; padding: 13px 10px; border-top: 1px solid var(--rule); background: var(--raised); }
+.notification-empty { margin: 0; padding: 28px 16px; color: var(--muted); text-align: center; }
+.notifications-page-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.notifications-page-head > div { display: flex; align-items: center; gap: 14px; }
+.notifications-page-head h1 { margin: 0; font-size: 26px; font-weight: 600; }
+.notifications-unread-count { display: inline-flex; padding: 4px 9px; border-radius: 7px; background: var(--cursor); color: var(--cursor-text); font-size: 12px; font-weight: 700; }
+.notifications-unread-count b { display: inline-block; margin-right: .3em; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border-radius: 10px; font-size: 14px; font-weight: 500; background: var(--raised); color: var(--text); }
+.btn:hover:not(:disabled) { background: var(--raised2); }
+.btn.small { height: 30px; padding: 0 12px; font-size: 13px; }
+.notifications-page-head .btn { gap: 7px; }
+.notifications-page-head .btn:disabled { opacity: .5; }
+.notifications-page-head .icon, .notification-card .btn .icon { width: 15px; height: 15px; }
+.notifications-page-list { display: grid; gap: 14px; }
+.notification-card { position: relative; padding: 15px 16px 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--raised); }
+.notification-card.unread::after { content: ""; position: absolute; right: -5px; top: -5px; width: 11px; height: 11px; border-radius: 50%; background: var(--cursor); }
+.notification-card.read { opacity: .72; }
+.notification-card-head { display: flex; align-items: flex-start; gap: 11px; }
+.notification-card-head h2 { flex: 1; min-width: 0; margin: 1px 0 0; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.notification-card-actions, .notification-card-foot > span { display: flex; gap: 7px; }
+.notification-card-actions button { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--rule); border-radius: 8px; color: var(--muted); }
+.notification-card-actions button:hover { color: var(--text); background: var(--raised2); }
+.notification-card-actions .icon { width: 16px; height: 16px; }
+.notification-card > p { margin: 13px 0 18px; }
+.notification-card-foot .btn { gap: 3px; }
+
+/* ---- the app's keyframes ----------------------------------------------- */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes pop { from { opacity: 0; transform: scale(.98); } }
+@keyframes word-in { from { opacity: 0; transform: translateY(3px); } }
+/* Every page fades in today, this one included. */
+.page { animation: fade .12s ease-out both; }
+
+/* ---- A: entrances that match the rest of the app ----------------------- */
+.m .episode-updates-panel { animation: pop .16s ease-out both; transform-origin: top right; }
+.m .notification-preview { animation: rise var(--enter) backwards; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+.m .notifications-page-head, .m .notification-empty { animation: rise var(--enter) both; }
+.m .notification-card { animation: rise var(--enter) backwards; animation-delay: calc(var(--i, 0) * 30ms); }
+.m .episode-update-count { animation: fade var(--enter) both; }
+.m .notifications-unread-count b { animation: word-in .22s var(--ease) both; }
+.m :is(.notification-panel-actions button, .notification-preview-foot button, .episode-updates-view-all, .notification-card-actions button) { transition: color .15s, background .15s; }
+
+/* ---- B: changes in place ----------------------------------------------- */
+.x .notification-card, .x .notification-preview { transition: opacity .24s ease-out; }
+.x .notification-card::after { content: ""; position: absolute; right: -5px; top: -5px; width: 11px; height: 11px; border-radius: 50%; background: var(--cursor); transition: transform .22s var(--ease), opacity .22s; }
+.x .notification-card.read::after { transform: scale(0); opacity: 0; }
+.x .notification-dot { transition: width .22s var(--ease), margin .22s var(--ease), opacity .18s, transform .22s var(--ease); }
+.x .notification-preview.read .notification-dot { display: inline-block; width: 0; margin-right: 0; opacity: 0; transform: scale(0); }
+.x .episode-updates-panel.closing { animation: pop-out .12s ease-in both; }
+@keyframes pop-out { to { opacity: 0; transform: scale(.98); } }
+
+/* ---- C: an arrival cue on the bell ------------------------------------- */
+.c .episode-update-count.bump { animation: badge-pop .34s var(--ease); }
+@keyframes badge-pop { 0% { transform: scale(.5); } 55% { transform: scale(1.18); } 100% { transform: none; } }
+.c .bell.ring .icon { animation: bell-swing .62s var(--ease); transform-origin: 50% 10%; }
+@keyframes bell-swing { 18% { rotate: 14deg; } 42% { rotate: -10deg; } 66% { rotate: 5deg; } 100% { rotate: 0deg; } }
+
+/* ---- frame strips ------------------------------------------------------ */
+.frames { width: 1120px; background: var(--bg); padding: 18px 40px 22px; }
+.strip { display: grid; grid-template-columns: 110px 1fr; align-items: start; padding: 12px 0; border-top: 1px solid var(--rule); }
+.strip:first-child { border-top: 0; }
+.strip > em { font-style: normal; color: #8a8578; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding-top: 6px; }
+.cells { display: flex; gap: 12px; }
+.cell { flex: none; }
+.cell small { display: block; margin-top: 6px; color: #8a8578; font-size: 11px; font-variant-numeric: tabular-nums; }
+.win { position: relative; overflow: hidden; border-radius: 8px; background: var(--bg); outline: 1px solid #333; }
+.win .episode-updates-panel { position: relative; top: 0; right: 0; }
+.win .page { width: 640px; padding: 14px 16px 0; }
+
+/* ---- solo (?solo=b): one variant alone, for recording ------------------- */
+body.solo { padding: 0; }
+body.solo > :not(.on-air, script) { display: none; }
+.tap { position: fixed; z-index: 99; width: 30px; height: 30px; margin: -15px 0 0 -15px; border: 2px solid rgb(255 255 255 / 75%); border-radius: 50%; pointer-events: none; animation: tap .5s ease-out both; }
+@keyframes tap { from { opacity: 1; transform: scale(.4); } to { opacity: 0; transform: scale(1.5); } }
+</style>
+
+<button type="button" class="slowmo" aria-pressed="false">Slow motion ×4</button>
+
+<p class="caption"><b>Now</b> · Nothing on the notification surfaces moves. The bell panel appears in one frame; the page fades like every page (.12 s), but its heading and cards arrive already in place; the count badge snaps in; deleting, reading, clearing, or a new arrival changes the layout in one frame. Every other list in the app rises into place (<code>rise</code>, .28 s, staggered), Settings groups rise 30 ms apart, the Settings update dot fades in, and the search palette and tag type-ahead pop open (<code>pop</code>, .16 s).</p>
+<section class="variant" data-variant="now" data-motion="now"></section>
+
+<p class="caption"><b>A · Match the app's entrances.</b> CSS only, with the keyframes and timings styles.css already defines. The panel pops from the bell corner (<code>pop</code>, .16 s, origin top right). Its rows rise 18 ms apart, like palette rows. The page heading and cards rise 30 ms apart, like Settings groups, and the empty text rises like <code>.empty</code>. The count badge fades in like the Settings update dot; the number in "2 new" steps in like the Saved word. Text buttons ease their colour (.15 s). Deleting, reading, and new arrivals still snap.</p>
+<section class="variant" data-variant="a" data-motion="a"></section>
+
+<p class="caption"><b>B · A, plus changes in place.</b> Deleting slides the card right and fades it, then closes the gap so the cards below glide up. Clear does this row by row, 30 ms apart, and the empty text rises after. A new notification opens a gap at the top and fades in. Marking read fades the card to its read opacity and shrinks the dot away (the preview title slides back over the dot's space). The panel closes with a short reverse pop (.12 s); this would be the app's first exit animation, so it can be left out. React side: run <code>element.animate()</code> and call onDismiss when it finishes; keep the dot element mounted and let the <code>read</code> class drive it.</p>
+<section class="variant" data-variant="b" data-motion="b"></section>
+
+<p class="caption"><b>C · B, plus an arrival cue.</b> When a check finds a new episode while the app is open, the count badge pops and the bell swings once. This is the only motion here that asks for attention by itself; the badge alone already reports the arrival.</p>
+<section class="variant" data-variant="c" data-motion="c"></section>
+
+<p class="caption"><b>Frames</b> · Paused at fixed times, for a side-by-side read of the motion.</p>
+<section class="frames" data-variant="frames"></section>
+
+<script>
+const ICONS = {
+  home: '<path d="M4 11 12 4l8 7v9h-5v-6H9v6H4z"/>',
+  browse: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2.1 4.9-4.9 2.1 2.1-4.9z"/>',
+  bookmark: '<path d="M6 4h12v17l-6-4-6 4z"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9zM10 21h4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.2"/>',
+  chevron: '<path d="m9 6 6 6-6 6"/>',
+  check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  trash: '<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/>'
+};
+const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+const SEED = [
+  { title: "Frieren: Beyond Journey's End", ep: 28, age: "12 minutes ago", read: false, hue: 200 },
+  { title: "Dandadan", ep: 14, age: "2 hours ago", read: false, hue: 330 },
+  { title: "The Apothecary Diaries", ep: 36, age: "1 day ago", read: true, hue: 40 }
+];
+const EXTRA = [
+  { title: "Sakamoto Days", ep: 12, hue: 12 }, { title: "Blue Lock", ep: 38, hue: 222 },
+  { title: "Kaiju No. 8", ep: 19, hue: 140 }, { title: "Orb: On the Movements of the Earth", ep: 25, hue: 280 }
+];
+let uid = 0;
+const seed = () => SEED.map((u) => ({ ...u, id: `n${++uid}` }));
+const poster = (u) => `<div class="notification-poster" style="background: linear-gradient(160deg, hsl(${u.hue} 42% 46%), hsl(${u.hue} 32% 20%))"></div>`;
+const title = (u) => `Episode ${u.ep} of ${u.title}`;
+const html = (s) => { const t = document.createElement("template"); t.innerHTML = s.trim(); return t.content.firstElementChild; };
+
+function card(u, i) {
+  const el = html(`<article class="notification-card ${u.read ? "read" : "unread"}" data-id="${u.id}">
+    <div class="notification-card-head">${poster(u)}<h2>${title(u)}</h2><span class="notification-card-actions">${u.read ? "" : `<button type="button" class="act-read" title="Mark as read">${icon("check")}</button>`}<button type="button" class="act-del" title="Delete notification">${icon("x")}</button></span></div>
+    <p>Episode ${u.ep} is now available!</p>
+    <div class="notification-card-foot"><time>${u.age}</time><span><button type="button" class="btn small">Series ${icon("chevron")}</button><button type="button" class="btn small">View episode ${icon("chevron")}</button></span></div>
+  </article>`);
+  el.style.setProperty("--i", Math.min(i, 8));
+  return el;
+}
+function preview(u, i) {
+  const el = html(`<article class="notification-preview ${u.read ? "read" : "unread"}" data-id="${u.id}">${poster(u)}
+    <div class="notification-preview-copy"><b><span class="notification-dot"></span>${title(u)}</b><p>Episode ${u.ep} is now available!</p>
+    <div class="notification-preview-foot"><button type="button">View episode ${icon("chevron")}</button><time>${u.age}</time></div></div></article>`);
+  el.style.setProperty("--i", Math.min(i, 10));
+  return el;
+}
+const pageEmpty = () => html(`<p class="notification-empty">No notifications yet. Updates for saved anime will appear here.</p>`);
+const panelEmpty = () => html(`<p class="notification-empty">No notifications yet.</p>`);
+
+// Height-collapse for leaving rows and its mirror for arriving ones; the list gap is eaten by a negative margin.
+function boxOf(el) {
+  const cs = getComputedStyle(el);
+  return { height: `${el.offsetHeight}px`, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, borderTopWidth: cs.borderTopWidth, borderBottomWidth: cs.borderBottomWidth, marginBottom: "0px" };
+}
+const flat = (gap) => ({ height: "0px", paddingTop: "0px", paddingBottom: "0px", borderTopWidth: "0px", borderBottomWidth: "0px", marginBottom: `-${gap}px` });
+const gapOf = (el) => el.classList.contains("notification-card") ? 14 : 0;
+function collapse(el, delay = 0) {
+  const box = boxOf(el), opacity = getComputedStyle(el).opacity, gap = gapOf(el);
+  el.style.overflow = "hidden";
+  return el.animate([
+    { ...box, opacity, transform: "none", easing: "ease-out" },
+    { ...box, opacity: 0, transform: "translateX(14px)", offset: .4, easing: "cubic-bezier(.2, .7, .2, 1)" },
+    { ...flat(gap), opacity: 0, transform: "translateX(14px)" }
+  ], { duration: 380, delay, fill: "forwards" });
+}
+function expand(el) {
+  const box = boxOf(el), opacity = getComputedStyle(el).opacity, gap = gapOf(el);
+  el.style.overflow = "hidden";
+  const run = el.animate([
+    { ...flat(gap), opacity: 0, transform: "translateY(-6px)", easing: "cubic-bezier(.2, .7, .2, 1)" },
+    { ...box, opacity: 0, transform: "translateY(-6px)", offset: .45, easing: "cubic-bezier(.2, .7, .2, 1)" },
+    { ...box, opacity, transform: "none" }
+  ], { duration: 420 });
+  run.finished.then(() => { el.style.overflow = ""; });
+  return run;
+}
+
+class Demo {
+  constructor(root) {
+    this.root = root;
+    this.mode = root.dataset.motion;
+    this.m = this.mode !== "now";
+    this.x = this.mode === "b" || this.mode === "c";
+    if (this.m) root.classList.add("m");
+    if (this.x) root.classList.add("x");
+    if (this.mode === "c") root.classList.add("c");
+    root.innerHTML = `<div class="controls">
+        <button type="button" data-do="bell">Toggle bell panel</button><button type="button" data-do="replay">Replay page</button>
+        <button type="button" data-do="add">New episode arrives</button><button type="button" data-do="reset">Reset</button>
+        <span class="tag">${this.mode === "now" ? "now" : this.mode.toUpperCase()}</span></div>
+      <div class="bar"><span class="logo">ANI<em>desktop</em></span><nav class="icons">
+        <button type="button">${icon("home")}</button><button type="button">${icon("browse")}</button><button type="button">${icon("bookmark")}</button><button type="button">${icon("clock")}</button>
+        <button type="button" class="bell" data-do="bell">${icon("bell")}</button><button type="button">${icon("gear")}</button></nav></div>
+      <div class="stage"></div>`;
+    this.bell = root.querySelector(".bell");
+    this.stage = root.querySelector(".stage");
+    root.addEventListener("click", (event) => this.click(event));
+    this.reset();
+  }
+  get unread() { return this.items.filter((u) => !u.read).length; }
+  reset() {
+    this.items = seed(); this.next = 0;
+    this.panel?.remove(); this.panel = undefined;
+    this.renderPage(); this.badge();
+  }
+  click(event) {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const id = button.closest("[data-id]")?.dataset.id;
+    const act = button.dataset.do ?? [...button.classList].find((c) => c.startsWith("act-"));
+    if (act === "bell") this.toggle();
+    else if (act === "replay") this.renderPage();
+    else if (act === "reset") this.reset();
+    else if (act === "add") this.add();
+    else if (act === "act-del") this.remove(id);
+    else if (act === "act-read") this.read(id);
+    else if (act === "act-all") this.readAll();
+    else if (act === "act-clear") this.clear();
+    else if (act === "act-close") this.toggle();
+  }
+  renderPage() {
+    this.page?.remove();
+    this.page = html(`<div class="page"><div class="notifications-page-head"><div><h1>Notifications</h1><span class="notifications-unread-count"><b>0</b>new</span></div>
+      <button type="button" class="btn act-all">${icon("check")} Mark all as read</button></div><div class="notifications-page-list"></div></div>`);
+    this.pageList = this.page.querySelector(".notifications-page-list");
+    this.items.forEach((u, i) => this.pageList.append(card(u, i)));
+    if (!this.items.length) this.pageList.append(pageEmpty());
+    this.stage.append(this.page);
+    this.counts(true);
+  }
+  toggle() {
+    if (this.panel) {
+      const panel = this.panel; this.panel = undefined;
+      if (this.x) { panel.classList.add("closing"); panel.addEventListener("animationend", () => panel.remove(), { once: true }); }
+      else panel.remove();
+      return;
+    }
+    this.panel = html(`<section class="episode-updates-panel"><header><strong>Notifications</strong><span class="notification-panel-actions"><button type="button" class="act-clear">Clear ${icon("trash")}</button><button type="button" class="act-close">${icon("x")}</button></span></header>
+      <div class="episode-updates-list"></div><button type="button" class="episode-updates-view-all">View all notifications ${icon("chevron")}</button></section>`);
+    this.panelList = this.panel.querySelector(".episode-updates-list");
+    this.items.forEach((u, i) => this.panelList.append(preview(u, i)));
+    if (!this.items.length) this.panelList.append(panelEmpty());
+    this.root.append(this.panel);
+    this.counts();
+  }
+  // The bell badge and the page's "N new" pill.
+  badge(arrived) {
+    let count = this.bell.querySelector(".episode-update-count");
+    if (!this.unread) { count?.remove(); return; }
+    if (!count) { count = html(`<span class="episode-update-count"></span>`); this.bell.append(count); }
+    count.textContent = this.unread;
+    if (arrived && this.mode === "c") {
+      count.classList.remove("bump"); this.bell.classList.remove("ring"); void count.offsetWidth;
+      count.classList.add("bump"); this.bell.classList.add("ring");
+    }
+  }
+  counts(fresh) {
+    if (this.page) {
+      const pill = this.page.querySelector(".notifications-unread-count b");
+      if (fresh || pill.textContent !== String(this.unread)) pill.replaceWith(html(`<b>${this.unread}</b>`));
+      this.page.querySelector(".act-all").disabled = !this.unread;
+    }
+    this.panel?.querySelector(".act-clear") && (this.panel.querySelector(".act-clear").disabled = !this.items.length);
+  }
+  changed(arrived) { this.badge(arrived); this.counts(); }
+  add() {
+    const extra = EXTRA[this.next++ % EXTRA.length];
+    const u = { ...extra, id: `n${++uid}`, age: "just now", read: false };
+    this.items.unshift(u);
+    for (const [list, make] of [[this.pageList, card], [this.panelList, preview]]) {
+      if (!list?.isConnected || (list === this.panelList && !this.panel)) continue;
+      list.querySelector(".notification-empty")?.remove();
+      const el = make(u, 0);
+      list.prepend(el);
+      if (this.x) expand(el);
+    }
+    this.changed(true);
+  }
+  leave(el, delay = 0) {
+    if (!this.x) { el.remove(); this.empty(); return; }
+    el.dataset.leaving = "";
+    collapse(el, delay).finished.then(() => { el.remove(); this.empty(); });
+  }
+  empty() {
+    if (this.items.length) return;
+    const pairs = [[this.pageList, pageEmpty], [this.panel && this.panelList, panelEmpty]];
+    for (const [list, make] of pairs) if (list?.isConnected && !list.querySelector("[data-id], .notification-empty")) list.append(make());
+  }
+  nodes(id) { return this.root.querySelectorAll(`[data-id="${id}"]:not([data-leaving])`); }
+  remove(id) {
+    this.items = this.items.filter((u) => u.id !== id);
+    this.nodes(id).forEach((el) => this.leave(el));
+    this.changed();
+  }
+  clear() {
+    const ids = this.items.map((u) => u.id);
+    this.items = [];
+    ids.forEach((id, i) => this.nodes(id).forEach((el) => this.leave(el, this.x ? i * 30 : 0)));
+    this.changed();
+  }
+  read(id, delay = 0) {
+    const u = this.items.find((item) => item.id === id);
+    if (!u || u.read) return;
+    u.read = true;
+    const apply = () => this.nodes(id).forEach((el) => {
+      el.classList.replace("unread", "read");
+      const check = el.querySelector(".act-read");
+      if (!check) return;
+      if (!this.x) { check.remove(); return; }
+      check.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.8)" }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.then(() => check.remove());
+    });
+    delay ? setTimeout(apply, delay / (window.clockRate ?? rate)) : apply();
+    this.changed();
+  }
+  readAll() { this.items.filter((u) => !u.read).forEach((u, i) => this.read(u.id, this.x ? i * 30 : 0)); }
+}
+
+window.demos = {};
+document.querySelectorAll("section.variant").forEach((root) => { window.demos[root.dataset.motion] = new Demo(root); });
+const solo = new URLSearchParams(location.search).get("solo");
+if (solo) { document.body.classList.add("solo"); document.querySelector(`section[data-motion="${solo}"]`).classList.add("on-air"); }
+// A ring marks each scripted click in recordings.
+window.tap = (el) => {
+  const r = el.getBoundingClientRect();
+  const ring = html(`<div class="tap" style="left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px"></div>`);
+  document.body.append(ring); ring.addEventListener("animationend", () => ring.remove());
+  el.click();
+};
+
+// Slow motion stretches every running animation and transition by four.
+const slow = document.querySelector(".slowmo");
+let rate = 1;
+window.setRate = (value) => { rate = value; slow.setAttribute("aria-pressed", String(rate !== 1)); };
+slow.addEventListener("click", () => window.setRate(rate === 1 ? .25 : 1));
+(function tick() { for (const a of document.getAnimations()) if (a.playbackRate !== rate && !a.frame) a.playbackRate = rate; requestAnimationFrame(tick); })();
+
+// ---- frame strips ---------------------------------------------------------
+const frames = document.querySelector(".frames");
+function strip(label, width, height, zoom, times, build) {
+  const row = html(`<div class="strip"><em>${label}</em><div class="cells"></div></div>`);
+  frames.append(row);
+  for (const t of times) {
+    const cell = html(`<div class="cell"><div class="win" style="width:${width * zoom}px;height:${height * zoom}px"><div class="inner" style="zoom:${zoom}"></div></div><small>${t} ms</small></div>`);
+    row.querySelector(".cells").append(cell);
+    const inner = cell.querySelector(".inner");
+    const extra = build(inner);
+    void getComputedStyle(inner).opacity;
+    for (const a of extra ?? inner.getAnimations({ subtree: true })) { a.frame = true; a.pause(); a.currentTime = t; }
+  }
+}
+const modeClass = (mode) => ({ now: "", a: "m", b: "m x", c: "m x c" })[mode];
+const withMode = (inner, mode) => { inner.className = `inner ${modeClass(mode)}`; };
+const openPanel = (mode) => (inner) => {
+  withMode(inner, mode);
+  const panel = html(`<section class="episode-updates-panel"><header><strong>Notifications</strong><span class="notification-panel-actions"><button type="button">Clear ${icon("trash")}</button><button type="button">${icon("x")}</button></span></header><div class="episode-updates-list"></div></section>`);
+  seed().forEach((u, i) => panel.querySelector(".episode-updates-list").append(preview(u, i)));
+  inner.append(panel);
+};
+const enterPage = (mode) => (inner) => {
+  withMode(inner, mode);
+  const page = html(`<div class="page"><div class="notifications-page-head"><div><h1>Notifications</h1><span class="notifications-unread-count"><b>2</b>new</span></div><button type="button" class="btn">${icon("check")} Mark all as read</button></div><div class="notifications-page-list"></div></div>`);
+  seed().forEach((u, i) => page.querySelector(".notifications-page-list").append(card(u, i)));
+  inner.append(page);
+};
+const deleteCard = (mode) => (inner) => {
+  withMode(inner, mode);
+  const page = html(`<div class="page"><div class="notifications-page-list"></div></div>`);
+  const list = page.querySelector(".notifications-page-list");
+  seed().forEach((u, i) => list.append(card(u, i)));
+  inner.append(page);
+  void getComputedStyle(inner).opacity;
+  inner.getAnimations({ subtree: true }).forEach((a) => a.finish());
+  if (mode === "now") { list.children[0].remove(); return []; }
+  return [collapse(list.children[0])];
+};
+const arrive = (mode) => (inner) => {
+  withMode(inner, mode);
+  const nav = html(`<nav class="icons" style="padding:15px 14px"><button type="button">${icon("clock")}</button><button type="button" class="bell">${icon("bell")}<span class="episode-update-count">3</span></button><button type="button">${icon("gear")}</button></nav>`);
+  inner.append(nav);
+  void getComputedStyle(inner).opacity;
+  inner.getAnimations({ subtree: true }).forEach((a) => a.finish());
+  if (mode !== "c") return [];
+  const count = nav.querySelector(".episode-update-count"), bell = nav.querySelector(".bell");
+  count.classList.add("bump"); bell.classList.add("ring");
+  void getComputedStyle(count).transform;
+  return [...count.getAnimations(), ...bell.querySelector(".icon").getAnimations()];
+};
+
+strip("Panel · now", 392, 250, .44, [0, 40, 80, 120, 200], openPanel("now"));
+strip("Panel · A–C", 392, 250, .44, [0, 40, 80, 120, 200], openPanel("a"));
+strip("Page · now", 640, 420, .27, [0, 60, 120, 200, 300], enterPage("now"));
+strip("Page · A–C", 640, 420, .27, [0, 60, 120, 200, 300], enterPage("a"));
+// Deleting the top card: the "now" row shows it gone from the first frame.
+strip("Delete · now, A", 640, 420, .27, [0, 100, 180, 260, 380], deleteCard("now"));
+strip("Delete · B, C", 640, 420, .27, [0, 100, 180, 260, 380], deleteCard("b"));
+strip("Arrival · A, B", 154, 68, 1, [0, 80, 160, 260, 460], arrive("b"));
+strip("Arrival · C", 154, 68, 1, [0, 80, 160, 260, 460], arrive("c"));
+</script>

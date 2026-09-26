@@ -51,7 +51,7 @@ import { SiteFooter, type FooterScreen } from "./SiteFooter";
 import { updatePending } from "./UpdateUI";
 import BrowseScreen, { DEFAULT_BROWSE_STATE, type BrowseViewState } from "./BrowseScreen";
 import BrowseDetail from "./BrowseDetail";
-import EpisodeUpdatesPanel, { EpisodeUpdatesPage } from "./EpisodeUpdatesPanel";
+import EpisodeUpdatesPanel, { EpisodeUpdatesPage, usePanelPresence } from "./EpisodeUpdatesPanel";
 
 type Screen = "home" | "browse" | "catalog-detail" | "series" | "opening" | "saved" | "recent" | "notifications" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
@@ -95,6 +95,10 @@ function App() {
   const [updateChecking, setUpdateChecking] = useState(false);
   const [episodeUpdateStatus, setEpisodeUpdateStatus] = useState<EpisodeUpdateStatus>();
   const [episodeInboxOpen, setEpisodeInboxOpen] = useState(false);
+  const episodeInbox = usePanelPresence(episodeInboxOpen);
+  // Counts rises in the unread total, so the bell can swing and its count pop when an episode arrives.
+  const [episodeArrivals, setEpisodeArrivals] = useState(0);
+  const lastUnread = useRef<number>(undefined);
   const notificationsOrigin = useRef<Screen>("home");
   const [browseState, setBrowseState] = useState<BrowseViewState>(DEFAULT_BROWSE_STATE);
   const [browseAnime, setBrowseAnime] = useState<BrowseAnime>();
@@ -137,6 +141,12 @@ function App() {
     const stopChange = window.aniDesktop.onEpisodeUpdatesChange(setEpisodeUpdateStatus);
     return stopChange;
   }, []);
+  useEffect(() => {
+    const unread = episodeUpdateStatus?.unreadCount;
+    if (unread === undefined) return;
+    if (lastUnread.current !== undefined && unread > lastUnread.current) setEpisodeArrivals((count) => count + 1);
+    lastUnread.current = unread;
+  }, [episodeUpdateStatus?.unreadCount]);
   useEffect(() => window.aniDesktop.onOpenEpisodeUpdates(() => {
     if (screen === "player") {
       void window.aniDesktop.player.setFullscreen(false).catch(() => undefined);
@@ -736,9 +746,9 @@ function App() {
 
   const notificationPoster = (update: EpisodeUpdate) => appState.bookmarks.find((entry) => animeSources(entry).some((source) => source.id === update.sourceId))?.poster;
 
-  function changeEpisodeUpdate(id: string | undefined, action: "read" | "dismiss") {
+  function changeEpisodeUpdate(id: string | undefined, action: "read" | "dismiss"): Promise<boolean> {
     const request = action === "read" ? window.aniDesktop.markEpisodeUpdateRead(id) : window.aniDesktop.dismissEpisodeUpdate(id);
-    void request.then(setEpisodeUpdateStatus).catch((reason) => setError(messageFrom(reason)));
+    return request.then((status) => { setEpisodeUpdateStatus(status); return true; }, (reason) => { setError(messageFrom(reason)); return false; });
   }
 
   function openEpisodeUpdate(id: string, focusEpisode: boolean) {
@@ -747,7 +757,7 @@ function App() {
     const entry = appState.bookmarks.find((item) => animeSources(item).some((source) => source.id === update.sourceId));
     if (!entry) return;
     setEpisodeInboxOpen(false);
-    changeEpisodeUpdate(id, "read");
+    void changeEpisodeUpdate(id, "read");
     void openAnime(asAnime(entry), { preferredProvider: update.provider, focusEpisodeId: focusEpisode ? update.episodeId : undefined, mode: entry.mode, refresh: true, returnTo: screen === "notifications" ? "notifications" : undefined });
   }
 
@@ -957,11 +967,11 @@ function App() {
           {navIcon("browse", "browse", "browse")}
           {navIcon("saved", "bookmark", "saved")}
           {navIcon("recent", "clock", "recent")}
-          <button type="button" className={`episode-updates-trigger${screen === "notifications" ? " on" : ""}`} aria-label={`Notifications, ${episodeUpdateStatus?.unreadCount ?? 0} unread`} aria-expanded={episodeInboxOpen} onClick={() => { if (screen === "player") { void window.aniDesktop.player.setFullscreen(false).catch(() => undefined); setScreen("home"); } setEpisodeInboxOpen((open) => !open); }}><Icon name="bell" />{Boolean(episodeUpdateStatus?.unreadCount) && <span className="episode-update-count">{episodeUpdateStatus!.unreadCount}</span>}</button>
+          <button type="button" className={`episode-updates-trigger${screen === "notifications" ? " on" : ""}`} aria-label={`Notifications, ${episodeUpdateStatus?.unreadCount ?? 0} unread`} aria-expanded={episodeInboxOpen} onClick={() => { if (screen === "player") { void window.aniDesktop.player.setFullscreen(false).catch(() => undefined); setScreen("home"); } setEpisodeInboxOpen((open) => !open); }}><Icon name="bell" key={`bell-${episodeArrivals}`} className={episodeArrivals ? "bell-ring" : undefined} />{Boolean(episodeUpdateStatus?.unreadCount) && <span key={`count-${episodeArrivals}`} className={`episode-update-count${episodeArrivals ? " bump" : ""}`}>{episodeUpdateStatus!.unreadCount}</span>}</button>
           {navIcon("settings", "gear", "settings", updatePending(updateStatus))}
         </nav>
       </header>
-      {episodeInboxOpen && screen !== "player" && <EpisodeUpdatesPanel status={episodeUpdateStatus} posterFor={notificationPoster} onEpisode={(id) => openEpisodeUpdate(id, true)} onSeries={(id) => openEpisodeUpdate(id, false)} onMarkRead={(id) => changeEpisodeUpdate(id, "read")} onDismiss={(id) => changeEpisodeUpdate(id, "dismiss")} onClose={() => setEpisodeInboxOpen(false)} onViewAll={() => { notificationsOrigin.current = screen; go("notifications"); }} />}
+      {episodeInbox.shown && screen !== "player" && <EpisodeUpdatesPanel panelRef={episodeInbox.ref} closing={episodeInbox.closing} status={episodeUpdateStatus} posterFor={notificationPoster} onEpisode={(id) => openEpisodeUpdate(id, true)} onSeries={(id) => openEpisodeUpdate(id, false)} onMarkRead={(id) => void changeEpisodeUpdate(id, "read")} onDismiss={(id) => changeEpisodeUpdate(id, "dismiss")} onClose={() => setEpisodeInboxOpen(false)} onViewAll={() => { notificationsOrigin.current = screen; go("notifications"); }} />}
       {paletteOpen && <div className="dim" onClick={() => { if (screen === "series") closeSeriesSearch(); else { setQuery(""); catalogSearch.clear(); } }} />}
 
       <div className="body">
@@ -1010,7 +1020,7 @@ function App() {
 
         {screen === "notifications" && <EpisodeUpdatesPage status={episodeUpdateStatus} posterFor={notificationPoster}
           onEpisode={(id) => openEpisodeUpdate(id, true)} onSeries={(id) => openEpisodeUpdate(id, false)}
-          onMarkRead={(id) => changeEpisodeUpdate(id, "read")} onDismiss={(id) => changeEpisodeUpdate(id, "dismiss")} />}
+          onMarkRead={(id) => void changeEpisodeUpdate(id, "read")} onDismiss={(id) => changeEpisodeUpdate(id, "dismiss")} />}
 
         {screen === "home" && (
           <>

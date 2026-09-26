@@ -132,22 +132,24 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .episode-updates-panel > header { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
 .episode-updates-panel > header strong { font-size: 15px; }
 .notification-panel-actions { display: flex; align-items: center; gap: 10px; }
-.notification-panel-actions button { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.notification-panel-actions button { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; transition: color .15s; }
 .notification-panel-actions .icon { width: 14px; height: 14px; }
 .notification-panel-actions button:hover:not(:disabled) { color: var(--text); }
 .notification-panel-actions button:disabled { opacity: .45; }
 .episode-updates-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.notification-preview { display: flex; flex-direction: row-reverse; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
+.notification-preview { display: flex; flex-direction: row-reverse; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--rule); transition: opacity .24s ease-out; }
 .notification-preview.read { opacity: .7; }
 .notification-preview-copy { min-width: 0; flex: 1; }
 .notification-preview-copy b { display: block; font-size: 13px; line-height: 1.35; }
 .notification-preview-copy p { margin: 5px 0 6px; color: var(--muted); font-size: 12px; }
-.notification-dot { display: inline-block; width: 6px; height: 6px; margin: 0 5px 2px 0; border-radius: 50%; background: var(--cursor); }
+.notification-dot { display: inline-block; width: 6px; height: 6px; margin: 0 5px 2px 0; border-radius: 50%; background: var(--cursor); transition: width .22s var(--ease), margin .22s var(--ease), opacity .18s, transform .22s var(--ease); }
+/* Once read, the dot shrinks away and the title slides back over its space. */
+.notification-preview.read .notification-dot { width: 0; margin-right: 0; opacity: 0; transform: scale(0); }
 .notification-poster { position: relative; flex: none; width: 34px; height: 46px; overflow: hidden; border-radius: 6px; background: var(--raised2); }
 .notification-poster::before { content: "EP"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 10px; font-weight: 700; }
 .notification-poster img { position: relative; width: 100%; height: 100%; object-fit: cover; }
 .notification-preview-foot, .notification-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.notification-preview-foot button, .episode-updates-view-all { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); font-size: 12px; }
+.notification-preview-foot button, .episode-updates-view-all { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); font-size: 12px; transition: color .15s; }
 .notification-preview-foot button:hover, .episode-updates-view-all:hover { color: var(--text); }
 .notification-preview-foot .icon, .episode-updates-view-all .icon { width: 13px; height: 13px; }
 .notification-preview-foot time, .notification-card-foot time { flex: none; color: var(--dim); font-size: 11px; }
@@ -162,13 +164,16 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .notifications-page-head .btn:disabled { opacity: .5; }
 .notifications-page-head .icon, .notification-card .btn .icon { width: 15px; height: 15px; }
 .notifications-page-list { display: grid; gap: 14px; }
-.notification-card { position: relative; padding: 15px 16px 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--raised); }
-.notification-card.unread::after { content: ""; position: absolute; right: -5px; top: -5px; width: 11px; height: 11px; border-radius: 50%; background: var(--cursor); }
+.notification-card { position: relative; padding: 15px 16px 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--raised); transition: opacity .24s ease-out; }
+.notification-card::after { content: ""; position: absolute; right: -5px; top: -5px; width: 11px; height: 11px; border-radius: 50%; background: var(--cursor); transition: transform .22s var(--ease), opacity .22s; }
+.notification-card.read::after { transform: scale(0); opacity: 0; }
 .notification-card.read { opacity: .72; }
 .notification-card-head { display: flex; align-items: flex-start; gap: 11px; }
 .notification-card-head h2 { flex: 1; min-width: 0; margin: 1px 0 0; font-size: 15px; font-weight: 600; line-height: 1.4; }
 .notification-card-actions, .notification-card-foot > span { display: flex; gap: 7px; }
-.notification-card-actions button { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--rule); border-radius: 8px; color: var(--muted); }
+.notification-card-actions button { display: grid; place-items: center; width: 30px; height: 30px; overflow: hidden; border: 1px solid var(--rule); border-radius: 8px; color: var(--muted); transition: color .15s, background .15s, width .2s var(--ease), margin .2s var(--ease), border-width .2s, opacity .14s; }
+/* Once read, the check folds into the delete button's gap; hidden only after it has folded. */
+.notification-card.read .notification-mark-read { width: 0; margin-left: -7px; border-width: 0; opacity: 0; visibility: hidden; transition: width .2s var(--ease), margin .2s var(--ease), border-width .2s, opacity .14s, visibility 0s .2s; }
 .notification-card-actions button:hover { color: var(--text); background: var(--raised2); }
 .notification-card-actions .icon { width: 16px; height: 16px; }
 .notification-card > p { margin: 13px 0 18px; }
@@ -642,6 +647,19 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 .browse-ghosts .ghost:nth-child(4n + 2) { animation-delay: 80ms; } .browse-ghosts .ghost:nth-child(4n + 3) { animation-delay: 160ms; } .browse-ghosts .ghost:nth-child(4n) { animation-delay: 240ms; }
 .palette { animation: pop .16s ease-out both; transform-origin: top center; }
 .dim { animation: fade .16s ease-out both; }
+/* Notifications: the bell panel pops from the bell's corner, its rows and the page's cards rise in turn.
+   Cards and rows fill backwards only, so their read fade can transition once the rise is done. Leaving, arriving and closing are script animations. */
+.episode-updates-panel { animation: pop .16s ease-out both; transform-origin: top right; }
+.notification-preview { animation: rise var(--enter) backwards; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+.notification-card { animation: rise var(--enter) backwards; animation-delay: calc(var(--i, 0) * 30ms); }
+.notifications-page-head, .notification-empty { animation: rise var(--enter) both; }
+.notifications-unread-count > span { display: inline-block; animation: word-in .22s var(--ease) both; }
+.episode-update-count { animation: fade var(--enter) both; }
+/* A new episode while the app is open: the count pops and the bell swings once. */
+.episode-update-count.bump { animation: badge-pop .34s var(--ease); }
+.icon-bell.bell-ring { animation: bell-swing .62s var(--ease); transform-origin: 50% 10%; }
+@keyframes badge-pop { 0% { transform: scale(.5); } 55% { transform: scale(1.18); } 100% { transform: none; } }
+@keyframes bell-swing { 18% { rotate: 14deg; } 42% { rotate: -10deg; } 66% { rotate: 5deg; } 100% { rotate: 0deg; } }
 .src .q, .src .audio-availability, .src .metadata-status, .src .t em { animation: fade .2s ease-out both; }
 .art img { opacity: 0; transition: opacity .2s ease-out; }
 .art img.in { opacity: 1; }
@@ -662,6 +680,8 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
   .browse .reveal[data-open="true"] > .reveal-inner { overflow: visible; }
   .reveal, .reveal-inner, .rail-pill, .chips button, .settings-section-nav button, .subtitle-sample, .subtitle-sample > span, .subtitle-chevron, .subtitle-editor .r :is(.stepper, .subtitle-swatch), .colour-dots button { transition: none !important; }
   .settings > .group, .settings-section-nav, .save-word, .stepper-value, .update-notice, .nav-badge { animation: none; }
+  .episode-updates-panel, .notification-preview, .notification-card, .notifications-page-head, .notification-empty, .notifications-unread-count > span, .episode-update-count, .icon-bell.bell-ring { animation: none; }
+  .notification-preview, .notification-card, .notification-card::after, .notification-dot, .notification-card-actions button, .notification-card.read .notification-mark-read, .notification-panel-actions button, .notification-preview-foot button, .episode-updates-view-all { transition: none; }
   /* Without the fade, the tick and the bright heading simply stay while the heading holds focus. */
   .settings .group h3.jump-hit, .settings .group h3.jump-hit::before { animation: none; }
   .settings .group h3:focus { color: var(--text); }
