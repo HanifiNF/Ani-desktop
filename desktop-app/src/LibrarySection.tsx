@@ -26,9 +26,10 @@ interface CardActions {
   onMerge: (entry: LibraryEntry) => void;
   metadataFor: (entry: LibraryEntry) => SeriesMetadataCatalog | undefined;
   onMetadata: (entry: LibraryEntry) => void;
+  freshCounts?: Record<string, number>;
 }
 
-function LibraryCard({ row, index, order, current, onActivate, onRemove, onFocus, canMerge, onMerge, metadataFor, onMetadata }: CardActions & { row: LibraryRow; index: number; order: number; current: boolean }) {
+function LibraryCard({ row, index, order, current, onActivate, onRemove, onFocus, canMerge, onMerge, metadataFor, onMetadata, freshCounts }: CardActions & { row: LibraryRow; index: number; order: number; current: boolean }) {
   const { entry } = row;
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -44,7 +45,7 @@ function LibraryCard({ row, index, order, current, onActivate, onRemove, onFocus
   const watched = entry.progressByProvider?.[provider]?.lastEpisode ?? entry.lastEpisode;
   const sourceId = animeSources(entry).find((source) => source.provider === provider)?.id;
   const metadata = metadataFor(entry);
-  const available = metadata?.sources.find((source) => source.sourceId === sourceId)?.availableEpisodes
+  const available = (sourceId ? freshCounts?.[sourceId] : undefined) ?? metadata?.sources.find((source) => source.sourceId === sourceId)?.availableEpisodes
     ?? metadata?.sources.find((source) => source.provider === provider)?.availableEpisodes;
   const progress = Object.entries(entry.progressByProvider ?? {}).map(([name, value]) => `${name} ${value?.lastEpisode}`).join(" · ");
   const sub = row.kind === "recent" ? `${entry.completed === false ? `Started ${watched} · ` : ""}${when(entry.updatedAt)}`

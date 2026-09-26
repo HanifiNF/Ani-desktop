@@ -127,6 +127,53 @@ kbd { font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--
 /* An update is waiting in Settings. The ring takes the colour behind the dot so it reads as a cut-out. */
 .nav-badge { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--cursor); box-shadow: 0 0 0 2px var(--bg); animation: fade var(--enter) both; }
 .icons > button:is(.on, :hover) .nav-badge { box-shadow: 0 0 0 2px var(--raised); }
+.episode-update-count { position: absolute; top: 1px; right: 0; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 8px; background: var(--cursor); color: var(--bg); font: 700 10px/16px sans-serif; text-align: center; }
+.episode-updates-panel { position: absolute; z-index: 35; top: 62px; right: max(20px, var(--gutter)); width: min(390px, calc(100vw - 40px)); max-height: min(590px, calc(100vh - 86px)); display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--rule); border-radius: 12px; background: var(--raised); color: var(--text); box-shadow: 0 18px 44px rgb(0 0 0 / 32%); }
+.episode-updates-panel > header { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--rule); }
+.episode-updates-panel > header strong { font-size: 15px; }
+.notification-panel-actions { display: flex; align-items: center; gap: 10px; }
+.notification-panel-actions button { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.notification-panel-actions .icon { width: 14px; height: 14px; }
+.notification-panel-actions button:hover:not(:disabled) { color: var(--text); }
+.notification-panel-actions button:disabled { opacity: .45; }
+.episode-updates-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.notification-preview { display: flex; flex-direction: row-reverse; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--rule); }
+.notification-preview.read { opacity: .7; }
+.notification-preview-copy { min-width: 0; flex: 1; }
+.notification-preview-copy b { display: block; font-size: 13px; line-height: 1.35; }
+.notification-preview-copy p { margin: 5px 0 6px; color: var(--muted); font-size: 12px; }
+.notification-dot { display: inline-block; width: 6px; height: 6px; margin: 0 5px 2px 0; border-radius: 50%; background: var(--cursor); }
+.notification-poster { position: relative; flex: none; width: 34px; height: 46px; overflow: hidden; border-radius: 6px; background: var(--raised2); }
+.notification-poster::before { content: "EP"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--dim); font-size: 10px; font-weight: 700; }
+.notification-poster img { position: relative; width: 100%; height: 100%; object-fit: cover; }
+.notification-preview-foot, .notification-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.notification-preview-foot button, .episode-updates-view-all { display: inline-flex; align-items: center; gap: 2px; color: var(--muted); font-size: 12px; }
+.notification-preview-foot button:hover, .episode-updates-view-all:hover { color: var(--text); }
+.notification-preview-foot .icon, .episode-updates-view-all .icon { width: 13px; height: 13px; }
+.notification-preview-foot time, .notification-card-foot time { flex: none; color: var(--dim); font-size: 11px; }
+.episode-updates-view-all { flex: none; justify-content: center; width: 100%; padding: 13px 10px; border-top: 1px solid var(--rule); background: var(--raised); }
+.notification-empty { margin: 0; padding: 28px 16px; color: var(--muted); text-align: center; }
+.notifications-page { width: min(100%, 920px); margin: 18px auto 0; }
+.notifications-page-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.notifications-page-head > div { display: flex; align-items: center; gap: 14px; }
+.notifications-page-head h1 { margin: 0; font-size: 26px; font-weight: 600; }
+.notifications-unread-count { padding: 4px 9px; border-radius: 7px; background: var(--cursor); color: var(--cursor-text); font-size: 12px; font-weight: 700; }
+.notifications-page-head .btn { display: inline-flex; align-items: center; gap: 7px; }
+.notifications-page-head .btn:disabled { opacity: .5; }
+.notifications-page-head .icon, .notification-card .btn .icon { width: 15px; height: 15px; }
+.notifications-page-list { display: grid; gap: 14px; }
+.notification-card { position: relative; padding: 15px 16px 12px; border: 1px solid var(--rule); border-radius: 12px; background: var(--raised); }
+.notification-card.unread::after { content: ""; position: absolute; right: -5px; top: -5px; width: 11px; height: 11px; border-radius: 50%; background: var(--cursor); }
+.notification-card.read { opacity: .72; }
+.notification-card-head { display: flex; align-items: flex-start; gap: 11px; }
+.notification-card-head h2 { flex: 1; min-width: 0; margin: 1px 0 0; font-size: 15px; font-weight: 600; line-height: 1.4; }
+.notification-card-actions, .notification-card-foot > span { display: flex; gap: 7px; }
+.notification-card-actions button { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--rule); border-radius: 8px; color: var(--muted); }
+.notification-card-actions button:hover { color: var(--text); background: var(--raised2); }
+.notification-card-actions .icon { width: 16px; height: 16px; }
+.notification-card > p { margin: 13px 0 18px; }
+.notification-card-foot .btn { display: inline-flex; align-items: center; gap: 3px; }
+@media (max-width: 700px) { .notifications-page-head { align-items: flex-start; flex-direction: column; } .notification-card-foot { align-items: flex-start; flex-direction: column; } }
 
 /* ---- search palette --------------------------------------------------- */
 .dim { position: absolute; inset: 0; background: rgb(0 0 0 / 55%); z-index: 20; }

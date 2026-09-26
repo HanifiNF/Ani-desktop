@@ -93,6 +93,12 @@ beforeEach(async () => {
     saveSettings: vi.fn(async (settings) => ({ ...state, settings })),
     saveSubtitleAppearance: vi.fn(async (appearance) => appearance),
     openPlayerLogs: vi.fn().mockResolvedValue(undefined),
+    episodeUpdates: vi.fn().mockResolvedValue({ updates: [], unreadCount: 0, counts: {}, latestByAnime: {}, checking: false }),
+    checkEpisodeUpdates: vi.fn().mockResolvedValue({ updates: [], unreadCount: 0, counts: {}, latestByAnime: {}, checking: false }),
+    dismissEpisodeUpdate: vi.fn().mockResolvedValue({ updates: [], unreadCount: 0, counts: {}, latestByAnime: {}, checking: false }),
+    markEpisodeUpdateRead: vi.fn().mockResolvedValue({ updates: [], unreadCount: 0, counts: {}, latestByAnime: {}, checking: false }),
+    onEpisodeUpdatesChange: vi.fn().mockReturnValue(() => {}),
+    onOpenEpisodeUpdates: vi.fn().mockReturnValue(() => {}),
     checkForUpdates: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
     dismissUpdate: vi.fn().mockResolvedValue({ currentVersion: "development", state: "development" }),
     openLatestRelease: vi.fn().mockResolvedValue(undefined),
@@ -300,7 +306,7 @@ describe("live catalog search", () => {
     const page = container.querySelector<HTMLElement>(".page-settings")!;
     const headings = [...container.querySelectorAll<HTMLElement>('.settings .group h3[id^="settings-"]')];
     const nav = container.querySelector<HTMLElement>('.settings-section-nav')!;
-    expect(headings.map((heading) => heading.textContent)).toEqual(["Playback", "Defaults", "Appearance", "Anime information", "Episode metadata", "Sources", "Updates"]);
+    expect(headings.map((heading) => heading.textContent)).toEqual(["Playback", "Defaults", "Appearance", "Anime information", "Episode metadata", "Sources", "Episode updates", "Updates"]);
     expect([...nav.querySelectorAll("button")].map((button) => button.textContent)).toEqual(headings.map((heading) => heading.textContent));
     const positions = new Map(headings.map((heading, index) => [heading.id, 120 + index * 200]));
     vi.spyOn(page, "getBoundingClientRect").mockReturnValue({ top: 0 } as DOMRect);
@@ -335,6 +341,55 @@ describe("live catalog search", () => {
     expect(jump.options).toHaveLength(headings.length);
     await click("home");
     expect(container.querySelector(".settings-section-nav")).toBeNull();
+  });
+  it("shows saved episode alerts in the bell and lets the user clear them", async () => {
+    const listener = vi.mocked(api.onEpisodeUpdatesChange).mock.calls[0][0];
+    await act(async () => listener({ updates: [{ id: "u1", animeId: "aniwave:show", title: "Show", sourceId: "aniwave:show", provider: "aniwave", episodeId: "aniwave:show:13", episodeNumber: "13", detectedAt: Date.now() }], unreadCount: 1, counts: { "aniwave:show": 13 }, latestByAnime: {}, checking: false }));
+    const bell = container.querySelector<HTMLButtonElement>('[aria-label="Notifications, 1 unread"]')!;
+    expect(bell).not.toBeNull();
+    await act(async () => bell.click());
+    expect(container.querySelector(".episode-updates-panel")?.textContent).toContain("Episode 13");
+    await act(async () => container.querySelector<HTMLButtonElement>(".notification-panel-actions button")!.click());
+    expect(api.dismissEpisodeUpdate).toHaveBeenCalledWith(undefined);
+  });
+  it("opens the full notifications page, preserves read items, and closes the dropdown with Escape", async () => {
+    const listener = vi.mocked(api.onEpisodeUpdatesChange).mock.calls[0][0];
+    const update = { id: "u2", animeId: "aniwave:show", title: "Show", sourceId: "aniwave:show", provider: "aniwave" as const, episodeId: "aniwave:show:13", episodeNumber: "13", detectedAt: Date.now() - 3_600_000 };
+    await act(async () => listener({ updates: [update], unreadCount: 1, counts: {}, latestByAnime: {}, checking: false }));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Notifications, 1 unread"]')!.click());
+    expect(container.querySelector(".notification-preview-foot")?.textContent).toContain("1 hour ago");
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(container.querySelector(".episode-updates-panel")).toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Notifications, 1 unread"]')!.click());
+    await act(async () => document.body.dispatchEvent(new Event("pointerdown", { bubbles: true })));
+    expect(container.querySelector(".episode-updates-panel")).toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Notifications, 1 unread"]')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>(".episode-updates-view-all")!.click());
+    expect(container.querySelector(".page-notifications .notification-card")).not.toBeNull();
+    expect(container.querySelector(".episode-updates-panel")).toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Mark Episode 13 of Show as read"]')!.click());
+    expect(api.markEpisodeUpdateRead).toHaveBeenCalledWith("u2");
+    await act(async () => listener({ updates: [{ ...update, readAt: Date.now() }], unreadCount: 0, counts: {}, latestByAnime: {}, checking: false }));
+    expect(container.querySelector(".page-notifications .notification-card.read")).not.toBeNull();
+    expect(container.querySelector('[aria-label="Notifications, 0 unread"] .episode-update-count')).toBeNull();
+  });
+  it("opens an episode notification on its series without starting playback", async () => {
+    state.bookmarks = [{ animeId: "aniwave:show", title: "Show", lastEpisode: "1", mode: "sub", updatedAt: "", poster: "https://example.test/show.webp", sources: [{ id: "aniwave:show", provider: "aniwave", title: "Show", aliases: ["Show"] }] }];
+    const listener = vi.mocked(api.onEpisodeUpdatesChange).mock.calls[0][0];
+    await act(async () => listener({ updates: [{ id: "u3", animeId: "aniwave:show", title: "Show", sourceId: "aniwave:show", provider: "aniwave", episodeId: "ep-1", episodeNumber: "1", detectedAt: Date.now() }], unreadCount: 1, counts: {}, latestByAnime: {}, checking: false }));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Notifications, 1 unread"]')!.click());
+    expect(container.querySelector<HTMLImageElement>(".episode-updates-panel .notification-poster img")?.src).toBe("https://example.test/show.webp");
+    await act(async () => container.querySelector<HTMLButtonElement>(".episode-updates-view-all")!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>(".notification-card-foot button:last-child")!.click());
+    expect(api.markEpisodeUpdateRead).toHaveBeenCalledWith("u3");
+    expect(container.querySelector(".page-series")).not.toBeNull();
+    expect(api.play).not.toHaveBeenCalled();
+    await backFromSeries();
+    expect(container.querySelector(".page-notifications")).not.toBeNull();
+    await act(async () => listener({ updates: [{ id: "u3", animeId: "aniwave:show", title: "Show", sourceId: "aniwave:show", provider: "aniwave", episodeId: "ep-1", episodeNumber: "1", detectedAt: Date.now(), readAt: Date.now() }], unreadCount: 0, counts: {}, latestByAnime: {}, checking: false }));
+    await act(async () => container.querySelector<HTMLButtonElement>(".notification-card-foot button:first-child")!.click());
+    expect(container.querySelector(".page-series")).not.toBeNull();
+    expect(api.play).not.toHaveBeenCalled();
   });
   it("applies opt-in diagnostics on change and opens the log folder from settings", async () => {
     await click("settings");
