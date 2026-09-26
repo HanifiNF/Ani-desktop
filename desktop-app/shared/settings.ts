@@ -18,6 +18,7 @@ export const DEFAULT_STATE: PersistedState = {
     miniPlayerCorner: "bottom-right",
     miniPlayerWidth: MINI_PLAYER_WIDTH.default,
     playerDiagnostics: false,
+    desktopEpisodeNotifications: true,
     preferredQuality: "best",
     preferredMode: "sub",
     preferredProvider: "auto",

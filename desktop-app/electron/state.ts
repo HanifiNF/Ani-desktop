@@ -146,6 +146,7 @@ export class StateStore {
           miniPlayerCorner: normalizeCorner(settings.miniPlayerCorner),
           miniPlayerWidth: clampMiniPlayerWidth(settings.miniPlayerWidth),
           playerDiagnostics: settings.playerDiagnostics === true,
+          desktopEpisodeNotifications: settings.desktopEpisodeNotifications !== false,
           disabledSources: normalizeDisabledSources(settings.disabledSources),
           animeInfo: settings.animeInfo !== false,
           offlineIndex: settings.offlineIndex === true,
@@ -237,6 +238,7 @@ export class StateStore {
       miniPlayerCorner: normalizeCorner(settings.miniPlayerCorner),
       miniPlayerWidth: clampMiniPlayerWidth(settings.miniPlayerWidth),
       playerDiagnostics: settings.playerDiagnostics === true,
+      desktopEpisodeNotifications: settings.desktopEpisodeNotifications !== false,
       preferredQuality: settings.preferredQuality.trim() || "best",
       preferredMode: settings.preferredMode === "dub" ? "dub" : "sub",
       // A preferred source that is switched off would search nothing, so it falls back to auto.

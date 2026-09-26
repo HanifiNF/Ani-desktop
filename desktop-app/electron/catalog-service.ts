@@ -35,6 +35,10 @@ export class CatalogService {
     return cached && Date.now() - cached.at < this.retention ? cached.episodes.length : undefined;
   }
 
+  cachedEpisodes(sourceId: string, config: SourceConfig): Episode[] | undefined {
+    return this.episodesCache.get(`${catalogScope(config)}:${sourceId}`)?.episodes;
+  }
+
   async availableEpisodeCount(sourceId: string, config: SourceConfig): Promise<number | undefined> {
     const cached = this.cachedEpisodeCount(sourceId, config);
     if (cached !== undefined && !catalogContext.getStore()?.refresh) return cached;

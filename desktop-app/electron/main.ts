@@ -18,7 +18,8 @@ import { spawn } from "node:child_process";
 import { access, mkdir, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
-import { app, BrowserWindow, clipboard, ipcMain, nativeImage, session, shell } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, nativeImage, Notification, session, shell } from "electron";
+import { EpisodeUpdates } from "./episode-updates";
 import type { AnimeResult, CatalogRequest, LibraryEntry, PlayerSession, PlayRequest, ProviderName, ProviderPreference, ScheduleQuery, Settings, TranslationMode } from "../shared/contracts";
 import { playerArguments } from "./player";
 import { assertPlayerSender, registerPlayerFullscreenEvents, setPlayerFullscreen } from "./player-window";
@@ -61,6 +62,7 @@ let diagnostics: PlayerDiagnostics;
 let updateInstaller: UpdateInstaller;
 let episodeMetadata: EpisodeMetadataCache;
 let bookmarkMetadata: BookmarkMetadataFetcher;
+let episodeUpdates: EpisodeUpdates;
 let refreshMenu: () => void = () => undefined;
 // In-memory partition: stream segments never reach the disk cache, and the renderer gets no permissions.
 const APP_PARTITION = "ani-desktop";
@@ -360,7 +362,17 @@ function registerIpc(): void {
     if (store.snapshot().settings.animeInfo === false) throw new Error("Enable Anime information in Settings to browse by genre");
     return browseService.browse(validateBrowseQuery(query), update);
   }));
-  ipcMain.handle("catalog:episodes", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, (update) => catalogService.episodes(anime, store.snapshot().settings, update)));
+  ipcMain.handle("catalog:episodes", (event, anime: AnimeResult, request?: CatalogRequest) => catalogCall(event, request, async (update) => {
+    const result = await catalogService.episodes(anime, store.snapshot().settings, update);
+    const saved = store.snapshot().bookmarks;
+    for (const group of result.groups) {
+      if (group.error || group.refreshing) continue;
+      const source = animeSources(anime).find((item) => item.provider === group.provider);
+      const entry = source && saved.find((item) => animeSources(item).some((known) => known.id === source.id));
+      if (entry && source && request?.refresh) await episodeUpdates.observe(entry, source.id, group.episodes, store.snapshot().settings);
+    }
+    return result;
+  }));
   ipcMain.handle("catalog:browse-discover", (event, raw: unknown, request?: CatalogRequest) => catalogCall(event, request, async () => {
     const anime = validateBrowseIdentity(raw);
     const state = store.snapshot();
@@ -454,6 +466,8 @@ function registerIpc(): void {
     const previous = store.snapshot().settings;
     const state = await store.saveSettings(settings);
     if (sourceSettingsKey(previous) !== sourceSettingsKey(state.settings)) bookmarkMetadata.cancel();
+    if (catalogScope(previous) !== catalogScope(state.settings)) await episodeUpdates.resetSourceScope(state.bookmarks, state.settings);
+    else if (sourceSettingsKey(previous) !== sourceSettingsKey(state.settings)) await episodeUpdates.prune(state.bookmarks, state.settings);
     if (state.settings.offlineIndex && !previous.offlineIndex && identityIndex.needsUpdate()) void identityIndex.update();
     const enabled = state.settings.playerDiagnostics === true;
     diagnostics.setEnabled(enabled);
@@ -467,8 +481,30 @@ function registerIpc(): void {
     const error = await shell.openPath(diagnostics.directory);
     if (error) throw new Error("Could not open the player logs folder");
   });
-  ipcMain.handle("state:bookmark", (_event, entry: LibraryEntry) => store.toggleBookmark(entry));
-  ipcMain.handle("state:bookmark-remove", (_event, animeId: string) => store.removeBookmark(String(animeId)));
+  ipcMain.handle("state:bookmark", async (_event, entry: LibraryEntry) => {
+    const state = await store.toggleBookmark(entry); episodeUpdates.seed(state.bookmarks, state.settings);
+    await episodeUpdates.prune(state.bookmarks, state.settings); return state;
+  });
+  ipcMain.handle("episode-updates:status", (event) => { assertPlayerSender(mainWindow, event); return episodeUpdates.snapshot(store.snapshot().settings); });
+  ipcMain.handle("episode-updates:check", (event, force: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    if (force !== undefined && typeof force !== "boolean") throw new Error("Invalid update check");
+    const state = store.snapshot();
+    return episodeUpdates.check(state.bookmarks, state.settings, force === true);
+  });
+  ipcMain.handle("episode-updates:dismiss", (event, id: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    if (id !== undefined && (typeof id !== "string" || id.length > 8192)) throw new Error("Invalid episode update");
+    return episodeUpdates.dismiss(id as string | undefined, store.snapshot().settings);
+  });
+  ipcMain.handle("episode-updates:mark-read", (event, id: unknown) => {
+    assertPlayerSender(mainWindow, event);
+    if (id !== undefined && (typeof id !== "string" || !id || id.length > 8192)) throw new Error("Invalid episode update");
+    return episodeUpdates.markRead(id as string | undefined, store.snapshot().settings);
+  });
+  ipcMain.handle("state:bookmark-remove", async (_event, animeId: string) => {
+    const state = await store.removeBookmark(String(animeId)); await episodeUpdates.prune(state.bookmarks, state.settings); return state;
+  });
   ipcMain.handle("state:history", (_event, entry: LibraryEntry) => store.recordHistory(entry));
   ipcMain.handle("state:history-remove", (_event, animeId: string) => store.removeHistory(String(animeId)));
   ipcMain.handle("state:history-clear", () => store.clearHistory());
@@ -563,6 +599,30 @@ app.whenReady().then(async () => {
   store = new StateStore(join(app.getPath("userData"), "state.json"));
   await store.load();
   await catalogService.load(join(app.getPath("userData"), "episode-lists.json"));
+  if (process.platform === "win32") app.setAppUserModelId("dev.hanifi.anidesktop");
+  episodeUpdates = new EpisodeUpdates(join(app.getPath("userData"), "episode-updates.json"),
+    (sourceId, settings) => catalogService.cachedEpisodes(sourceId, settings),
+    async (sourceId, settings) => catalogContext.run({ signal: new AbortController().signal, priority: 3, refresh: true, scope: catalogScope(settings) }, async () => {
+      const entry = store.snapshot().bookmarks.find((saved) => animeSources(saved).some((source) => source.id === sourceId));
+      const source = entry && animeSources(entry).find((item) => item.id === sourceId);
+      if (!source) throw new Error("Saved source unavailable");
+      const result = await catalogService.episodes({ id: source.id, provider: source.provider, title: source.title, sources: [source] }, settings);
+      const group = result.groups.find((item) => item.provider === source.provider);
+      if (!group || group.error) throw new Error(group?.error ?? "Episode list unavailable");
+      return group.episodes;
+    }),
+    (status) => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("episode-updates:change", status); },
+    (updates) => {
+      if (!Notification.isSupported() || !mainWindow || mainWindow.isDestroyed()) return;
+      try {
+        const notification = new Notification({ title: updates.length === 1 ? `New episode: ${updates[0].title}` : `${updates.length} new anime episodes`,
+          body: updates.length === 1 ? `Episode ${updates[0].episodeNumber} · ${updates[0].provider}` : "Open ANIdesktop to see your updates." });
+        notification.on("click", () => { mainWindow?.show(); mainWindow?.focus(); mainWindow?.webContents.send("episode-updates:open"); });
+        notification.show();
+      } catch { /* The bell retains updates if desktop notifications are unavailable. */ }
+    });
+  await episodeUpdates.load();
+  episodeUpdates.seed(store.snapshot().bookmarks, store.snapshot().settings);
   await seriesMetadataService.load(join(app.getPath("userData"), "series-metadata.json"));
   await workInfoService.load(join(app.getPath("userData"), "work-info.json"));
   await backdropService.load(join(app.getPath("userData"), "backdrops"));
@@ -594,6 +654,10 @@ app.whenReady().then(async () => {
     return;
   }
   createWindow();
+  const checkSaved = () => { const state = store.snapshot(); void episodeUpdates.check(state.bookmarks, state.settings).catch(() => undefined); };
+  setTimeout(checkSaved, 10_000).unref();
+  setInterval(checkSaved, 60 * 60_000).unref();
+  app.on("browser-window-focus", checkSaved);
   // Library entries from before identity learn their references a little after start, well behind interactive work.
   setTimeout(() => { void backfillLibraryIdentity(store, workInfoService, backfill.signal).catch(() => undefined); }, 20_000).unref();
   app.on("activate", () => {
@@ -616,5 +680,5 @@ app.on("before-quit", (event) => {
   bookmarkMetadata.cancel();
   backfill.abort();
   const timeout = setTimeout(() => app.quit(), 2000);
-  void Promise.allSettled([store.flush(), diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), seriesMetadataService.flush(), workInfoService.flush(), browseService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
+  void Promise.allSettled([store.flush(), diagnostics.close(), episodeMetadata.flush(), catalogService.flush(), episodeUpdates.flush(), seriesMetadataService.flush(), workInfoService.flush(), browseService.flush(), catalogRequests.health.flush()]).then(() => { clearTimeout(timeout); app.quit(); });
 });

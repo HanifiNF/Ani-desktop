@@ -327,6 +327,7 @@ export interface Settings {
   miniPlayerCorner?: MiniPlayerCorner;
   miniPlayerWidth?: number;
   playerDiagnostics?: boolean;
+  desktopEpisodeNotifications?: boolean;
   preferredQuality: string;
   preferredMode: TranslationMode;
   preferredProvider: ProviderPreference;
@@ -369,6 +370,28 @@ export interface PersistedState {
   playerPreferences?: PlayerPreferences;
   subtitleAppearance?: SubtitleAppearance;
   playbackPositions?: Record<string, PlaybackPosition>;
+}
+
+export interface EpisodeUpdate {
+  id: string;
+  animeId: string;
+  title: string;
+  sourceId: string;
+  provider: ProviderName;
+  episodeId: string;
+  episodeNumber: string;
+  detectedAt: number;
+  readAt?: number;
+}
+
+export interface EpisodeUpdateStatus {
+  updates: EpisodeUpdate[];
+  unreadCount: number;
+  counts: Record<string, number>;
+  latestByAnime: Record<string, number>;
+  checking: boolean;
+  checkedAt?: number;
+  error?: string;
 }
 
 export type UpdateState = "development" | "current" | "available" | "error";
@@ -456,6 +479,12 @@ export interface AniDesktopApi {
   cancelCatalog(requestId: string): void;
   play(request: PlayRequest): Promise<boolean>;
   getState(): Promise<PersistedState>;
+  episodeUpdates(): Promise<EpisodeUpdateStatus>;
+  checkEpisodeUpdates(force?: boolean): Promise<EpisodeUpdateStatus>;
+  dismissEpisodeUpdate(id?: string): Promise<EpisodeUpdateStatus>;
+  markEpisodeUpdateRead(id?: string): Promise<EpisodeUpdateStatus>;
+  onEpisodeUpdatesChange(listener: (status: EpisodeUpdateStatus) => void): () => void;
+  onOpenEpisodeUpdates(listener: () => void): () => void;
   saveSettings(settings: Settings): Promise<PersistedState>;
   saveSubtitleAppearance(appearance: SubtitleAppearance): Promise<SubtitleAppearance>;
   openPlayerLogs(): Promise<void>;

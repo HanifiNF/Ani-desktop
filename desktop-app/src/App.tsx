@@ -34,7 +34,9 @@ import type {
   ProviderPreference,
   Settings,
   TranslationMode,
-  UpdateStatus
+  UpdateStatus,
+  EpisodeUpdateStatus,
+  EpisodeUpdate
 } from "../shared/contracts";
 import { catalogRequestId } from "./catalog-request";
 import { useEpisodeMetadata } from "./useEpisodeMetadata";
@@ -49,8 +51,9 @@ import { SiteFooter, type FooterScreen } from "./SiteFooter";
 import { updatePending } from "./UpdateUI";
 import BrowseScreen, { DEFAULT_BROWSE_STATE, type BrowseViewState } from "./BrowseScreen";
 import BrowseDetail from "./BrowseDetail";
+import EpisodeUpdatesPanel, { EpisodeUpdatesPage, usePanelPresence } from "./EpisodeUpdatesPanel";
 
-type Screen = "home" | "browse" | "catalog-detail" | "series" | "opening" | "saved" | "recent" | "settings" | "player";
+type Screen = "home" | "browse" | "catalog-detail" | "series" | "opening" | "saved" | "recent" | "notifications" | "settings" | "player";
 // Vidstack and hls.js load with the first playback, not at startup.
 const loadPlayerScreen = () => import("./PlayerScreen");
 const PlayerScreen = lazy(loadPlayerScreen);
@@ -90,6 +93,13 @@ function App() {
   const [pendingSources, setPendingSources] = useState<ProviderName[]>([]);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>();
   const [updateChecking, setUpdateChecking] = useState(false);
+  const [episodeUpdateStatus, setEpisodeUpdateStatus] = useState<EpisodeUpdateStatus>();
+  const [episodeInboxOpen, setEpisodeInboxOpen] = useState(false);
+  const episodeInbox = usePanelPresence(episodeInboxOpen);
+  // Counts rises in the unread total, so the bell can swing and its count pop when an episode arrives.
+  const [episodeArrivals, setEpisodeArrivals] = useState(0);
+  const lastUnread = useRef<number>(undefined);
+  const notificationsOrigin = useRef<Screen>("home");
   const [browseState, setBrowseState] = useState<BrowseViewState>(DEFAULT_BROWSE_STATE);
   const [browseAnime, setBrowseAnime] = useState<BrowseAnime>();
   const [browseResolving, setBrowseResolving] = useState(false);
@@ -110,7 +120,7 @@ function App() {
   const listRef = useRef<HTMLDivElement>(null);
   const playToken = useRef(0);
   const playbackRequest = useRef<string | undefined>(undefined);
-  const seriesOrigin = useRef<"home" | "browse">("home");
+  const seriesOrigin = useRef<"home" | "browse" | "notifications">("home");
   useEffect(() => () => { if (playbackRequest.current) window.aniDesktop.cancelCatalog(playbackRequest.current); }, []);
   const mergePromptActive = useRef(false);
   const keyHandler = useRef<(event: KeyboardEvent) => void>(() => undefined);
@@ -126,6 +136,36 @@ function App() {
       setStateLoaded(true);
     }).catch((reason) => setError(messageFrom(reason)));
   }, []);
+  useEffect(() => {
+    void window.aniDesktop.episodeUpdates().then(setEpisodeUpdateStatus).catch(() => undefined);
+    const stopChange = window.aniDesktop.onEpisodeUpdatesChange(setEpisodeUpdateStatus);
+    return stopChange;
+  }, []);
+  useEffect(() => {
+    const unread = episodeUpdateStatus?.unreadCount;
+    if (unread === undefined) return;
+    if (lastUnread.current !== undefined && unread > lastUnread.current) setEpisodeArrivals((count) => count + 1);
+    lastUnread.current = unread;
+  }, [episodeUpdateStatus?.unreadCount]);
+  useEffect(() => window.aniDesktop.onOpenEpisodeUpdates(() => {
+    if (screen === "player") {
+      void window.aniDesktop.player.setFullscreen(false).catch(() => undefined);
+      setScreen("home");
+    }
+    setEpisodeInboxOpen(true);
+  }), [screen]);
+  useEffect(() => {
+    if (!episodeInboxOpen) return;
+    const outside = (event: PointerEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest(".episode-updates-panel, .episode-updates-trigger")) setEpisodeInboxOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); event.stopImmediatePropagation(); setEpisodeInboxOpen(false); }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape, true);
+    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape, true); };
+  }, [episodeInboxOpen]);
 
   // Settings apply as they change: the draft updates at once and one save follows shortly after the last edit.
   const settingsSave = useRef<{ timer?: number; pending?: Settings; failed?: Settings }>({});
@@ -237,16 +277,19 @@ function App() {
   // The search palette covers the home page, or the series page once its field is focused, while a query or its results exist.
   const paletteOpen = searchHere && (Boolean(query.trim()) || unifiedResults.length > 0);
   // The home sections stay on the page behind the palette; the keyboard cursor moves to the results while it is open.
+  const sortedSaved = useMemo(() => appState.bookmarks.map((entry, index) => ({ entry, index })).sort((a, b) =>
+    (episodeUpdateStatus?.latestByAnime[b.entry.animeId] ?? 0) - (episodeUpdateStatus?.latestByAnime[a.entry.animeId] ?? 0) || a.index - b.index).map((item) => item.entry),
+  [appState.bookmarks, episodeUpdateStatus?.latestByAnime]);
   const libraryRows = useMemo<Row[]>(() => [
     ...appState.history.slice(0, HOME_CARDS).map((entry): Row => ({ kind: "continue", entry })),
-    ...appState.bookmarks.slice(0, HOME_CARDS).map((entry): Row => ({ kind: "saved", entry }))
-  ], [appState.history, appState.bookmarks]);
+    ...sortedSaved.slice(0, HOME_CARDS).map((entry): Row => ({ kind: "saved", entry }))
+  ], [appState.history, sortedSaved]);
   const rows = useMemo<Row[]>(() => {
     if (searchHere) return paletteOpen ? unifiedResults.map((anime): Row => ({ kind: "results", anime })) : screen === "home" ? libraryRows : [];
-    if (screen === "saved") return appState.bookmarks.filter(matches).map((entry): Row => ({ kind: "saved", entry }));
+    if (screen === "saved") return sortedSaved.filter(matches).map((entry): Row => ({ kind: "saved", entry }));
     if (screen === "recent") return appState.history.filter(matches).map((entry): Row => ({ kind: "recent", entry }));
     return [];
-  }, [screen, searchHere, paletteOpen, unifiedResults, libraryRows, appState.history, appState.bookmarks, filter]);
+  }, [screen, searchHere, paletteOpen, unifiedResults, libraryRows, appState.history, sortedSaved, filter]);
 
   // The home, browse, saved, and recent pages carry an illustration behind them: a wash on home, a wash or a corner figure elsewhere, picked afresh on each visit.
   const backdropPage: BackdropPage | undefined = screen === "home" || screen === "browse" || screen === "saved" || screen === "recent" ? screen : undefined;
@@ -330,6 +373,7 @@ function App() {
   }
 
   function go(next: Screen) {
+    setEpisodeInboxOpen(false);
     setScreen(next);
     setError(undefined); setNotice(undefined);
     if (next !== "home" && next !== "series") setQuery("");
@@ -397,6 +441,7 @@ function App() {
 
   function goBack() {
     if (screen === "player") { dockPlayer(); return; }
+    if (screen === "notifications") { go(notificationsOrigin.current === "notifications" ? "home" : notificationsOrigin.current); return; }
     if (screen === "home") { if (query) setQuery(""); catalogSearch.clear(); return; }
     if (screen === "series" && seriesSearch) { closeSeriesSearch(); return; }
     if (screen === "browse" && browseOpening) { cancelSeries(); setBrowseOpening(undefined); return; }
@@ -471,10 +516,11 @@ function App() {
     }
   }
 
-  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; preferredProvider?: ProviderName; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse"; discovery?: BrowseDiscoveryResult } = {}): Promise<boolean> {
+  async function openAnime(anime: AnimeResult, options: { resumeAfter?: string; preferredProvider?: ProviderName; mode?: TranslationMode; autoPlay?: boolean; refresh?: boolean; checkNow?: boolean; focusEpisodeId?: string; returnTo?: "browse" | "notifications"; discovery?: BrowseDiscoveryResult } = {}): Promise<boolean> {
     cancelSeries();
     if (seriesSearch) closeSeriesSearch();
-    if (!options.refresh) seriesOrigin.current = options.returnTo ?? "home";
+    const replacing = !options.refresh || screen !== "series" || !selectedAnime || !overlaps(selectedAnime, anime);
+    if (replacing) seriesOrigin.current = options.returnTo ?? "home";
     const token = openToken.current;
     const animeProgress = appState.history.find((entry) => overlaps(entry, anime));
     const preferred = animeProgress?.lastProvider ?? (provider === "auto" ? options.preferredProvider ?? anime.provider : provider);
@@ -482,14 +528,14 @@ function App() {
     if (playbackRequest.current) window.aniDesktop.cancelCatalog(playbackRequest.current);
     setSelectedAnime(anime);
     setEpisodesLoading(true);
-    if (!options.refresh) { setSelectedEpisodeId(options.focusEpisodeId); seriesScroll.begin(options.focusEpisodeId); }
-    if (!options.refresh) setEpisodeGroups([]);
+    if (replacing || options.focusEpisodeId) { setSelectedEpisodeId(options.focusEpisodeId); seriesScroll.begin(options.focusEpisodeId); }
+    if (replacing) setEpisodeGroups([]);
     setStatus(undefined); setJump(""); setSourceErrors(options.discovery?.errors ?? {});
     setScreen(options.autoPlay ? "opening" : "series");
     if (options.mode) setMode(options.mode);
     setBusy("loading episodes"); setError(undefined); setNotice(undefined);
     let currentAnime = anime;
-    let groups: EpisodeGroup[] = options.refresh ? episodeGroups : [];
+    let groups: EpisodeGroup[] = replacing ? [] : episodeGroups;
     let positioned = Boolean(options.focusEpisodeId || (options.refresh && selectedEpisodeId));
     let played = false;
     let attempting = false, finished = false;
@@ -690,12 +736,29 @@ function App() {
 
   async function activate(row: Row) {
     if (row.anime) { await openAnime(row.anime); return; }
-    if (row.entry) await openAnime(asAnime(row.entry), { resumeAfter: row.entry.lastEpisode, preferredProvider: row.entry.lastProvider, mode: row.entry.mode, autoPlay: row.kind !== "saved" });
+    if (row.entry) await openAnime(asAnime(row.entry), { resumeAfter: row.entry.lastEpisode, preferredProvider: row.entry.lastProvider, mode: row.entry.mode, autoPlay: row.kind !== "saved", refresh: row.kind === "saved" });
   }
 
   async function openRow(row: Row) {
     if (row.anime) await openAnime(row.anime);
-    else if (row.entry) await openAnime(asAnime(row.entry), { resumeAfter: row.entry.lastEpisode, preferredProvider: row.entry.lastProvider, mode: row.entry.mode });
+    else if (row.entry) await openAnime(asAnime(row.entry), { resumeAfter: row.entry.lastEpisode, preferredProvider: row.entry.lastProvider, mode: row.entry.mode, refresh: row.kind === "saved" });
+  }
+
+  const notificationPoster = (update: EpisodeUpdate) => appState.bookmarks.find((entry) => animeSources(entry).some((source) => source.id === update.sourceId))?.poster;
+
+  function changeEpisodeUpdate(id: string | undefined, action: "read" | "dismiss"): Promise<boolean> {
+    const request = action === "read" ? window.aniDesktop.markEpisodeUpdateRead(id) : window.aniDesktop.dismissEpisodeUpdate(id);
+    return request.then((status) => { setEpisodeUpdateStatus(status); return true; }, (reason) => { setError(messageFrom(reason)); return false; });
+  }
+
+  function openEpisodeUpdate(id: string, focusEpisode: boolean) {
+    const update = episodeUpdateStatus?.updates.find((item) => item.id === id);
+    if (!update) return;
+    const entry = appState.bookmarks.find((item) => animeSources(item).some((source) => source.id === update.sourceId));
+    if (!entry) return;
+    setEpisodeInboxOpen(false);
+    void changeEpisodeUpdate(id, "read");
+    void openAnime(asAnime(entry), { preferredProvider: update.provider, focusEpisodeId: focusEpisode ? update.episodeId : undefined, mode: entry.mode, refresh: true, returnTo: screen === "notifications" ? "notifications" : undefined });
   }
 
   async function removeRow(row: Row) {
@@ -791,7 +854,7 @@ function App() {
     if (event.key === "Enter" && target?.closest("button:not(.hit):not(.src-hit)")) return;
     if (screen === "settings") { if (event.key === "Escape") goBack(); return; }
     if (event.key === "Escape") { event.preventDefault(); if (showHints) { setShowHints(false); return; } goBack(); return; }
-    if (screen === "browse" || screen === "catalog-detail") return;
+    if (screen === "browse" || screen === "catalog-detail" || screen === "notifications") return;
     if (screen === "opening") return;
     if (!typing && event.key === "?") { event.preventDefault(); setShowHints((value) => !value); return; }
     if (!typing && event.key === "/") {
@@ -839,7 +902,7 @@ function App() {
       onClearHistory={kind === "recent" && appState.history.length ? () => void clearHistory() : undefined}
       onActivate={(row) => void activate(row)} onRemove={(row) => void removeRow(row)} onFocus={setCursor}
       canMerge={(entry) => Boolean(libraryMergeCandidate(entry))} onMerge={(entry) => void manuallyMergeEntry(entry)}
-      metadataFor={libraryMetadata} onMetadata={loadLibraryMetadata} />;
+      metadataFor={libraryMetadata} onMetadata={loadLibraryMetadata} freshCounts={episodeUpdateStatus?.counts} />;
   };
 
   const playingId = session?.request.episode?.id;
@@ -875,7 +938,7 @@ function App() {
           <button type="button" className="logo" onClick={() => { go("home"); setQuery(""); catalogSearch.clear(); }} aria-label="Home">ANI<em>desktop</em></button>
         </div>
         <div className={`searchbox ${paletteOpen ? "open" : ""}`}>
-          {screen === "settings" || screen === "player" || screen === "browse" || screen === "catalog-detail"
+          {screen === "settings" || screen === "player" || screen === "browse" || screen === "catalog-detail" || screen === "notifications"
             ? <button type="button" className="search as-button" onClick={() => { go("home"); }}><Icon name="search" /><span>Search anime</span><kbd>{shortcut("K")}</kbd></button>
             : <label className="search">
                 <Icon name="search" />
@@ -904,9 +967,11 @@ function App() {
           {navIcon("browse", "browse", "browse")}
           {navIcon("saved", "bookmark", "saved")}
           {navIcon("recent", "clock", "recent")}
+          <button type="button" className={`episode-updates-trigger${screen === "notifications" ? " on" : ""}`} aria-label={`Notifications, ${episodeUpdateStatus?.unreadCount ?? 0} unread`} aria-expanded={episodeInboxOpen} onClick={() => { if (screen === "player") { void window.aniDesktop.player.setFullscreen(false).catch(() => undefined); setScreen("home"); } setEpisodeInboxOpen((open) => !open); }}><Icon name="bell" key={`bell-${episodeArrivals}`} className={episodeArrivals ? "bell-ring" : undefined} />{Boolean(episodeUpdateStatus?.unreadCount) && <span key={`count-${episodeArrivals}`} className={`episode-update-count${episodeArrivals ? " bump" : ""}`}>{episodeUpdateStatus!.unreadCount}</span>}</button>
           {navIcon("settings", "gear", "settings", updatePending(updateStatus))}
         </nav>
       </header>
+      {episodeInbox.shown && screen !== "player" && <EpisodeUpdatesPanel panelRef={episodeInbox.ref} closing={episodeInbox.closing} status={episodeUpdateStatus} posterFor={notificationPoster} onEpisode={(id) => openEpisodeUpdate(id, true)} onSeries={(id) => openEpisodeUpdate(id, false)} onMarkRead={(id) => void changeEpisodeUpdate(id, "read")} onDismiss={(id) => changeEpisodeUpdate(id, "dismiss")} onClose={() => setEpisodeInboxOpen(false)} onViewAll={() => { notificationsOrigin.current = screen; go("notifications"); }} />}
       {paletteOpen && <div className="dim" onClick={() => { if (screen === "series") closeSeriesSearch(); else { setQuery(""); catalogSearch.clear(); } }} />}
 
       <div className="body">
@@ -952,6 +1017,10 @@ function App() {
             <button type="button" className="btn" onClick={() => void openAnime(selectedAnime, { focusEpisodeId: status?.episode.id })}>Episodes</button>
           </div>
         </div>}
+
+        {screen === "notifications" && <EpisodeUpdatesPage status={episodeUpdateStatus} posterFor={notificationPoster}
+          onEpisode={(id) => openEpisodeUpdate(id, true)} onSeries={(id) => openEpisodeUpdate(id, false)}
+          onMarkRead={(id) => void changeEpisodeUpdate(id, "read")} onDismiss={(id) => changeEpisodeUpdate(id, "dismiss")} />}
 
         {screen === "home" && (
           <>
@@ -1009,6 +1078,7 @@ function App() {
             bookmarkCount={appState.bookmarks.length} linkCount={(appState.providerLinks ?? []).length}
             onClearLinks={() => void clearSourceLinks()}
             updateStatus={updateStatus} updateChecking={updateChecking} onCheckUpdates={() => checkForUpdates(true)} onOpenUpdate={openLatestRelease} onSkipUpdate={dismissUpdate}
+            episodeUpdateStatus={episodeUpdateStatus} onCheckEpisodes={() => { void window.aniDesktop.checkEpisodeUpdates(true).then(setEpisodeUpdateStatus); }}
             updateInstall={updateInstall.status} onDownloadUpdate={() => { if (updateStatus?.latestVersion) updateInstall.download(updateStatus.latestVersion); }} onInstallUpdate={updateInstall.install}
             onOpenLogs={() => { void run("opening player logs", () => window.aniDesktop.openPlayerLogs()); }} />
         )}
